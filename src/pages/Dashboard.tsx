@@ -23,6 +23,9 @@ import {
   TrendingUp,
   Users,
   Globe,
+  Loader2,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -35,6 +38,8 @@ import {
 import { useQRStorage } from "@/hooks/useQRStorage";
 import { useUserPlan } from "@/hooks/useUserPlan";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const typeColors: Record<string, string> = {
   url: "bg-primary/10 text-primary",
@@ -50,7 +55,7 @@ const typeColors: Record<string, string> = {
 export default function Dashboard() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
-  const { qrCodes, deleteQRCode, getQRCodeCount } = useQRStorage();
+  const { qrCodes, deleteQRCode, getQRCodeCount, isLoading, error, refresh } = useQRStorage();
   const { plan, limits } = useUserPlan();
   const { toast } = useToast();
 
@@ -91,11 +96,19 @@ export default function Dashboard() {
     },
   ];
 
-  const handleDelete = (id: string, name: string) => {
-    deleteQRCode(id);
+  const handleDelete = async (id: string, name: string) => {
+    await deleteQRCode(id);
     toast({
       title: "QR Code deleted",
       description: `"${name}" has been removed.`,
+    });
+  };
+
+  const handleRefresh = () => {
+    refresh();
+    toast({
+      title: "Refreshing",
+      description: "Loading latest QR codes...",
     });
   };
 
@@ -249,6 +262,20 @@ export default function Dashboard() {
             ))}
           </div>
 
+          {/* Error Alert */}
+          {error && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="flex items-center justify-between">
+                <span>{error}</span>
+                <Button variant="ghost" size="sm" onClick={handleRefresh}>
+                  <RefreshCw className="w-4 h-4 mr-1" />
+                  Retry
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Toolbar */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
             <div className="relative w-full sm:w-80">
@@ -261,6 +288,15 @@ export default function Dashboard() {
               />
             </div>
             <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRefresh}
+                disabled={isLoading}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
               <Button variant="outline" size="sm">
                 <Filter className="w-4 h-4 mr-2" />
                 Filter
@@ -290,8 +326,30 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Empty State */}
-          {qrCodes.length === 0 ? (
+          {/* Loading State */}
+          {isLoading ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="p-5 rounded-2xl bg-card border border-border"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <Skeleton className="h-6 w-16 rounded-full" />
+                    <Skeleton className="h-6 w-6 rounded" />
+                  </div>
+                  <Skeleton className="h-32 w-full rounded-xl mb-4" />
+                  <Skeleton className="h-5 w-3/4 mb-2" />
+                  <Skeleton className="h-4 w-full mb-3" />
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : qrCodes.length === 0 ? (
+            /* Empty State */
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
