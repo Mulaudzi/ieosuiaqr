@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { QrCode, Mail, Lock, User, Eye, EyeOff, ArrowRight, Check, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { authApi, authHelpers } from "@/services/api/auth";
+import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const benefits = [
@@ -27,6 +27,7 @@ export default function Signup() {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { signup } = useAuth();
 
   const validateForm = (): boolean => {
     if (!name.trim()) {
@@ -59,15 +60,7 @@ export default function Signup() {
     setIsLoading(true);
 
     try {
-      const response = await authApi.register({
-        name: name.trim(),
-        email: email.trim(),
-        password,
-        password_confirmation: password,
-      });
-      
-      // Store auth data
-      authHelpers.setAuth(response.data.tokens, response.data.user);
+      await signup(name.trim(), email.trim(), password);
       
       toast({
         title: "Account created!",
@@ -76,15 +69,13 @@ export default function Signup() {
 
       navigate("/dashboard");
     } catch (err: unknown) {
-      const apiError = err as { message?: string; status?: number; errors?: Record<string, string[]> };
+      const apiError = err as { message?: string };
       
-      if (apiError.status === 409 || apiError.errors?.email) {
+      if (apiError.message?.includes("409") || apiError.message?.includes("already exists")) {
         setError("An account with this email already exists. Please sign in instead.");
-      } else if (apiError.status === 422 && apiError.errors) {
-        // Validation errors
-        const firstError = Object.values(apiError.errors)[0]?.[0];
-        setError(firstError || "Please check your information and try again.");
-      } else if (apiError.status === 429) {
+      } else if (apiError.message?.includes("422")) {
+        setError("Please check your information and try again.");
+      } else if (apiError.message?.includes("429")) {
         setError("Too many attempts. Please wait a few minutes and try again.");
       } else {
         setError(apiError.message || "Registration failed. Please try again.");

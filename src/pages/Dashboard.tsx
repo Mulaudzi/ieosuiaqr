@@ -38,7 +38,7 @@ import {
 import { useQRStorage } from "@/hooks/useQRStorage";
 import { useUserPlan } from "@/hooks/useUserPlan";
 import { useToast } from "@/hooks/use-toast";
-import { authApi, authHelpers } from "@/services/api/auth";
+import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BulkCSVImport } from "@/components/qr/BulkCSVImport";
@@ -63,6 +63,7 @@ export default function Dashboard() {
   const { plan, limits } = useUserPlan();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   const filteredQRCodes = qrCodes.filter((qr) =>
     qr.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -120,18 +121,21 @@ export default function Dashboard() {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      await authApi.logout();
-    } catch {
-      // Even if API fails, clear local auth
-    } finally {
-      authHelpers.clearAuth();
+      await logout();
       toast({
         title: "Signed out",
         description: "You have been successfully logged out.",
       });
       navigate("/login");
+    } catch {
+      // Error already handled by logout
+    } finally {
+      setIsLoggingOut(false);
     }
   };
+
+  const userName = user?.name || "User";
+  const userInitials = userName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
 
   const planLabel = plan === "free" ? "Free Plan" : plan === "pro" ? "Pro Plan" : "Enterprise";
 
@@ -196,10 +200,10 @@ export default function Dashboard() {
             <DropdownMenuTrigger asChild>
               <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors">
                 <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-sm font-medium text-primary">JD</span>
+                  <span className="text-sm font-medium text-primary">{userInitials}</span>
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-sm font-medium">John Doe</p>
+                  <p className="text-sm font-medium">{userName}</p>
                   <p className="text-xs text-muted-foreground">{planLabel}</p>
                 </div>
                 <ChevronDown className="w-4 h-4 text-muted-foreground" />

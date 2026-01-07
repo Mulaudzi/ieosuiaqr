@@ -10,7 +10,8 @@ import { PlanSelector } from "@/components/billing/PlanSelector";
 import { PayFastCheckout } from "@/components/billing/PayFastCheckout";
 import { InvoiceHistory } from "@/components/billing/InvoiceHistory";
 import { useUserPlan, UserPlan } from "@/hooks/useUserPlan";
-import { authApi, authHelpers } from "@/services/api/auth";
+import { authApi } from "@/services/api/auth";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   QrCode,
   BarChart3,
@@ -77,37 +78,16 @@ export default function Settings() {
   
   const { plan: currentPlan, limits } = useUserPlan();
   const { toast } = useToast();
+  const { user, logout, updateUser } = useAuth();
 
-  // Fetch user profile on mount
+  // Initialize form with user data
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const storedUser = authHelpers.getStoredUser();
-        if (storedUser) {
-          setName(storedUser.name || "");
-          setEmail(storedUser.email || "");
-        }
-        
-        // Try to fetch fresh data from API
-        const response = await authApi.getProfile();
-        if (response.success && response.data) {
-          setName(response.data.name || "");
-          setEmail(response.data.email || "");
-        }
-      } catch {
-        // Use stored data if API fails
-        const storedUser = authHelpers.getStoredUser();
-        if (storedUser) {
-          setName(storedUser.name || "");
-          setEmail(storedUser.email || "");
-        }
-      } finally {
-        setIsLoadingProfile(false);
-      }
-    };
-
-    fetchProfile();
-  }, []);
+    if (user) {
+      setName(user.name || "");
+      setEmail(user.email || "");
+      setIsLoadingProfile(false);
+    }
+  }, [user]);
 
   // Handle payment callback
   useEffect(() => {
@@ -128,12 +108,10 @@ export default function Settings() {
 
   const handleLogout = async () => {
     try {
-      await authApi.logout();
-    } catch {
-      // Ignore logout errors
-    } finally {
-      authHelpers.clearAuth();
+      await logout();
       navigate("/login");
+    } catch {
+      // Error already handled by logout
     }
   };
 
@@ -165,14 +143,8 @@ export default function Settings() {
     try {
       const response = await authApi.updateProfile({ name, email });
       if (response.success && response.data) {
-        // Update stored user
-        const token = authHelpers.getToken();
-        if (token) {
-          authHelpers.setAuth(
-            { access_token: token, token_type: "bearer", expires_in: 3600 },
-            response.data
-          );
-        }
+        // Update user in auth context
+        updateUser(response.data);
         toast({
           title: "Profile updated",
           description: "Your profile has been updated successfully.",
@@ -381,11 +353,11 @@ export default function Settings() {
               <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors">
                 <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
                   <span className="text-sm font-medium text-primary">
-                    {name ? name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) : "U"}
+                    {user?.name ? user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) : "U"}
                   </span>
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-sm font-medium">{name || "User"}</p>
+                  <p className="text-sm font-medium">{user?.name || "User"}</p>
                   <p className="text-xs text-muted-foreground capitalize">{currentPlan} Plan</p>
                 </div>
                 <ChevronDown className="w-4 h-4 text-muted-foreground" />

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { QrCode, Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { authApi, authHelpers } from "@/services/api/auth";
+import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Login() {
@@ -18,7 +18,12 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  const { login } = useAuth();
+
+  // Get the redirect destination from location state
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/dashboard";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,23 +31,20 @@ export default function Login() {
     setError(null);
 
     try {
-      const response = await authApi.login({ email, password });
-      
-      // Store auth data
-      authHelpers.setAuth(response.data.tokens, response.data.user);
+      await login(email, password);
       
       toast({
         title: "Welcome back!",
         description: "You've been successfully logged in.",
       });
 
-      navigate("/dashboard");
+      navigate(from, { replace: true });
     } catch (err: unknown) {
       const apiError = err as { message?: string; status?: number };
       
-      if (apiError.status === 401) {
+      if (apiError.message?.includes("401") || apiError.message?.includes("Invalid")) {
         setError("Invalid email or password. Please try again.");
-      } else if (apiError.status === 429) {
+      } else if (apiError.message?.includes("429")) {
         setError("Too many login attempts. Please wait a few minutes and try again.");
       } else {
         setError(apiError.message || "Login failed. Please try again.");
