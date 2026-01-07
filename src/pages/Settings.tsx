@@ -1,11 +1,14 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { PlanSelector } from "@/components/billing/PlanSelector";
+import { PayFastCheckout } from "@/components/billing/PayFastCheckout";
+import { useUserPlan, UserPlan } from "@/hooks/useUserPlan";
 import {
   QrCode,
   BarChart3,
@@ -14,7 +17,6 @@ import {
   ChevronDown,
   Crown,
   User,
-  Mail,
   Lock,
   Bell,
   CreditCard,
@@ -46,6 +48,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Settings() {
+  const [searchParams] = useSearchParams();
   const [name, setName] = useState("John Doe");
   const [email, setEmail] = useState("john@example.com");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -57,7 +60,30 @@ export default function Settings() {
   const [scanAlerts, setScanAlerts] = useState(true);
   const [weeklyReport, setWeeklyReport] = useState(false);
   const [marketingEmails, setMarketingEmails] = useState(false);
+  
+  // Billing state
+  const [checkoutPlan, setCheckoutPlan] = useState<UserPlan | null>(null);
+  const [isAnnualBilling, setIsAnnualBilling] = useState(false);
+  
+  const { plan: currentPlan, limits } = useUserPlan();
   const { toast } = useToast();
+
+  // Handle payment callback
+  useEffect(() => {
+    const paymentStatus = searchParams.get("payment");
+    if (paymentStatus === "success") {
+      toast({
+        title: "Payment Successful!",
+        description: "Your plan has been upgraded.",
+      });
+    } else if (paymentStatus === "cancelled") {
+      toast({
+        title: "Payment Cancelled",
+        description: "Your payment was cancelled.",
+        variant: "destructive",
+      });
+    }
+  }, [searchParams, toast]);
 
   const handleProfileSave = () => {
     toast({
@@ -425,79 +451,121 @@ export default function Settings() {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-6"
               >
-                <div className="p-6 rounded-2xl bg-card border border-border">
-                  <h3 className="font-display font-semibold mb-4">Current Plan</h3>
-                  <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50 mb-4">
-                    <div>
-                      <p className="font-semibold">Free Plan</p>
-                      <p className="text-sm text-muted-foreground">
-                        5 QR codes • Basic features
+                {checkoutPlan ? (
+                  <PayFastCheckout
+                    selectedPlan={checkoutPlan}
+                    isAnnual={isAnnualBilling}
+                    onBack={() => setCheckoutPlan(null)}
+                    onSuccess={() => setCheckoutPlan(null)}
+                  />
+                ) : (
+                  <>
+                    {/* Current Plan Summary */}
+                    <div className="p-6 rounded-2xl bg-card border border-border">
+                      <h3 className="font-display font-semibold mb-4">Current Plan</h3>
+                      <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50 mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-xl ${
+                            currentPlan === "enterprise" 
+                              ? "bg-accent/20" 
+                              : currentPlan === "pro" 
+                              ? "bg-primary/20" 
+                              : "bg-muted"
+                          }`}>
+                            <Crown className={`w-5 h-5 ${
+                              currentPlan === "enterprise"
+                                ? "text-accent"
+                                : currentPlan === "pro"
+                                ? "text-primary"
+                                : "text-muted-foreground"
+                            }`} />
+                          </div>
+                          <div>
+                            <p className="font-semibold capitalize">{currentPlan} Plan</p>
+                            <p className="text-sm text-muted-foreground">
+                              {limits.maxQRCodes === Infinity 
+                                ? "Unlimited" 
+                                : limits.maxQRCodes} QR codes • {
+                                  currentPlan === "enterprise" 
+                                    ? "All features" 
+                                    : currentPlan === "pro" 
+                                    ? "Premium features" 
+                                    : "Basic features"
+                                }
+                            </p>
+                          </div>
+                        </div>
+                        {currentPlan === "free" && (
+                          <span className="text-xs bg-warning/20 text-warning px-2 py-1 rounded-full">
+                            Free Forever
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="p-3 rounded-xl bg-muted/30">
+                          <p className="text-2xl font-display font-bold">4/{limits.maxQRCodes === Infinity ? "∞" : limits.maxQRCodes}</p>
+                          <p className="text-xs text-muted-foreground">QR Codes Used</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-muted/30">
+                          <p className="text-2xl font-display font-bold">2,102</p>
+                          <p className="text-xs text-muted-foreground">Total Scans</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-muted/30">
+                          <p className="text-2xl font-display font-bold">∞</p>
+                          <p className="text-xs text-muted-foreground">Days Left</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Plan Selection */}
+                    <div className="p-6 rounded-2xl bg-card border border-border">
+                      <h3 className="font-display font-semibold mb-6">
+                        {currentPlan === "free" ? "Upgrade Your Plan" : "Change Plan"}
+                      </h3>
+                      <PlanSelector 
+                        onSelectPlan={(plan, isAnnual) => {
+                          setCheckoutPlan(plan);
+                          setIsAnnualBilling(isAnnual);
+                        }}
+                      />
+                    </div>
+
+                    {/* Danger Zone */}
+                    <div className="p-6 rounded-2xl bg-destructive/5 border border-destructive/20">
+                      <h3 className="font-display font-semibold text-destructive mb-2">
+                        Danger Zone
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Once you delete your account, there is no going back. Please be
+                        certain.
                       </p>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive">
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Account
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently delete your
+                              account and remove all your data including QR codes and
+                              analytics.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                              Delete Account
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
-                    <Button variant="hero" asChild>
-                      <Link to="/pricing">Upgrade</Link>
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div className="p-3 rounded-xl bg-muted/30">
-                      <p className="text-2xl font-display font-bold">4/5</p>
-                      <p className="text-xs text-muted-foreground">QR Codes Used</p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-muted/30">
-                      <p className="text-2xl font-display font-bold">2,102</p>
-                      <p className="text-xs text-muted-foreground">Total Scans</p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-muted/30">
-                      <p className="text-2xl font-display font-bold">∞</p>
-                      <p className="text-xs text-muted-foreground">Days Left</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6 rounded-2xl bg-card border border-border">
-                  <h3 className="font-display font-semibold mb-4">Payment Method</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    No payment method on file. Add one to upgrade your plan.
-                  </p>
-                  <Button variant="outline">
-                    <CreditCard className="w-4 h-4 mr-2" />
-                    Add Payment Method
-                  </Button>
-                </div>
-
-                <div className="p-6 rounded-2xl bg-destructive/5 border border-destructive/20">
-                  <h3 className="font-display font-semibold text-destructive mb-2">
-                    Danger Zone
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Once you delete your account, there is no going back. Please be
-                    certain.
-                  </p>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive">
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete Account
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This action cannot be undone. This will permanently delete your
-                          account and remove all your data including QR codes and
-                          analytics.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                          Delete Account
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
+                  </>
+                )}
               </motion.div>
             </TabsContent>
           </Tabs>
