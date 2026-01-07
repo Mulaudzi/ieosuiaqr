@@ -207,7 +207,7 @@ export default function Analytics() {
               label: "Total Scans",
               value: s.total_scans.toLocaleString(),
               change: `${s.scan_change_percent >= 0 ? "+" : ""}${s.scan_change_percent}%`,
-              trend: s.scan_change_percent >= 0 ? "up" : "down",
+              trend: s.scan_change_percent >= 0 ? ("up" as const) : ("down" as const),
               icon: TrendingUp,
             },
             {

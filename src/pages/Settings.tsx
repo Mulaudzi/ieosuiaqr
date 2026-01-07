@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { PlanSelector } from "@/components/billing/PlanSelector";
 import { PayFastCheckout } from "@/components/billing/PayFastCheckout";
 import { InvoiceHistory } from "@/components/billing/InvoiceHistory";
 import { useUserPlan, UserPlan } from "@/hooks/useUserPlan";
+import { authApi, authHelpers } from "@/services/api/auth";
 import {
   QrCode,
   BarChart3,
@@ -26,6 +27,7 @@ import {
   Eye,
   EyeOff,
   Check,
+  Loader2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -49,9 +51,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Settings() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [name, setName] = useState("John Doe");
-  const [email, setEmail] = useState("john@example.com");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -62,12 +65,49 @@ export default function Settings() {
   const [weeklyReport, setWeeklyReport] = useState(false);
   const [marketingEmails, setMarketingEmails] = useState(false);
   
+  // Loading states
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [isSavingNotifications, setIsSavingNotifications] = useState(false);
+  
   // Billing state
   const [checkoutPlan, setCheckoutPlan] = useState<UserPlan | null>(null);
   const [isAnnualBilling, setIsAnnualBilling] = useState(false);
   
   const { plan: currentPlan, limits } = useUserPlan();
   const { toast } = useToast();
+
+  // Fetch user profile on mount
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const storedUser = authHelpers.getStoredUser();
+        if (storedUser) {
+          setName(storedUser.name || "");
+          setEmail(storedUser.email || "");
+        }
+        
+        // Try to fetch fresh data from API
+        const response = await authApi.getProfile();
+        if (response.success && response.data) {
+          setName(response.data.name || "");
+          setEmail(response.data.email || "");
+        }
+      } catch {
+        // Use stored data if API fails
+        const storedUser = authHelpers.getStoredUser();
+        if (storedUser) {
+          setName(storedUser.name || "");
+          setEmail(storedUser.email || "");
+        }
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   // Handle payment callback
   useEffect(() => {
@@ -86,37 +126,200 @@ export default function Settings() {
     }
   }, [searchParams, toast]);
 
-  const handleProfileSave = () => {
-    toast({
-      title: "Profile updated",
-      description: "Your profile has been updated successfully.",
-    });
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      // Ignore logout errors
+    } finally {
+      authHelpers.clearAuth();
+      navigate("/login");
+    }
   };
 
-  const handlePasswordChange = () => {
-    if (newPassword !== confirmPassword) {
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleProfileSave = async () => {
+    if (!name.trim()) {
       toast({
-        title: "Passwords don't match",
-        description: "Please make sure your new passwords match.",
         variant: "destructive",
+        title: "Name required",
+        description: "Please enter your name.",
       });
       return;
     }
-    toast({
-      title: "Password changed",
-      description: "Your password has been updated successfully.",
-    });
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
+
+    if (!validateEmail(email)) {
+      toast({
+        variant: "destructive",
+        title: "Invalid email",
+        description: "Please enter a valid email address.",
+      });
+      return;
+    }
+
+    setIsSavingProfile(true);
+    try {
+      const response = await authApi.updateProfile({ name, email });
+      if (response.success && response.data) {
+        // Update stored user
+        const token = authHelpers.getToken();
+        if (token) {
+          authHelpers.setAuth(
+            { access_token: token, token_type: "bearer", expires_in: 3600 },
+            response.data
+          );
+        }
+        toast({
+          title: "Profile updated",
+          description: "Your profile has been updated successfully.",
+        });
+      }
+    } catch (error: unknown) {
+      const err = error as { status?: number; message?: string };
+      if (err.status === 422) {
+        toast({
+          variant: "destructive",
+          title: "Validation error",
+          description: err.message || "Please check your input.",
+        });
+      } else if (err.status === 409) {
+        toast({
+          variant: "destructive",
+          title: "Email already in use",
+          description: "This email address is already associated with another account.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Update failed",
+          description: err.message || "Something went wrong. Please try again.",
+        });
+      }
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
-  const handleNotificationsSave = () => {
-    toast({
-      title: "Preferences saved",
-      description: "Your notification preferences have been updated.",
-    });
+  const validatePassword = (password: string): string | null => {
+    if (password.length < 8) {
+      return "Password must be at least 8 characters";
+    }
+    if (!/[A-Z]/.test(password)) {
+      return "Password must contain at least one uppercase letter";
+    }
+    if (!/[a-z]/.test(password)) {
+      return "Password must contain at least one lowercase letter";
+    }
+    if (!/[0-9]/.test(password)) {
+      return "Password must contain at least one number";
+    }
+    return null;
   };
+
+  const handlePasswordChange = async () => {
+    if (!currentPassword) {
+      toast({
+        variant: "destructive",
+        title: "Current password required",
+        description: "Please enter your current password.",
+      });
+      return;
+    }
+
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      toast({
+        variant: "destructive",
+        title: "Invalid password",
+        description: passwordError,
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        variant: "destructive",
+        title: "Passwords don't match",
+        description: "Please make sure your new passwords match.",
+      });
+      return;
+    }
+
+    setIsSavingPassword(true);
+    try {
+      const response = await authApi.updateProfile({
+        current_password: currentPassword,
+        password: newPassword,
+        password_confirmation: confirmPassword,
+      });
+      
+      if (response.success) {
+        toast({
+          title: "Password changed",
+          description: "Your password has been updated successfully.",
+        });
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      }
+    } catch (error: unknown) {
+      const err = error as { status?: number; message?: string };
+      if (err.status === 401 || err.status === 422) {
+        toast({
+          variant: "destructive",
+          title: "Incorrect password",
+          description: "Your current password is incorrect.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Update failed",
+          description: err.message || "Something went wrong. Please try again.",
+        });
+      }
+    } finally {
+      setIsSavingPassword(false);
+    }
+  };
+
+  const handleNotificationsSave = async () => {
+    setIsSavingNotifications(true);
+    try {
+      // Store notifications in localStorage for now (could be API in future)
+      localStorage.setItem("notification_preferences", JSON.stringify({
+        emailNotifications,
+        scanAlerts,
+        weeklyReport,
+        marketingEmails,
+      }));
+      toast({
+        title: "Preferences saved",
+        description: "Your notification preferences have been updated.",
+      });
+    } finally {
+      setIsSavingNotifications(false);
+    }
+  };
+
+  // Load notification preferences from localStorage
+  useEffect(() => {
+    const savedPrefs = localStorage.getItem("notification_preferences");
+    if (savedPrefs) {
+      try {
+        const prefs = JSON.parse(savedPrefs);
+        setEmailNotifications(prefs.emailNotifications ?? true);
+        setScanAlerts(prefs.scanAlerts ?? true);
+        setWeeklyReport(prefs.weeklyReport ?? false);
+        setMarketingEmails(prefs.marketingEmails ?? false);
+      } catch {
+        // Use defaults
+      }
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -177,11 +380,13 @@ export default function Settings() {
             <DropdownMenuTrigger asChild>
               <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors">
                 <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-sm font-medium text-primary">JD</span>
+                  <span className="text-sm font-medium text-primary">
+                    {name ? name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) : "U"}
+                  </span>
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-sm font-medium">John Doe</p>
-                  <p className="text-xs text-muted-foreground">Free Plan</p>
+                  <p className="text-sm font-medium">{name || "User"}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{currentPlan} Plan</p>
                 </div>
                 <ChevronDown className="w-4 h-4 text-muted-foreground" />
               </button>
@@ -192,7 +397,7 @@ export default function Settings() {
                 Account Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
                 <LogOut className="w-4 h-4 mr-2" />
                 Sign Out
               </DropdownMenuItem>
@@ -246,7 +451,7 @@ export default function Settings() {
                     <div className="flex items-center gap-4 mb-6">
                       <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
                         <span className="text-2xl font-display font-bold text-primary">
-                          JD
+                          {name ? name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) : "U"}
                         </span>
                       </div>
                       <div>
@@ -279,9 +484,13 @@ export default function Settings() {
                       </div>
                     </div>
 
-                    <Button variant="hero" onClick={handleProfileSave}>
-                      <Check className="w-4 h-4 mr-2" />
-                      Save Changes
+                    <Button variant="hero" onClick={handleProfileSave} disabled={isSavingProfile || isLoadingProfile}>
+                      {isSavingProfile ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Check className="w-4 h-4 mr-2" />
+                      )}
+                      {isSavingProfile ? "Saving..." : "Save Changes"}
                     </Button>
                   </div>
                 </div>
@@ -356,8 +565,15 @@ export default function Settings() {
                       />
                     </div>
 
-                    <Button variant="hero" onClick={handlePasswordChange}>
-                      Update Password
+                    <Button variant="hero" onClick={handlePasswordChange} disabled={isSavingPassword}>
+                      {isSavingPassword ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        "Update Password"
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -437,9 +653,13 @@ export default function Settings() {
                     />
                   </div>
 
-                  <Button variant="hero" onClick={handleNotificationsSave}>
-                    <Check className="w-4 h-4 mr-2" />
-                    Save Preferences
+                  <Button variant="hero" onClick={handleNotificationsSave} disabled={isSavingNotifications}>
+                    {isSavingNotifications ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Check className="w-4 h-4 mr-2" />
+                    )}
+                    {isSavingNotifications ? "Saving..." : "Save Preferences"}
                   </Button>
                 </div>
               </motion.div>
