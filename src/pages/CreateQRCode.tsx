@@ -22,8 +22,18 @@ import {
   Palette,
   Crown,
   Check,
+  FileImage,
+  FileText,
+  FileCode,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import { useQRDownload, DownloadFormat } from "@/hooks/useQRDownload";
 
 const qrTypes = [
   { id: "url", name: "URL", icon: Link2, description: "Link to any website" },
@@ -53,6 +63,20 @@ export default function CreateQRCode() {
   const [selectedColor, setSelectedColor] = useState(colorPresets[0]);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { download } = useQRDownload();
+
+  const handleDownload = async (format: DownloadFormat) => {
+    await download(format, {
+      value: getQRValue(),
+      fileName: qrName || "qr-code",
+      fgColor: selectedColor.fg,
+      bgColor: selectedColor.bg,
+    });
+    toast({
+      title: "Downloaded!",
+      description: `QR code saved as ${format.toUpperCase()}`,
+    });
+  };
 
   const selectedTypeInfo = qrTypes.find((t) => t.id === selectedType);
 
@@ -349,10 +373,28 @@ export default function CreateQRCode() {
             <div className="p-8 rounded-3xl bg-card border border-border">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-display font-semibold">Preview</h3>
-                <Button variant="outline" size="sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  Download
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="w-4 h-4 mr-2" />
+                      Download
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleDownload("png")}>
+                      <FileImage className="w-4 h-4 mr-2" />
+                      PNG Image
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDownload("svg")}>
+                      <FileCode className="w-4 h-4 mr-2" />
+                      SVG Vector
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDownload("pdf")}>
+                      <FileText className="w-4 h-4 mr-2" />
+                      PDF Document
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               <div
