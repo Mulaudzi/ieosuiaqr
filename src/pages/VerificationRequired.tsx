@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { QrCode, Mail, AlertCircle } from "lucide-react";
+import { QrCode, Mail, AlertCircle, Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { authApi } from "@/services/api/auth";
 import { useToast } from "@/hooks/use-toast";
+import { useRateLimit, rateLimitConfigs } from "@/hooks/useRateLimit";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useState } from "react";
 
 export default function VerificationRequired() {
@@ -12,10 +14,28 @@ export default function VerificationRequired() {
   const { toast } = useToast();
   const [isResending, setIsResending] = useState(false);
 
+  const {
+    isBlocked,
+    attemptsLeft,
+    recordAttempt,
+    formatRemainingTime,
+  } = useRateLimit(rateLimitConfigs.resendVerification);
+
   const handleResendVerification = async () => {
     if (!user?.email) return;
     
+    if (isBlocked) {
+      toast({
+        variant: "destructive",
+        title: "Too many attempts",
+        description: `Please wait ${formatRemainingTime()} before trying again.`,
+      });
+      return;
+    }
+    
     setIsResending(true);
+    recordAttempt();
+    
     try {
       const response = await authApi.resendVerification();
       if (response.success) {
@@ -115,14 +135,32 @@ export default function VerificationRequired() {
             </div>
           </div>
 
+          {isBlocked && (
+            <Alert variant="destructive" className="mb-6">
+              <Clock className="h-4 w-4" />
+              <AlertDescription>
+                Too many attempts. Please wait {formatRemainingTime()} before trying again.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {!isBlocked && attemptsLeft < 3 && (
+            <Alert className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {attemptsLeft} attempt{attemptsLeft !== 1 ? "s" : ""} remaining.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="space-y-3">
             <Button
               variant="hero"
               className="w-full"
               onClick={handleResendVerification}
-              disabled={isResending}
+              disabled={isResending || isBlocked}
             >
-              {isResending ? "Sending..." : "Resend Verification Email"}
+              {isResending ? "Sending..." : isBlocked ? `Wait ${formatRemainingTime()}` : "Resend Verification Email"}
             </Button>
 
             <Button
