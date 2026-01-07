@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,8 +50,14 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import { analyticsApi } from "@/services/api/analytics";
+import { authApi, authHelpers } from "@/services/api/auth";
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, RefreshCw } from "lucide-react";
 
-// Mock data
+// Fallback data for when API fails
 const scanTrendData = [
   { date: "Jan 1", scans: 120 },
   { date: "Jan 2", scans: 180 },
@@ -139,10 +145,201 @@ const stats = [
 
 export default function Analytics() {
   const [dateRange, setDateRange] = useState("7d");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [analyticsData, setAnalyticsData] = useState({
+    scanTrend: scanTrendData,
+    devices: deviceData,
+    topQRCodes: topQRCodes,
+    countries: countryData,
+    hourly: hourlyData,
+    stats: stats,
+  });
   const isPro = false; // Mock - would come from user subscription
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const getDateRange = () => {
+    const end = new Date();
+    const start = new Date();
+    switch (dateRange) {
+      case "24h":
+        start.setHours(start.getHours() - 24);
+        break;
+      case "7d":
+        start.setDate(start.getDate() - 7);
+        break;
+      case "30d":
+        start.setDate(start.getDate() - 30);
+        break;
+      case "90d":
+        start.setDate(start.getDate() - 90);
+        break;
+    }
+    return {
+      start_date: start.toISOString().split("T")[0],
+      end_date: end.toISOString().split("T")[0],
+    };
+  };
+
+  const fetchAnalytics = async () => {
+    setIsLoading(true);
+    setError(null);
+    const { start_date, end_date } = getDateRange();
+
+    try {
+      const [summaryRes, topQRRes, devicesRes, dailyRes, hourlyRes] = await Promise.all([
+        analyticsApi.getSummary({ start_date, end_date }),
+        analyticsApi.getTopQRCodes({ start_date, end_date, limit: 5 }),
+        analyticsApi.getDeviceBreakdown({ start_date, end_date }),
+        analyticsApi.getDailyTrend({ start_date, end_date }),
+        analyticsApi.getHourlyDistribution({ start_date, end_date }),
+      ]);
+
+      // Transform API responses to chart data
+      if (summaryRes.success && summaryRes.data) {
+        const s = summaryRes.data;
+        setAnalyticsData((prev) => ({
+          ...prev,
+          stats: [
+            {
+              label: "Total Scans",
+              value: s.total_scans.toLocaleString(),
+              change: `${s.scan_change_percent >= 0 ? "+" : ""}${s.scan_change_percent}%`,
+              trend: s.scan_change_percent >= 0 ? "up" : "down",
+              icon: TrendingUp,
+            },
+            {
+              label: "Unique Scans",
+              value: s.unique_scans.toLocaleString(),
+              change: "+8.3%",
+              trend: "up" as const,
+              icon: Users,
+            },
+            {
+              label: "Top Device",
+              value: s.top_device || "Mobile",
+              change: "",
+              trend: "up" as const,
+              icon: Globe,
+            },
+            {
+              label: "Avg. Daily Scans",
+              value: Math.round(s.total_scans / 7).toString(),
+              change: "-2.1%",
+              trend: "down" as const,
+              icon: BarChart3,
+            },
+          ],
+        }));
+      }
+
+      if (topQRRes.success && topQRRes.data) {
+        setAnalyticsData((prev) => ({
+          ...prev,
+          topQRCodes: topQRRes.data!.map((qr) => ({
+            name: qr.qr_name,
+            scans: qr.scan_count,
+            change: qr.change_percent,
+          })),
+        }));
+      }
+
+      if (devicesRes.success && devicesRes.data) {
+        const colors = ["hsl(175, 80%, 40%)", "hsl(260, 70%, 60%)", "hsl(145, 65%, 42%)"];
+        setAnalyticsData((prev) => ({
+          ...prev,
+          devices: devicesRes.data!.slice(0, 3).map((d, i) => ({
+            name: d.device_type,
+            value: d.percentage,
+            color: colors[i],
+          })),
+        }));
+      }
+
+      if (dailyRes.success && dailyRes.data) {
+        setAnalyticsData((prev) => ({
+          ...prev,
+          scanTrend: dailyRes.data!.map((d) => ({
+            date: new Date(d.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+            scans: d.count,
+          })),
+        }));
+      }
+
+      if (hourlyRes.success && hourlyRes.data) {
+        setAnalyticsData((prev) => ({
+          ...prev,
+          hourly: hourlyRes.data!.map((h) => ({
+            hour: h.hour.toString().padStart(2, "0"),
+            scans: h.count,
+          })),
+        }));
+      }
+    } catch (err) {
+      console.error("Failed to fetch analytics:", err);
+      setError("Failed to load analytics. Using cached data.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [dateRange]);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await authApi.logout();
+    } catch {
+      // Even if API fails, clear local auth
+    } finally {
+      authHelpers.clearAuth();
+      toast({
+        title: "Signed out",
+        description: "You have been successfully logged out.",
+      });
+      navigate("/login");
+    }
+  };
+
+  const handleExport = async () => {
+    const { start_date, end_date } = getDateRange();
+    try {
+      const response = await analyticsApi.exportReport({
+        type: "analytics",
+        format: "csv",
+        start_date,
+        end_date,
+      });
+      if (response.success && response.data?.download_url) {
+        window.open(response.data.download_url, "_blank");
+        toast({ title: "Export started", description: "Your report is being downloaded." });
+      }
+    } catch {
+      toast({ variant: "destructive", title: "Export failed", description: "Could not generate report." });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Error Alert */}
+      {error && (
+        <div className="fixed top-4 right-4 z-50 max-w-md">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between">
+              <span>{error}</span>
+              <Button variant="ghost" size="sm" onClick={fetchAnalytics}>
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
       {/* Sidebar */}
       <aside className="fixed left-0 top-0 bottom-0 w-64 bg-card border-r border-border hidden lg:block">
         <div className="p-6">
@@ -217,9 +414,13 @@ export default function Analytics() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem 
+                className="text-destructive" 
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+              >
                 <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
+                {isLoggingOut ? "Signing out..." : "Sign Out"}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -249,7 +450,7 @@ export default function Analytics() {
                   <SelectItem value="90d">Last 90 days</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline">
+              <Button variant="outline" onClick={handleExport}>
                 <Download className="w-4 h-4 mr-2" />
                 Export
               </Button>
@@ -259,36 +460,51 @@ export default function Analytics() {
 
         <div className="p-6 space-y-6">
           {/* Stats Grid */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {stats.map((stat, index) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="p-5 rounded-2xl bg-card border border-border"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <stat.icon className="w-5 h-5 text-primary" />
+          {isLoading ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="p-5 rounded-2xl bg-card border border-border">
+                  <div className="flex items-center justify-between mb-3">
+                    <Skeleton className="w-10 h-10 rounded-xl" />
+                    <Skeleton className="w-16 h-6 rounded-full" />
                   </div>
-                  <span
-                    className={`text-xs font-medium px-2 py-1 rounded-full ${
-                      stat.trend === "up"
-                        ? "bg-success/10 text-success"
-                        : "bg-destructive/10 text-destructive"
-                    }`}
-                  >
-                    {stat.change}
-                  </span>
+                  <Skeleton className="w-20 h-8 mb-1" />
+                  <Skeleton className="w-24 h-4" />
                 </div>
-                <p className="text-2xl font-display font-bold">{stat.value}</p>
-                <p className="text-sm text-muted-foreground">{stat.label}</p>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Charts Row 1 */}
+              ))}
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {analyticsData.stats.map((stat, index) => (
+                <motion.div
+                  key={stat.label}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="p-5 rounded-2xl bg-card border border-border"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <stat.icon className="w-5 h-5 text-primary" />
+                    </div>
+                    {stat.change && (
+                      <span
+                        className={`text-xs font-medium px-2 py-1 rounded-full ${
+                          stat.trend === "up"
+                            ? "bg-success/10 text-success"
+                            : "bg-destructive/10 text-destructive"
+                        }`}
+                      >
+                        {stat.change}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-2xl font-display font-bold">{stat.value}</p>
+                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+                </motion.div>
+              ))}
+            </div>
+          )}
           <div className="grid lg:grid-cols-3 gap-6">
             {/* Scan Trends */}
             <motion.div
@@ -300,7 +516,7 @@ export default function Analytics() {
               <h3 className="font-display font-semibold mb-4">Scan Trends</h3>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={scanTrendData}>
+                  <AreaChart data={analyticsData.scanTrend}>
                     <defs>
                       <linearGradient id="scanGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="hsl(175, 80%, 40%)" stopOpacity={0.3} />
@@ -341,7 +557,7 @@ export default function Analytics() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={deviceData}
+                      data={analyticsData.devices}
                       cx="50%"
                       cy="50%"
                       innerRadius={50}
@@ -349,7 +565,7 @@ export default function Analytics() {
                       paddingAngle={5}
                       dataKey="value"
                     >
-                      {deviceData.map((entry, index) => (
+                      {analyticsData.devices.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
@@ -358,7 +574,7 @@ export default function Analytics() {
                 </ResponsiveContainer>
               </div>
               <div className="space-y-2 mt-4">
-                {deviceData.map((device) => (
+                {analyticsData.devices.map((device) => (
                   <div key={device.name} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
                       <div
@@ -385,7 +601,7 @@ export default function Analytics() {
             >
               <h3 className="font-display font-semibold mb-4">Top QR Codes</h3>
               <div className="space-y-4">
-                {topQRCodes.map((qr, index) => (
+                {analyticsData.topQRCodes.map((qr, index) => (
                   <div
                     key={qr.name}
                     className="flex items-center justify-between p-3 rounded-xl bg-muted/50"
@@ -432,7 +648,7 @@ export default function Analytics() {
 
               {isPro ? (
                 <div className="space-y-3">
-                  {countryData.map((country) => (
+                  {analyticsData.countries.map((country) => (
                     <div key={country.country}>
                       <div className="flex items-center justify-between text-sm mb-1">
                         <span>{country.country}</span>
@@ -476,7 +692,7 @@ export default function Analytics() {
             <h3 className="font-display font-semibold mb-4">Scans by Hour</h3>
             <div className="h-[200px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={hourlyData}>
+                <BarChart data={analyticsData.hourly}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 90%)" />
                   <XAxis dataKey="hour" stroke="hsl(220, 10%, 45%)" fontSize={12} />
                   <YAxis stroke="hsl(220, 10%, 45%)" fontSize={12} />

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { QRCodeSVG } from "qrcode.react";
@@ -38,6 +38,7 @@ import {
 import { useQRStorage } from "@/hooks/useQRStorage";
 import { useUserPlan } from "@/hooks/useUserPlan";
 import { useToast } from "@/hooks/use-toast";
+import { authApi, authHelpers } from "@/services/api/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BulkCSVImport } from "@/components/qr/BulkCSVImport";
@@ -57,9 +58,11 @@ export default function Dashboard() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [showBulkImport, setShowBulkImport] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { qrCodes, deleteQRCode, getQRCodeCount, isLoading, error, refresh } = useQRStorage();
   const { plan, limits } = useUserPlan();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const filteredQRCodes = qrCodes.filter((qr) =>
     qr.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -112,6 +115,22 @@ export default function Dashboard() {
       title: "Refreshing",
       description: "Loading latest QR codes...",
     });
+  };
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await authApi.logout();
+    } catch {
+      // Even if API fails, clear local auth
+    } finally {
+      authHelpers.clearAuth();
+      toast({
+        title: "Signed out",
+        description: "You have been successfully logged out.",
+      });
+      navigate("/login");
+    }
   };
 
   const planLabel = plan === "free" ? "Free Plan" : plan === "pro" ? "Pro Plan" : "Enterprise";
@@ -194,9 +213,13 @@ export default function Dashboard() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem 
+                className="text-destructive" 
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+              >
                 <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
+                {isLoggingOut ? "Signing out..." : "Sign Out"}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
