@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { QRCodeSVG } from "qrcode.react";
 import {
-  QrCode,
   ArrowLeft,
   Link2,
   Mail,
@@ -25,6 +24,7 @@ import {
   FileImage,
   FileText,
   FileCode,
+  Lock,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -34,6 +34,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { useQRDownload, DownloadFormat } from "@/hooks/useQRDownload";
+import { useUserPlan } from "@/hooks/useUserPlan";
+import { useQRStorage } from "@/hooks/useQRStorage";
+import { UpsellModal } from "@/components/qr/UpsellModal";
+import { WiFiForm, WiFiData, generateWiFiString } from "@/components/qr/WiFiForm";
+import { VCardForm, VCardData, generateVCardString } from "@/components/qr/VCardForm";
+import { EventForm, EventData, generateEventString } from "@/components/qr/EventForm";
+import { LocationForm, LocationData, generateLocationString } from "@/components/qr/LocationForm";
 
 const qrTypes = [
   { id: "url", name: "URL", icon: Link2, description: "Link to any website" },
@@ -55,15 +62,52 @@ const colorPresets = [
   { fg: "#0D1117", bg: "#F6F8FA", name: "GitHub" },
 ];
 
+const defaultWiFiData: WiFiData = { ssid: "", password: "", encryption: "WPA" };
+const defaultVCardData: VCardData = {
+  fullName: "",
+  phone: "",
+  email: "",
+  organization: "",
+  title: "",
+  address: "",
+  website: "",
+};
+const defaultEventData: EventData = {
+  title: "",
+  description: "",
+  startDate: "",
+  startTime: "",
+  endDate: "",
+  endTime: "",
+  location: "",
+};
+const defaultLocationData: LocationData = {
+  latitude: "",
+  longitude: "",
+  address: "",
+  inputMode: "coordinates",
+};
+
 export default function CreateQRCode() {
   const [step, setStep] = useState(1);
   const [selectedType, setSelectedType] = useState("url");
   const [qrName, setQrName] = useState("");
   const [qrContent, setQrContent] = useState("");
   const [selectedColor, setSelectedColor] = useState(colorPresets[0]);
+  const [showUpsell, setShowUpsell] = useState(false);
+  const [upsellFeature, setUpsellFeature] = useState("");
+
+  // Premium type data
+  const [wifiData, setWifiData] = useState<WiFiData>(defaultWiFiData);
+  const [vcardData, setVcardData] = useState<VCardData>(defaultVCardData);
+  const [eventData, setEventData] = useState<EventData>(defaultEventData);
+  const [locationData, setLocationData] = useState<LocationData>(defaultLocationData);
+
   const navigate = useNavigate();
   const { toast } = useToast();
   const { download } = useQRDownload();
+  const { canUsePremiumTypes, limits } = useUserPlan();
+  const { saveQRCode, getQRCodeCount } = useQRStorage();
 
   const handleDownload = async (format: DownloadFormat) => {
     await download(format, {
@@ -80,7 +124,16 @@ export default function CreateQRCode() {
 
   const selectedTypeInfo = qrTypes.find((t) => t.id === selectedType);
 
-  const getQRValue = () => {
+  const handleTypeSelect = (typeId: string, isPremium: boolean) => {
+    if (isPremium && !canUsePremiumTypes) {
+      setUpsellFeature(qrTypes.find((t) => t.id === typeId)?.name || "This feature");
+      setShowUpsell(true);
+      return;
+    }
+    setSelectedType(typeId);
+  };
+
+  const getQRValue = (): string => {
     switch (selectedType) {
       case "url":
         return qrContent || "https://example.com";
@@ -88,35 +141,202 @@ export default function CreateQRCode() {
         return `mailto:${qrContent}`;
       case "phone":
         return `tel:${qrContent}`;
+      case "text":
+        return qrContent || "Hello World";
+      case "wifi":
+        return generateWiFiString(wifiData);
+      case "vcard":
+        return generateVCardString(vcardData);
+      case "event":
+        return generateEventString(eventData);
+      case "location":
+        return generateLocationString(locationData);
       default:
-        return qrContent || "https://ieosuia.com";
+        return qrContent || "https://qr.ieosuia.com";
     }
   };
 
-  const handleCreate = () => {
+  const getContentSummary = (): string => {
+    switch (selectedType) {
+      case "wifi":
+        return wifiData.ssid || "Not set";
+      case "vcard":
+        return vcardData.fullName || "Not set";
+      case "event":
+        return eventData.title || "Not set";
+      case "location":
+        return locationData.inputMode === "coordinates"
+          ? locationData.latitude && locationData.longitude
+            ? `${locationData.latitude}, ${locationData.longitude}`
+            : "Not set"
+          : locationData.address || "Not set";
+      default:
+        return qrContent || "Not set";
+    }
+  };
+
+  const validateStep2 = (): boolean => {
     if (!qrName.trim()) {
       toast({
         title: "Name required",
         description: "Please give your QR code a name",
         variant: "destructive",
       });
-      return;
+      return false;
     }
-    if (!qrContent.trim()) {
+
+    switch (selectedType) {
+      case "url":
+      case "email":
+      case "phone":
+      case "text":
+        if (!qrContent.trim()) {
+          toast({
+            title: "Content required",
+            description: "Please enter the QR code content",
+            variant: "destructive",
+          });
+          return false;
+        }
+        break;
+      case "wifi":
+        if (!wifiData.ssid.trim()) {
+          toast({
+            title: "SSID required",
+            description: "Please enter the network name",
+            variant: "destructive",
+          });
+          return false;
+        }
+        if (wifiData.encryption !== "nopass" && !wifiData.password.trim()) {
+          toast({
+            title: "Password required",
+            description: "Please enter the WiFi password or select 'None' for encryption",
+            variant: "destructive",
+          });
+          return false;
+        }
+        break;
+      case "vcard":
+        if (!vcardData.fullName.trim()) {
+          toast({
+            title: "Name required",
+            description: "Please enter the contact's full name",
+            variant: "destructive",
+          });
+          return false;
+        }
+        break;
+      case "event":
+        if (!eventData.title.trim()) {
+          toast({
+            title: "Title required",
+            description: "Please enter the event title",
+            variant: "destructive",
+          });
+          return false;
+        }
+        if (!eventData.startDate || !eventData.startTime || !eventData.endDate || !eventData.endTime) {
+          toast({
+            title: "Dates required",
+            description: "Please enter start and end dates/times",
+            variant: "destructive",
+          });
+          return false;
+        }
+        const start = new Date(`${eventData.startDate}T${eventData.startTime}`);
+        const end = new Date(`${eventData.endDate}T${eventData.endTime}`);
+        if (end <= start) {
+          toast({
+            title: "Invalid dates",
+            description: "End date/time must be after start date/time",
+            variant: "destructive",
+          });
+          return false;
+        }
+        break;
+      case "location":
+        if (locationData.inputMode === "coordinates") {
+          const lat = parseFloat(locationData.latitude);
+          const lng = parseFloat(locationData.longitude);
+          if (isNaN(lat) || lat < -90 || lat > 90) {
+            toast({
+              title: "Invalid latitude",
+              description: "Latitude must be between -90 and 90",
+              variant: "destructive",
+            });
+            return false;
+          }
+          if (isNaN(lng) || lng < -180 || lng > 180) {
+            toast({
+              title: "Invalid longitude",
+              description: "Longitude must be between -180 and 180",
+              variant: "destructive",
+            });
+            return false;
+          }
+        } else if (!locationData.address.trim()) {
+          toast({
+            title: "Address required",
+            description: "Please enter an address",
+            variant: "destructive",
+          });
+          return false;
+        }
+        break;
+    }
+    return true;
+  };
+
+  const handleNext = () => {
+    if (step === 2 && !validateStep2()) return;
+    setStep(step + 1);
+  };
+
+  const handleCreate = () => {
+    // Check QR code limit
+    if (getQRCodeCount() >= limits.maxQRCodes) {
       toast({
-        title: "Content required",
-        description: "Please enter the QR code content",
+        title: "Limit reached",
+        description: `You've reached your limit of ${limits.maxQRCodes} QR codes. Upgrade to create more!`,
         variant: "destructive",
       });
+      setShowUpsell(true);
+      setUpsellFeature("More QR codes");
       return;
     }
+
+    // Save to local storage
+    saveQRCode({
+      name: qrName,
+      type: selectedType,
+      content: getQRValue(),
+      contentData: getContentData(),
+      fgColor: selectedColor.fg,
+      bgColor: selectedColor.bg,
+    });
 
     toast({
       title: "QR Code created!",
-      description: "Your QR code has been created successfully.",
+      description: "Your QR code has been saved successfully.",
     });
 
     navigate("/dashboard");
+  };
+
+  const getContentData = (): Record<string, string> => {
+    switch (selectedType) {
+      case "wifi":
+        return wifiData as unknown as Record<string, string>;
+      case "vcard":
+        return vcardData as unknown as Record<string, string>;
+      case "event":
+        return eventData as unknown as Record<string, string>;
+      case "location":
+        return locationData as unknown as Record<string, string>;
+      default:
+        return { content: qrContent };
+    }
   };
 
   return (
@@ -132,9 +352,7 @@ export default function CreateQRCode() {
             </Button>
             <div>
               <h1 className="font-display text-xl font-bold">Create QR Code</h1>
-              <p className="text-sm text-muted-foreground">
-                Step {step} of 3
-              </p>
+              <p className="text-sm text-muted-foreground">Step {step} of 3</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -144,7 +362,7 @@ export default function CreateQRCode() {
               </Button>
             )}
             {step < 3 ? (
-              <Button variant="hero" onClick={() => setStep(step + 1)}>
+              <Button variant="hero" onClick={handleNext}>
                 Next
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
@@ -188,42 +406,52 @@ export default function CreateQRCode() {
                   </p>
 
                   <div className="grid sm:grid-cols-2 gap-4">
-                    {qrTypes.map((type) => (
-                      <button
-                        key={type.id}
-                        onClick={() => !type.premium && setSelectedType(type.id)}
-                        disabled={type.premium}
-                        className={`relative p-5 rounded-2xl border text-left transition-all ${
-                          selectedType === type.id
-                            ? "border-primary bg-primary/5"
-                            : type.premium
-                            ? "border-border bg-muted/50 opacity-60"
-                            : "border-border hover:border-primary/50"
-                        }`}
-                      >
-                        {type.premium && (
-                          <div className="absolute top-3 right-3">
-                            <Crown className="w-4 h-4 text-warning" />
-                          </div>
-                        )}
-                        <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${
+                    {qrTypes.map((type) => {
+                      const isLocked = type.premium && !canUsePremiumTypes;
+                      return (
+                        <button
+                          key={type.id}
+                          onClick={() => handleTypeSelect(type.id, !!type.premium)}
+                          className={`relative p-5 rounded-2xl border text-left transition-all ${
                             selectedType === type.id
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted"
+                              ? "border-primary bg-primary/5"
+                              : isLocked
+                              ? "border-border hover:border-warning/50 cursor-pointer"
+                              : "border-border hover:border-primary/50"
                           }`}
                         >
-                          <type.icon className="w-5 h-5" />
-                        </div>
-                        <p className="font-semibold mb-1">{type.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {type.description}
-                        </p>
-                        {type.premium && (
-                          <p className="text-xs text-warning mt-2">Pro feature</p>
-                        )}
-                      </button>
-                    ))}
+                          {type.premium && (
+                            <div className="absolute top-3 right-3">
+                              {isLocked ? (
+                                <Lock className="w-4 h-4 text-warning" />
+                              ) : (
+                                <Crown className="w-4 h-4 text-primary" />
+                              )}
+                            </div>
+                          )}
+                          <div
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${
+                              selectedType === type.id
+                                ? "bg-primary text-primary-foreground"
+                                : isLocked
+                                ? "bg-warning/10 text-warning"
+                                : "bg-muted"
+                            }`}
+                          >
+                            <type.icon className="w-5 h-5" />
+                          </div>
+                          <p className="font-semibold mb-1">{type.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {type.description}
+                          </p>
+                          {type.premium && (
+                            <p className={`text-xs mt-2 ${isLocked ? "text-warning" : "text-primary"}`}>
+                              {isLocked ? "Pro feature - Click to upgrade" : "Pro feature ✓"}
+                            </p>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </motion.div>
               )}
@@ -244,68 +472,91 @@ export default function CreateQRCode() {
 
                   <div className="space-y-6">
                     <div className="space-y-2">
-                      <Label htmlFor="name">QR Code Name</Label>
+                      <Label htmlFor="name">QR Code Name *</Label>
                       <Input
                         id="name"
                         placeholder="e.g., My Website QR"
                         value={qrName}
                         onChange={(e) => setQrName(e.target.value)}
+                        aria-required="true"
                       />
                       <p className="text-xs text-muted-foreground">
                         A friendly name to identify this QR code
                       </p>
                     </div>
 
+                    {/* Basic Types */}
                     {selectedType === "url" && (
                       <div className="space-y-2">
-                        <Label htmlFor="url">Website URL</Label>
+                        <Label htmlFor="url">Website URL *</Label>
                         <Input
                           id="url"
                           type="url"
                           placeholder="https://example.com"
                           value={qrContent}
                           onChange={(e) => setQrContent(e.target.value)}
+                          aria-required="true"
                         />
                       </div>
                     )}
 
                     {selectedType === "text" && (
                       <div className="space-y-2">
-                        <Label htmlFor="text">Text Content</Label>
+                        <Label htmlFor="text">Text Content *</Label>
                         <Textarea
                           id="text"
                           placeholder="Enter your text message..."
                           rows={5}
                           value={qrContent}
                           onChange={(e) => setQrContent(e.target.value)}
+                          aria-required="true"
                         />
                       </div>
                     )}
 
                     {selectedType === "email" && (
                       <div className="space-y-2">
-                        <Label htmlFor="email">Email Address</Label>
+                        <Label htmlFor="email">Email Address *</Label>
                         <Input
                           id="email"
                           type="email"
                           placeholder="contact@example.com"
                           value={qrContent}
                           onChange={(e) => setQrContent(e.target.value)}
+                          aria-required="true"
                         />
                       </div>
                     )}
 
                     {selectedType === "phone" && (
                       <div className="space-y-2">
-                        <Label htmlFor="phone">Phone Number</Label>
+                        <Label htmlFor="phone">Phone Number *</Label>
                         <Input
                           id="phone"
                           type="tel"
-                          placeholder="+1 234 567 8900"
+                          placeholder="+27 12 345 6789"
                           value={qrContent}
                           onChange={(e) => setQrContent(e.target.value)}
+                          aria-required="true"
                         />
                       </div>
+                    )}
+
+                    {/* Premium Types */}
+                    {selectedType === "wifi" && (
+                      <WiFiForm data={wifiData} onChange={setWifiData} />
+                    )}
+
+                    {selectedType === "vcard" && (
+                      <VCardForm data={vcardData} onChange={setVcardData} />
+                    )}
+
+                    {selectedType === "event" && (
+                      <EventForm data={eventData} onChange={setEventData} />
+                    )}
+
+                    {selectedType === "location" && (
+                      <LocationForm data={locationData} onChange={setLocationData} />
                     )}
                   </div>
                 </motion.div>
@@ -414,7 +665,12 @@ export default function CreateQRCode() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Type</span>
-                  <span className="font-medium">{selectedTypeInfo?.name}</span>
+                  <span className="font-medium flex items-center gap-2">
+                    {selectedTypeInfo?.name}
+                    {selectedTypeInfo?.premium && (
+                      <Crown className="w-3 h-3 text-primary" />
+                    )}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Name</span>
@@ -423,7 +679,7 @@ export default function CreateQRCode() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Content</span>
                   <span className="font-medium truncate max-w-[150px]">
-                    {qrContent || "Not set"}
+                    {getContentSummary()}
                   </span>
                 </div>
               </div>
@@ -431,6 +687,13 @@ export default function CreateQRCode() {
           </div>
         </div>
       </div>
+
+      {/* Upsell Modal */}
+      <UpsellModal
+        open={showUpsell}
+        onOpenChange={setShowUpsell}
+        feature={upsellFeature}
+      />
     </div>
   );
 }
