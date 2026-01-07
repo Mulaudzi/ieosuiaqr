@@ -4,32 +4,55 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { QrCode, ArrowLeft, Mail, CheckCircle } from "lucide-react";
+import { QrCode, ArrowLeft, Mail, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import { authApi } from "@/services/api/auth";
 import { useToast } from "@/hooks/use-toast";
+import { useRateLimit, rateLimitConfigs } from "@/hooks/useRateLimit";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const { toast } = useToast();
+  
+  const {
+    isBlocked,
+    attemptsLeft,
+    recordAttempt,
+    formatRemainingTime,
+  } = useRateLimit(rateLimitConfigs.forgotPassword);
+
+  const validateEmail = (email: string): boolean => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email) {
+    if (isBlocked) {
       toast({
         variant: "destructive",
-        title: "Email required",
-        description: "Please enter your email address.",
+        title: "Too many attempts",
+        description: `Please wait ${formatRemainingTime()} before trying again.`,
+      });
+      return;
+    }
+
+    if (!email || !validateEmail(email)) {
+      toast({
+        variant: "destructive",
+        title: "Invalid email",
+        description: "Please enter a valid email address.",
       });
       return;
     }
 
     setIsLoading(true);
+    recordAttempt();
 
     try {
-      const response = await authApi.forgotPassword({ email });
+      const response = await authApi.forgotPassword({ email: email.trim() });
       
       if (response.success) {
         setIsSuccess(true);
@@ -132,9 +155,15 @@ export default function ForgotPassword() {
                 <button
                   onClick={() => setIsSuccess(false)}
                   className="text-primary hover:underline"
+                  disabled={isBlocked}
                 >
                   try again
                 </button>
+                {isBlocked && (
+                  <span className="block mt-2 text-warning">
+                    (available in {formatRemainingTime()})
+                  </span>
+                )}
               </p>
               <Button variant="outline" asChild className="w-full">
                 <Link to="/login">Return to login</Link>
@@ -143,9 +172,27 @@ export default function ForgotPassword() {
           ) : (
             <>
               <h2 className="font-display text-2xl font-bold mb-2">Forgot password?</h2>
-              <p className="text-muted-foreground mb-8">
+              <p className="text-muted-foreground mb-6">
                 No worries, we'll send you reset instructions.
               </p>
+
+              {isBlocked && (
+                <Alert variant="destructive" className="mb-6">
+                  <Clock className="h-4 w-4" />
+                  <AlertDescription>
+                    Too many attempts. Please wait {formatRemainingTime()} before trying again.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {!isBlocked && attemptsLeft < 3 && (
+                <Alert className="mb-6">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {attemptsLeft} attempt{attemptsLeft !== 1 ? "s" : ""} remaining.
+                  </AlertDescription>
+                </Alert>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
@@ -159,7 +206,7 @@ export default function ForgotPassword() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="pl-10"
-                      disabled={isLoading}
+                      disabled={isLoading || isBlocked}
                     />
                   </div>
                 </div>
@@ -168,9 +215,9 @@ export default function ForgotPassword() {
                   type="submit"
                   variant="hero"
                   className="w-full"
-                  disabled={isLoading}
+                  disabled={isLoading || isBlocked}
                 >
-                  {isLoading ? "Sending..." : "Send reset link"}
+                  {isLoading ? "Sending..." : isBlocked ? `Wait ${formatRemainingTime()}` : "Send reset link"}
                 </Button>
               </form>
 
