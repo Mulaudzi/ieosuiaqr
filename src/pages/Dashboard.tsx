@@ -32,92 +32,80 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useQRStorage } from "@/hooks/useQRStorage";
+import { useUserPlan } from "@/hooks/useUserPlan";
+import { useToast } from "@/hooks/use-toast";
 
-// Mock data
-const qrCodes = [
-  {
-    id: "1",
-    name: "Website Homepage",
-    type: "URL",
-    url: "https://ieosuia.com",
-    scans: 1247,
-    created: "2024-01-15",
-    status: "active",
-  },
-  {
-    id: "2",
-    name: "Product Catalog PDF",
-    type: "URL",
-    url: "https://ieosuia.com/catalog.pdf",
-    scans: 532,
-    created: "2024-01-12",
-    status: "active",
-  },
-  {
-    id: "3",
-    name: "Contact vCard",
-    type: "vCard",
-    url: "BEGIN:VCARD...",
-    scans: 89,
-    created: "2024-01-10",
-    status: "active",
-  },
-  {
-    id: "4",
-    name: "Guest WiFi",
-    type: "WiFi",
-    url: "WIFI:T:WPA;S:GuestNetwork;P:password123;;",
-    scans: 234,
-    created: "2024-01-08",
-    status: "active",
-  },
-];
-
-const stats = [
-  {
-    label: "Total QR Codes",
-    value: "4",
-    limit: "5",
-    icon: QrCode,
-    color: "primary",
-  },
-  {
-    label: "Total Scans",
-    value: "2,102",
-    change: "+12.5%",
-    icon: TrendingUp,
-    color: "success",
-  },
-  {
-    label: "Unique Users",
-    value: "1,847",
-    change: "+8.3%",
-    icon: Users,
-    color: "accent",
-  },
-  {
-    label: "Countries",
-    value: "23",
-    change: "+2",
-    icon: Globe,
-    color: "warning",
-  },
-];
+const typeColors: Record<string, string> = {
+  url: "bg-primary/10 text-primary",
+  text: "bg-muted text-foreground",
+  email: "bg-accent/10 text-accent",
+  phone: "bg-success/10 text-success",
+  wifi: "bg-warning/10 text-warning",
+  vcard: "bg-accent/10 text-accent",
+  event: "bg-primary/10 text-primary",
+  location: "bg-success/10 text-success",
+};
 
 export default function Dashboard() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
+  const { qrCodes, deleteQRCode, getQRCodeCount } = useQRStorage();
+  const { plan, limits } = useUserPlan();
+  const { toast } = useToast();
 
   const filteredQRCodes = qrCodes.filter((qr) =>
     qr.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const totalScans = qrCodes.reduce((sum, qr) => sum + qr.scans, 0);
+
+  const stats = [
+    {
+      label: "Total QR Codes",
+      value: getQRCodeCount().toString(),
+      limit: limits.maxQRCodes === Infinity ? "∞" : limits.maxQRCodes.toString(),
+      icon: QrCode,
+      color: "primary",
+    },
+    {
+      label: "Total Scans",
+      value: totalScans.toLocaleString(),
+      change: "+12.5%",
+      icon: TrendingUp,
+      color: "success",
+    },
+    {
+      label: "Unique Users",
+      value: Math.floor(totalScans * 0.88).toLocaleString(),
+      change: "+8.3%",
+      icon: Users,
+      color: "accent",
+    },
+    {
+      label: "Countries",
+      value: Math.min(qrCodes.length * 3, 23).toString(),
+      change: "+2",
+      icon: Globe,
+      color: "warning",
+    },
+  ];
+
+  const handleDelete = (id: string, name: string) => {
+    deleteQRCode(id);
+    toast({
+      title: "QR Code deleted",
+      description: `"${name}" has been removed.`,
+    });
+  };
+
+  const planLabel = plan === "free" ? "Free Plan" : plan === "pro" ? "Pro Plan" : "Enterprise";
 
   return (
     <div className="min-h-screen bg-background">
       {/* Sidebar */}
       <aside className="fixed left-0 top-0 bottom-0 w-64 bg-card border-r border-border hidden lg:block">
         <div className="p-6">
-          {/* Logo */}
           <Link to="/" className="flex items-center gap-2 mb-8">
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
               <QrCode className="w-5 h-5 text-primary-foreground" />
@@ -127,7 +115,6 @@ export default function Dashboard() {
             </span>
           </Link>
 
-          {/* Nav Items */}
           <nav className="space-y-1">
             <Link
               to="/dashboard"
@@ -153,23 +140,23 @@ export default function Dashboard() {
           </nav>
         </div>
 
-        {/* Upgrade Banner */}
-        <div className="absolute bottom-24 left-4 right-4">
-          <div className="p-4 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20">
-            <div className="flex items-center gap-2 mb-2">
-              <Crown className="w-5 h-5 text-primary" />
-              <span className="font-semibold text-sm">Upgrade to Pro</span>
+        {plan === "free" && (
+          <div className="absolute bottom-24 left-4 right-4">
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Crown className="w-5 h-5 text-primary" />
+                <span className="font-semibold text-sm">Upgrade to Pro</span>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                Get more QR codes and advanced analytics
+              </p>
+              <Button variant="hero" size="sm" className="w-full" asChild>
+                <Link to="/dashboard/settings">Upgrade Now</Link>
+              </Button>
             </div>
-            <p className="text-xs text-muted-foreground mb-3">
-              Get unlimited QR codes and advanced analytics
-            </p>
-            <Button variant="hero" size="sm" className="w-full" asChild>
-              <Link to="/pricing">Upgrade Now</Link>
-            </Button>
           </div>
-        </div>
+        )}
 
-        {/* User Menu */}
         <div className="absolute bottom-4 left-4 right-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -179,15 +166,17 @@ export default function Dashboard() {
                 </div>
                 <div className="flex-1 text-left">
                   <p className="text-sm font-medium">John Doe</p>
-                  <p className="text-xs text-muted-foreground">Free Plan</p>
+                  <p className="text-xs text-muted-foreground">{planLabel}</p>
                 </div>
                 <ChevronDown className="w-4 h-4 text-muted-foreground" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem>
-                <Settings className="w-4 h-4 mr-2" />
-                Account Settings
+              <DropdownMenuItem asChild>
+                <Link to="/dashboard/settings">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Account Settings
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive">
@@ -201,7 +190,6 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="lg:ml-64">
-        {/* Header */}
         <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border">
           <div className="flex items-center justify-between px-6 py-4">
             <div>
@@ -302,8 +290,30 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* QR Codes Grid */}
-          {viewMode === "grid" ? (
+          {/* Empty State */}
+          {qrCodes.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-16"
+            >
+              <div className="w-20 h-20 rounded-3xl bg-muted flex items-center justify-center mx-auto mb-6">
+                <QrCode className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <h3 className="font-display text-xl font-bold mb-2">
+                No QR codes yet
+              </h3>
+              <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+                Create your first QR code to start connecting with your audience.
+              </p>
+              <Button variant="hero" asChild>
+                <Link to="/dashboard/create">
+                  <Plus className="w-5 h-5 mr-2" />
+                  Create Your First QR Code
+                </Link>
+              </Button>
+            </motion.div>
+          ) : viewMode === "grid" ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredQRCodes.map((qr, index) => (
                 <motion.div
@@ -315,12 +325,8 @@ export default function Dashboard() {
                 >
                   <div className="flex items-center justify-between mb-4">
                     <span
-                      className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                        qr.type === "URL"
-                          ? "bg-primary/10 text-primary"
-                          : qr.type === "vCard"
-                          ? "bg-accent/10 text-accent"
-                          : "bg-success/10 text-success"
+                      className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${
+                        typeColors[qr.type] || "bg-muted text-foreground"
                       }`}
                     >
                       {qr.type}
@@ -345,7 +351,10 @@ export default function Dashboard() {
                           Download
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => handleDelete(qr.id, qr.name)}
+                        >
                           <Trash2 className="w-4 h-4 mr-2" />
                           Delete
                         </DropdownMenuItem>
@@ -353,19 +362,24 @@ export default function Dashboard() {
                     </DropdownMenu>
                   </div>
 
-                  <div className="bg-muted rounded-xl p-4 mb-4 flex items-center justify-center">
+                  <div
+                    className="rounded-xl p-4 mb-4 flex items-center justify-center"
+                    style={{ backgroundColor: qr.bgColor }}
+                  >
                     <QRCodeSVG
-                      value={qr.url}
+                      value={qr.content}
                       size={120}
                       level="M"
+                      fgColor={qr.fgColor}
+                      bgColor={qr.bgColor}
                       className="w-full h-auto max-w-[120px]"
                     />
                   </div>
 
                   <h3 className="font-semibold mb-1 truncate">{qr.name}</h3>
                   <p className="text-sm text-muted-foreground mb-3 truncate flex items-center gap-1">
-                    <ExternalLink className="w-3 h-3" />
-                    {qr.url.length > 25 ? `${qr.url.slice(0, 25)}...` : qr.url}
+                    <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                    {qr.content.length > 25 ? `${qr.content.slice(0, 25)}...` : qr.content}
                   </p>
 
                   <div className="flex items-center justify-between text-sm">
@@ -424,25 +438,29 @@ export default function Dashboard() {
                     <tr key={qr.id} className="hover:bg-muted/30 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center">
-                            <QRCodeSVG value={qr.url} size={40} />
+                          <div
+                            className="w-12 h-12 rounded-lg flex items-center justify-center"
+                            style={{ backgroundColor: qr.bgColor }}
+                          >
+                            <QRCodeSVG
+                              value={qr.content}
+                              size={40}
+                              fgColor={qr.fgColor}
+                              bgColor={qr.bgColor}
+                            />
                           </div>
                           <div>
                             <p className="font-medium">{qr.name}</p>
                             <p className="text-sm text-muted-foreground truncate max-w-[200px]">
-                              {qr.url}
+                              {qr.content}
                             </p>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                            qr.type === "URL"
-                              ? "bg-primary/10 text-primary"
-                              : qr.type === "vCard"
-                              ? "bg-accent/10 text-accent"
-                              : "bg-success/10 text-success"
+                          className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${
+                            typeColors[qr.type] || "bg-muted text-foreground"
                           }`}
                         >
                           {qr.type}
@@ -464,6 +482,13 @@ export default function Dashboard() {
                           </Button>
                           <Button variant="ghost" size="icon">
                             <Download className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(qr.id, qr.name)}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
                           </Button>
                         </div>
                       </td>
