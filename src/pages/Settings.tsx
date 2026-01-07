@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { PlanSelector } from "@/components/billing/PlanSelector";
 import { PayFastCheckout } from "@/components/billing/PayFastCheckout";
+import { InvoiceHistory } from "@/components/billing/InvoiceHistory";
 import { useUserPlan, UserPlan } from "@/hooks/useUserPlan";
 import {
   QrCode,
@@ -529,6 +530,9 @@ export default function Settings() {
                         }}
                       />
                     </div>
+
+                    {/* Invoice History */}
+                    <InvoiceHistory />
 
                     {/* Danger Zone */}
                     <div className="p-6 rounded-2xl bg-destructive/5 border border-destructive/20">

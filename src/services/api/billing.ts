@@ -1,0 +1,124 @@
+import { get, post } from "./client";
+import {
+  ApiResponse,
+  CheckoutRequest,
+  CheckoutResponse,
+  Invoice,
+  PaginatedResponse,
+  Plan,
+  Subscription,
+} from "./types";
+
+// Billing & Subscription endpoints - ready for Laravel + PayFast backend
+export const billingApi = {
+  /**
+   * Get all available plans
+   * GET /api/v1/plans
+   */
+  getPlans: async (): Promise<ApiResponse<Plan[]>> => {
+    return get("/plans");
+  },
+
+  /**
+   * Get current user's subscription
+   * GET /api/v1/subscription
+   */
+  getSubscription: async (): Promise<ApiResponse<Subscription | null>> => {
+    return get("/subscription");
+  },
+
+  /**
+   * Initiate PayFast checkout
+   * POST /api/v1/payments/checkout
+   * Returns PayFast payment URL for redirect
+   */
+  checkout: async (data: CheckoutRequest): Promise<ApiResponse<CheckoutResponse>> => {
+    return post("/payments/checkout", data);
+  },
+
+  /**
+   * Cancel subscription
+   * POST /api/v1/subscription/cancel
+   */
+  cancelSubscription: async (): Promise<ApiResponse<{ cancelled_at: string }>> => {
+    return post("/subscription/cancel");
+  },
+
+  /**
+   * Resume cancelled subscription (before end of billing period)
+   * POST /api/v1/subscription/resume
+   */
+  resumeSubscription: async (): Promise<ApiResponse<Subscription>> => {
+    return post("/subscription/resume");
+  },
+
+  /**
+   * Change subscription plan
+   * POST /api/v1/subscription/change
+   */
+  changePlan: async (data: CheckoutRequest): Promise<ApiResponse<CheckoutResponse | Subscription>> => {
+    return post("/subscription/change", data);
+  },
+
+  /**
+   * Get invoice history
+   * GET /api/v1/billing/invoices
+   */
+  getInvoices: async (params?: {
+    page?: number;
+    per_page?: number;
+  }): Promise<PaginatedResponse<Invoice>> => {
+    return get("/billing/invoices", params);
+  },
+
+  /**
+   * Get single invoice details
+   * GET /api/v1/billing/invoice/:id
+   */
+  getInvoice: async (id: string): Promise<ApiResponse<Invoice>> => {
+    return get(`/billing/invoice/${id}`);
+  },
+
+  /**
+   * Download invoice receipt PDF
+   * GET /api/v1/billing/invoice/:id/receipt
+   */
+  downloadReceipt: async (id: string): Promise<ApiResponse<{ pdf_url: string }>> => {
+    return get(`/billing/invoice/${id}/receipt`);
+  },
+
+  /**
+   * Get upcoming invoice preview
+   * GET /api/v1/billing/upcoming
+   */
+  getUpcomingInvoice: async (): Promise<ApiResponse<{
+    amount_zar: number;
+    due_date: string;
+    plan_name: string;
+  } | null>> => {
+    return get("/billing/upcoming");
+  },
+};
+
+// PayFast specific helpers
+export const payfastHelpers = {
+  /**
+   * Generate PayFast redirect URL for checkout
+   * In production, this is handled by the backend
+   */
+  getPaymentUrl: (checkoutResponse: CheckoutResponse): string => {
+    return checkoutResponse.payment_url;
+  },
+
+  /**
+   * Handle PayFast return/cancel URLs
+   */
+  handlePayFastReturn: (searchParams: URLSearchParams): {
+    success: boolean;
+    cancelled: boolean;
+  } => {
+    const success = searchParams.get("success") === "1";
+    const cancelled = searchParams.get("cancelled") === "1";
+    return { success, cancelled };
+  },
+};
