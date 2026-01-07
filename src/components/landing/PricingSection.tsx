@@ -20,15 +20,14 @@ const plans = [
       { name: "Analytics dashboard", included: false },
       { name: "Custom branding", included: false },
       { name: "Dynamic QR codes", included: false },
-      { name: "API access", included: false },
       { name: "Priority support", included: false },
     ],
   },
   {
     name: "Pro",
     description: "For growing businesses",
-    priceMonthly: 9.99,
-    priceYearly: 99,
+    priceMonthly: 179,
+    priceYearly: 1799,
     popular: true,
     features: [
       { name: "50 QR codes", included: true },
@@ -38,15 +37,14 @@ const plans = [
       { name: "Analytics dashboard", included: true },
       { name: "Custom colors", included: true },
       { name: "Dynamic QR codes", included: true },
-      { name: "API access", included: false },
       { name: "Priority support", included: false },
     ],
   },
   {
     name: "Enterprise",
     description: "For large organizations",
-    priceMonthly: 29.99,
-    priceYearly: 299,
+    priceMonthly: 549,
+    priceYearly: 5499,
     popular: false,
     features: [
       { name: "Unlimited QR codes", included: true },
@@ -56,7 +54,6 @@ const plans = [
       { name: "Geo-location tracking", included: true },
       { name: "Full custom branding", included: true },
       { name: "Dynamic QR codes", included: true },
-      { name: "Full API access", included: true },
       { name: "24/7 Priority support", included: true },
     ],
   },
@@ -153,7 +150,7 @@ export function PricingSection() {
                 </p>
                 <div className="flex items-baseline justify-center gap-1">
                   <span className="text-4xl font-display font-bold">
-                    ${isYearly ? plan.priceYearly : plan.priceMonthly}
+                    R{isYearly ? plan.priceYearly : plan.priceMonthly}
                   </span>
                   {plan.priceMonthly > 0 && (
                     <span className="text-muted-foreground">

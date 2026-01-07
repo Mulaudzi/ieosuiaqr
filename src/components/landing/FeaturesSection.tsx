@@ -55,9 +55,9 @@ const features = [
   },
   {
     icon: Globe,
-    title: "API Access",
+    title: "Global Reach",
     description:
-      "Integrate with your existing tools via our powerful REST API and webhooks.",
+      "QR codes work worldwide with multi-language support and international tracking.",
     color: "success",
   },
   {
