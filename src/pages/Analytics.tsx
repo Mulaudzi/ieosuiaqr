@@ -51,7 +51,7 @@ import {
   Legend,
 } from "recharts";
 import { analyticsApi } from "@/services/api/analytics";
-import { authApi, authHelpers } from "@/services/api/auth";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -159,6 +159,7 @@ export default function Analytics() {
   const isPro = false; // Mock - would come from user subscription
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   const getDateRange = () => {
     const end = new Date();
@@ -292,18 +293,21 @@ export default function Analytics() {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      await authApi.logout();
-    } catch {
-      // Even if API fails, clear local auth
-    } finally {
-      authHelpers.clearAuth();
+      await logout();
       toast({
         title: "Signed out",
         description: "You have been successfully logged out.",
       });
       navigate("/login");
+    } catch {
+      // Error already handled by logout
+    } finally {
+      setIsLoggingOut(false);
     }
   };
+
+  const userName = user?.name || "User";
+  const userInitials = userName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
 
   const handleExport = async () => {
     const { start_date, end_date } = getDateRange();
@@ -397,10 +401,10 @@ export default function Analytics() {
             <DropdownMenuTrigger asChild>
               <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors">
                 <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-sm font-medium text-primary">JD</span>
+                  <span className="text-sm font-medium text-primary">{userInitials}</span>
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-sm font-medium">John Doe</p>
+                  <p className="text-sm font-medium">{userName}</p>
                   <p className="text-xs text-muted-foreground">Free Plan</p>
                 </div>
                 <ChevronDown className="w-4 h-4 text-muted-foreground" />

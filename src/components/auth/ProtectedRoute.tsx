@@ -6,10 +6,15 @@ import { useAuth } from "@/contexts/AuthContext";
 interface ProtectedRouteProps {
   children: ReactNode;
   requireAuth?: boolean;
+  requireVerified?: boolean;
 }
 
-export function ProtectedRoute({ children, requireAuth = true }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+export function ProtectedRoute({ 
+  children, 
+  requireAuth = true,
+  requireVerified = true 
+}: ProtectedRouteProps) {
+  const { isAuthenticated, isLoading, user } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -28,6 +33,11 @@ export function ProtectedRoute({ children, requireAuth = true }: ProtectedRouteP
   if (!requireAuth && isAuthenticated) {
     // Redirect authenticated users away from auth pages
     return <Navigate to="/dashboard" replace />;
+  }
+
+  // Check email verification if required
+  if (requireAuth && requireVerified && user && !user.email_verified_at) {
+    return <Navigate to="/verification-required" replace />;
   }
 
   return <>{children}</>;

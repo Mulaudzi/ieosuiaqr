@@ -11,6 +11,7 @@ import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import VerifyEmail from "./pages/VerifyEmail";
+import VerificationRequired from "./pages/VerificationRequired";
 import Dashboard from "./pages/Dashboard";
 import CreateQRCode from "./pages/CreateQRCode";
 import Analytics from "./pages/Analytics";
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
             <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
             <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/verification-required" element={<ProtectedRoute requireVerified={false}><VerificationRequired /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/dashboard/create" element={<ProtectedRoute><CreateQRCode /></ProtectedRoute>} />
             <Route path="/dashboard/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
