@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { QrCode, Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { QrCode, Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { authApi, authHelpers } from "@/services/api/auth";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -14,23 +16,46 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
 
-    // Simulate login - replace with actual auth
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const response = await authApi.login({ email, password });
+      
+      // Store auth data
+      authHelpers.setAuth(response.data.tokens, response.data.user);
+      
+      toast({
+        title: "Welcome back!",
+        description: "You've been successfully logged in.",
+      });
 
-    toast({
-      title: "Welcome back!",
-      description: "You've been successfully logged in.",
-    });
-
-    navigate("/dashboard");
-    setIsLoading(false);
+      navigate("/dashboard");
+    } catch (err: unknown) {
+      const apiError = err as { message?: string; status?: number };
+      
+      if (apiError.status === 401) {
+        setError("Invalid email or password. Please try again.");
+      } else if (apiError.status === 429) {
+        setError("Too many login attempts. Please wait a few minutes and try again.");
+      } else {
+        setError(apiError.message || "Login failed. Please try again.");
+      }
+      
+      toast({
+        title: "Login failed",
+        description: apiError.message || "Please check your credentials and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -59,6 +84,13 @@ export default function Login() {
             Sign in to your account to continue
           </p>
 
+          {/* Error Alert */}
+          {error && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -74,6 +106,7 @@ export default function Login() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10"
                   required
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -90,6 +123,7 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 pr-10"
                   required
+                  disabled={isLoading}
                 />
                 <button
                   type="button"

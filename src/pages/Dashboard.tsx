@@ -23,9 +23,9 @@ import {
   TrendingUp,
   Users,
   Globe,
-  Loader2,
   RefreshCw,
   AlertCircle,
+  FileSpreadsheet,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -40,6 +40,7 @@ import { useUserPlan } from "@/hooks/useUserPlan";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { BulkCSVImport } from "@/components/qr/BulkCSVImport";
 
 const typeColors: Record<string, string> = {
   url: "bg-primary/10 text-primary",
@@ -55,6 +56,7 @@ const typeColors: Record<string, string> = {
 export default function Dashboard() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const { qrCodes, deleteQRCode, getQRCodeCount, isLoading, error, refresh } = useQRStorage();
   const { plan, limits } = useUserPlan();
   const { toast } = useToast();
@@ -211,12 +213,20 @@ export default function Dashboard() {
                 Manage and track all your QR codes
               </p>
             </div>
-            <Button variant="hero" asChild>
-              <Link to="/dashboard/create">
-                <Plus className="w-5 h-5 mr-2" />
-                Create QR Code
-              </Link>
-            </Button>
+            <div className="flex items-center gap-3">
+              {plan === "enterprise" && (
+                <Button variant="outline" onClick={() => setShowBulkImport(true)}>
+                  <FileSpreadsheet className="w-5 h-5 mr-2" />
+                  Bulk Import
+                </Button>
+              )}
+              <Button variant="hero" asChild>
+                <Link to="/dashboard/create">
+                  <Plus className="w-5 h-5 mr-2" />
+                  Create QR Code
+                </Link>
+              </Button>
+            </div>
           </div>
         </header>
 
@@ -558,6 +568,19 @@ export default function Dashboard() {
           )}
         </div>
       </main>
+
+      {/* Bulk CSV Import Modal */}
+      <BulkCSVImport
+        open={showBulkImport}
+        onOpenChange={setShowBulkImport}
+        onSuccess={() => {
+          refresh();
+          toast({
+            title: "Import successful",
+            description: "Your QR codes have been created.",
+          });
+        }}
+      />
     </div>
   );
 }
