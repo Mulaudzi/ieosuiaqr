@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { QrCode, Mail, Lock, User, Eye, EyeOff, ArrowRight, Check } from "lucide-react";
+import { QrCode, Mail, Lock, User, Eye, EyeOff, ArrowRight, Check, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { authApi, authHelpers } from "@/services/api/auth";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const benefits = [
   "Create up to 5 QR codes for free",
@@ -22,31 +24,80 @@ export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const validateForm = (): boolean => {
+    if (!name.trim()) {
+      setError("Please enter your name.");
+      return false;
+    }
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Please enter a valid email address.");
+      return false;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long.");
+      return false;
+    }
+    if (!acceptTerms) {
+      setError("Please accept the terms and conditions to continue.");
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!acceptTerms) {
-      toast({
-        title: "Terms required",
-        description: "Please accept the terms and conditions to continue.",
-        variant: "destructive",
-      });
+    setError(null);
+
+    if (!validateForm()) {
       return;
     }
+
     setIsLoading(true);
 
-    // Simulate signup - replace with actual auth
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const response = await authApi.register({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        password_confirmation: password,
+      });
+      
+      // Store auth data
+      authHelpers.setAuth(response.data.tokens, response.data.user);
+      
+      toast({
+        title: "Account created!",
+        description: "Welcome to IEOSUIA QR. Let's create your first QR code!",
+      });
 
-    toast({
-      title: "Account created!",
-      description: "Welcome to IEOSUIA QR. Let's create your first QR code!",
-    });
-
-    navigate("/dashboard");
-    setIsLoading(false);
+      navigate("/dashboard");
+    } catch (err: unknown) {
+      const apiError = err as { message?: string; status?: number; errors?: Record<string, string[]> };
+      
+      if (apiError.status === 409 || apiError.errors?.email) {
+        setError("An account with this email already exists. Please sign in instead.");
+      } else if (apiError.status === 422 && apiError.errors) {
+        // Validation errors
+        const firstError = Object.values(apiError.errors)[0]?.[0];
+        setError(firstError || "Please check your information and try again.");
+      } else if (apiError.status === 429) {
+        setError("Too many attempts. Please wait a few minutes and try again.");
+      } else {
+        setError(apiError.message || "Registration failed. Please try again.");
+      }
+      
+      toast({
+        title: "Registration failed",
+        description: apiError.message || "Please check your information and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -115,6 +166,13 @@ export default function Signup() {
             Start your free trial, no credit card required
           </p>
 
+          {/* Error Alert */}
+          {error && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -130,6 +188,7 @@ export default function Signup() {
                   onChange={(e) => setName(e.target.value)}
                   className="pl-10"
                   required
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -146,6 +205,7 @@ export default function Signup() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10"
                   required
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -163,6 +223,7 @@ export default function Signup() {
                   className="pl-10 pr-10"
                   required
                   minLength={8}
+                  disabled={isLoading}
                 />
                 <button
                   type="button"
