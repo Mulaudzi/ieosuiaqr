@@ -236,7 +236,7 @@ class AuthController
         }
 
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT id FROM users WHERE verification_token = ? AND email_verified_at IS NULL");
+        $stmt = $pdo->prepare("SELECT id, email, name FROM users WHERE verification_token = ? AND email_verified_at IS NULL");
         $stmt->execute([$data['token']]);
         $user = $stmt->fetch();
 
@@ -246,6 +246,12 @@ class AuthController
 
         $stmt = $pdo->prepare("UPDATE users SET email_verified_at = NOW(), verification_token = NULL WHERE id = ?");
         $stmt->execute([$user['id']]);
+
+        // Send welcome email
+        $emailSent = MailService::sendWelcomeEmail($user['email'], $user['name']);
+        if (!$emailSent) {
+            error_log("Failed to send welcome email to: " . $user['email']);
+        }
 
         Response::success(null, 'Email verified successfully');
     }
