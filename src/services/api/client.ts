@@ -1,8 +1,8 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 import { ApiError } from "./types";
 
-// Base URL for API - update this for production
-const API_BASE_URL = import.meta.env.VITE_API_URL || "/api/v1";
+// Base URL for API - uses environment variable or defaults to production
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://qr.ieosuia.com/api/v1";
 
 // Create axios instance with default config
 const apiClient: AxiosInstance = axios.create({
