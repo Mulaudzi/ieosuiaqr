@@ -14,7 +14,7 @@ Plain PHP REST API backend for the IEOSUIA QR platform. No frameworks - just van
 ### 1. Install Dependencies
 
 ```bash
-cd api-reference
+cd api
 composer install
 ```
 
