@@ -164,6 +164,28 @@ class MailService
     }
 
     /**
+     * Send welcome email after verification
+     */
+    public static function sendWelcomeEmail(string $email, string $name): bool
+    {
+        $appUrl = $_ENV['APP_URL'] ?? 'https://qr.ieosuia.com';
+        $dashboardUrl = $appUrl . '/dashboard';
+
+        $subject = 'Welcome to IEOSUIA QR! 🎉';
+
+        $html = self::getEmailTemplate(
+            'Welcome Aboard!',
+            "Hello $name,",
+            'Your email has been verified and your account is now fully activated! You\'re all set to start creating powerful, trackable QR codes for your business.',
+            $dashboardUrl,
+            'Go to Dashboard',
+            'Start creating QR codes today and unlock the power of smart engagement.'
+        );
+
+        return self::send($email, $subject, $html);
+    }
+
+    /**
      * Get styled email template
      */
     private static function getEmailTemplate(
