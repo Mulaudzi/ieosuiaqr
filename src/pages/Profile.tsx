@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { authApi } from "@/services/api/auth";
 import { useUserPlan } from "@/hooks/useUserPlan";
 import { useToast } from "@/hooks/use-toast";
+import { AvatarCropper } from "@/components/profile/AvatarCropper";
 import {
   QrCode,
   BarChart3,
@@ -25,6 +26,7 @@ import {
   Eye,
   EyeOff,
   Lock,
+  Camera,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -50,6 +52,8 @@ export default function Profile() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [showAvatarCropper, setShowAvatarCropper] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -57,6 +61,31 @@ export default function Profile() {
       setEmail(user.email || "");
     }
   }, [user]);
+
+  const handleAvatarUpload = async (croppedImage: Blob) => {
+    setIsUploadingAvatar(true);
+    try {
+      const response = await authApi.uploadAvatar(croppedImage);
+      if (response.success && response.data) {
+        updateUser({ ...user!, avatar_url: response.data.avatar_url });
+        toast({
+          title: "Avatar updated",
+          description: "Your profile photo has been updated successfully.",
+        });
+        setShowAvatarCropper(false);
+      }
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: err.message || "Failed to upload avatar. Please try again.",
+      });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
 
   const handleLogout = async () => {
     try {
@@ -296,10 +325,26 @@ export default function Profile() {
             className="p-6 rounded-2xl bg-card border border-border mb-6"
           >
             <div className="flex items-start gap-6 mb-6">
-              <div className="w-24 h-24 rounded-2xl bg-primary/10 flex items-center justify-center">
-                <span className="text-3xl font-display font-bold text-primary">
-                  {user?.name ? user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) : "U"}
-                </span>
+              <div className="relative group">
+                {user?.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt={user.name}
+                    className="w-24 h-24 rounded-2xl object-cover"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-2xl bg-primary/10 flex items-center justify-center">
+                    <span className="text-3xl font-display font-bold text-primary">
+                      {user?.name ? user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) : "U"}
+                    </span>
+                  </div>
+                )}
+                <button
+                  onClick={() => setShowAvatarCropper(true)}
+                  className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Camera className="w-6 h-6 text-white" />
+                </button>
               </div>
               <div className="flex-1">
                 <h2 className="font-display text-xl font-bold">{user?.name || "User"}</h2>
@@ -314,6 +359,15 @@ export default function Profile() {
                     {currentPlan} Plan
                   </Badge>
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => setShowAvatarCropper(true)}
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  Change Photo
+                </Button>
               </div>
             </div>
 
@@ -450,6 +504,14 @@ export default function Profile() {
           </motion.div>
         </div>
       </main>
+
+      {/* Avatar Cropper Modal */}
+      <AvatarCropper
+        open={showAvatarCropper}
+        onClose={() => setShowAvatarCropper(false)}
+        onCropComplete={handleAvatarUpload}
+        isUploading={isUploadingAvatar}
+      />
     </div>
   );
 }
