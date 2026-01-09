@@ -9,25 +9,25 @@ export { billingApi, payfastHelpers } from "./billing";
 export { analyticsApi, scanHelpers } from "./analytics";
 
 /**
- * API Integration Guide for Laravel Backend
- * =========================================
+ * API Integration Guide for PHP Backend
+ * ======================================
  * 
- * This service layer is ready to connect to your Laravel PHP backend.
+ * This service layer connects to the plain PHP backend in /api folder.
  * 
  * Backend Requirements:
  * ---------------------
- * 1. Laravel 10+ with tymon/jwt-auth for authentication
- * 2. PayFast PHP SDK for payments
+ * 1. PHP 8.1+ with firebase/php-jwt for authentication
+ * 2. PayFast integration for payments
  * 3. GeoIP2 for scan location tracking
- * 4. WhichBrowser for device detection
+ * 4. donatj/phpuseragentparser for device detection
  * 
  * Environment Variables (frontend):
  * ---------------------------------
  * VITE_API_URL=/api/v1  (or https://qr.ieosuia.com/api/v1 for production)
  * 
- * Laravel .env (backend):
- * -----------------------
- * APP_KEY=your-app-key
+ * Backend .env (api folder):
+ * --------------------------
+ * APP_ENV=production
  * DB_CONNECTION=mysql
  * DB_HOST=127.0.0.1
  * DB_DATABASE=ieosuia_qr
@@ -43,8 +43,8 @@ export { analyticsApi, scanHelpers } from "./analytics";
  * 
  * GEOIP_DB_PATH=/path/to/GeoLite2-City.mmdb
  * 
- * Laravel Routes (routes/api.php):
- * --------------------------------
+ * API Routes (see api/index.php):
+ * -------------------------------
  * // Public routes
  * Route::post('/register', [AuthController::class, 'register']);
  * Route::post('/login', [AuthController::class, 'login']);
