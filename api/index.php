@@ -72,6 +72,9 @@ try {
     elseif ($uri === '/v1/user/profile' && $method === 'PUT') {
         AuthController::updateProfile();
     }
+    elseif ($uri === '/v1/user/avatar' && $method === 'POST') {
+        AuthController::uploadAvatar();
+    }
 
     // QR codes
     elseif ($uri === '/v1/qr' && $method === 'POST') {

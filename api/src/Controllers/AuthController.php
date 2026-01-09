@@ -170,8 +170,30 @@ class AuthController
         $user = Auth::check();
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
+        $pdo = Database::getInstance();
         $updates = [];
         $params = [];
+
+        // Verify current password if changing password
+        if (isset($data['password']) && !empty($data['password'])) {
+            if (empty($data['current_password'])) {
+                Response::error('Current password is required to change password', 400);
+            }
+
+            // Fetch current password hash
+            $stmt = $pdo->prepare("SELECT password FROM users WHERE id = ?");
+            $stmt->execute([$user['id']]);
+            $userData = $stmt->fetch();
+
+            if (!password_verify($data['current_password'], $userData['password'])) {
+                Response::error('Current password is incorrect', 401);
+            }
+
+            $validator = new Validator(['password' => $data['password']]);
+            $validator->minLength('password', 8)->validate();
+            $updates[] = "password = ?";
+            $params[] = password_hash($data['password'], PASSWORD_BCRYPT);
+        }
 
         if (isset($data['name'])) {
             $validator = new Validator(['name' => $data['name']]);
@@ -184,7 +206,6 @@ class AuthController
             $validator = new Validator(['email' => $data['email']]);
             $validator->email('email')->validate();
             
-            $pdo = Database::getInstance();
             $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
             $stmt->execute([strtolower(trim($data['email'])), $user['id']]);
             
@@ -196,11 +217,9 @@ class AuthController
             $params[] = strtolower(trim($data['email']));
         }
 
-        if (isset($data['password'])) {
-            $validator = new Validator(['password' => $data['password']]);
-            $validator->minLength('password', 8)->validate();
-            $updates[] = "password = ?";
-            $params[] = password_hash($data['password'], PASSWORD_BCRYPT);
+        if (isset($data['avatar_url'])) {
+            $updates[] = "avatar_url = ?";
+            $params[] = $data['avatar_url'];
         }
 
         if (empty($updates)) {
@@ -208,13 +227,12 @@ class AuthController
         }
 
         $params[] = $user['id'];
-        $pdo = Database::getInstance();
         $sql = "UPDATE users SET " . implode(', ', $updates) . ", updated_at = NOW() WHERE id = ?";
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
 
         // Fetch updated user
-        $stmt = $pdo->prepare("SELECT id, email, name, plan, email_verified_at FROM users WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT id, email, name, plan, email_verified_at, avatar_url FROM users WHERE id = ?");
         $stmt->execute([$user['id']]);
         $updatedUser = $stmt->fetch();
 
@@ -223,8 +241,80 @@ class AuthController
             'email' => $updatedUser['email'],
             'name' => $updatedUser['name'],
             'plan' => $updatedUser['plan'],
-            'email_verified' => !empty($updatedUser['email_verified_at'])
+            'email_verified' => !empty($updatedUser['email_verified_at']),
+            'avatar_url' => $updatedUser['avatar_url']
         ], 'Profile updated successfully');
+    }
+
+    public static function uploadAvatar(): void
+    {
+        $user = Auth::check();
+
+        if (!isset($_FILES['avatar']) || $_FILES['avatar']['error'] !== UPLOAD_ERR_OK) {
+            Response::error('No valid file uploaded', 400);
+        }
+
+        $file = $_FILES['avatar'];
+        $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        $maxSize = 5 * 1024 * 1024; // 5MB
+
+        // Validate file type
+        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+        $mimeType = $finfo->file($file['tmp_name']);
+
+        if (!in_array($mimeType, $allowedTypes)) {
+            Response::error('Invalid file type. Allowed: JPG, PNG, GIF, WebP', 400);
+        }
+
+        if ($file['size'] > $maxSize) {
+            Response::error('File too large. Maximum size: 5MB', 400);
+        }
+
+        // Create upload directory
+        $uploadDir = __DIR__ . '/../../uploads/avatars/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        // Generate unique filename
+        $extension = match($mimeType) {
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+            default => 'jpg'
+        };
+        $filename = 'avatar_' . $user['id'] . '_' . bin2hex(random_bytes(8)) . '.' . $extension;
+        $filepath = $uploadDir . $filename;
+
+        // Delete old avatar if exists
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT avatar_url FROM users WHERE id = ?");
+        $stmt->execute([$user['id']]);
+        $oldAvatar = $stmt->fetchColumn();
+
+        if ($oldAvatar && strpos($oldAvatar, '/uploads/avatars/') !== false) {
+            $oldPath = __DIR__ . '/../../' . str_replace('/api/', '', parse_url($oldAvatar, PHP_URL_PATH));
+            if (file_exists($oldPath)) {
+                unlink($oldPath);
+            }
+        }
+
+        // Move uploaded file
+        if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+            Response::error('Failed to save file', 500);
+        }
+
+        // Update database with avatar URL
+        $appUrl = $_ENV['APP_URL'] ?? 'https://qr.ieosuia.com';
+        $avatarUrl = $appUrl . '/api/uploads/avatars/' . $filename;
+
+        $stmt = $pdo->prepare("UPDATE users SET avatar_url = ?, updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$avatarUrl, $user['id']]);
+
+        Response::success([
+            'avatar_url' => $avatarUrl
+        ], 'Avatar uploaded successfully');
     }
 
     public static function verifyEmail(): void

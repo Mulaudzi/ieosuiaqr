@@ -10,6 +10,9 @@ import {
   User,
 } from "./types";
 
+// Get base URL for direct requests
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://qr.ieosuia.com/api";
+
 // Auth endpoints - ready for Laravel backend
 export const authApi = {
   /**
@@ -50,6 +53,32 @@ export const authApi = {
    */
   updateProfile: async (data: UpdateProfileRequest): Promise<ApiResponse<User>> => {
     return put("/user/update", data);
+  },
+
+  /**
+   * Upload avatar image
+   * POST /api/v1/user/avatar
+   */
+  uploadAvatar: async (file: Blob): Promise<ApiResponse<{ avatar_url: string }>> => {
+    const formData = new FormData();
+    formData.append("avatar", file, "avatar.jpg");
+
+    const token = localStorage.getItem("auth_token");
+    const response = await fetch(`${API_BASE_URL}/v1/user/avatar`, {
+      method: "POST",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw { status: response.status, message: data.message || "Upload failed" };
+    }
+
+    return data;
   },
 
   /**
