@@ -7,6 +7,7 @@ use App\Helpers\Response;
 use App\Helpers\Validator;
 use App\Middleware\Auth;
 use App\Middleware\RateLimit;
+use App\Services\MailService;
 
 class AuthController
 {
@@ -62,8 +63,16 @@ class AuthController
             // Generate JWT token
             $token = Auth::generateToken($userId, 'Free');
 
-            // TODO: Send verification email
-            // mail($data['email'], 'Verify your email', "Click here to verify: {$appUrl}/verify?token={$verificationToken}");
+            // Send verification email
+            $emailSent = MailService::sendVerificationEmail(
+                strtolower(trim($data['email'])),
+                trim($data['name']),
+                $verificationToken
+            );
+
+            if (!$emailSent) {
+                error_log("Failed to send verification email to: " . $data['email']);
+            }
 
             Response::success([
                 'user' => [
@@ -249,7 +258,7 @@ class AuthController
         $validator->required('email')->email('email')->validate();
 
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT id, email FROM users WHERE email = ?");
+        $stmt = $pdo->prepare("SELECT id, email, name FROM users WHERE email = ?");
         $stmt->execute([strtolower(trim($data['email']))]);
         $user = $stmt->fetch();
 
@@ -259,8 +268,16 @@ class AuthController
             $stmt = $pdo->prepare("UPDATE users SET reset_token = ?, reset_token_expires = DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE id = ?");
             $stmt->execute([$resetToken, $user['id']]);
 
-            // TODO: Send password reset email
-            // mail($user['email'], 'Reset your password', "Click here to reset: {$appUrl}/reset-password?token={$resetToken}");
+            // Send password reset email
+            $emailSent = MailService::sendPasswordResetEmail(
+                $user['email'],
+                $user['name'],
+                $resetToken
+            );
+
+            if (!$emailSent) {
+                error_log("Failed to send password reset email to: " . $user['email']);
+            }
         }
 
         Response::success(null, 'If an account exists with this email, you will receive a password reset link.');
@@ -305,8 +322,17 @@ class AuthController
         $stmt = $pdo->prepare("UPDATE users SET verification_token = ? WHERE id = ?");
         $stmt->execute([$verificationToken, $user['id']]);
 
-        // TODO: Send verification email
-        // mail($user['email'], 'Verify your email', "Click here to verify: {$appUrl}/verify?token={$verificationToken}");
+        // Send verification email
+        $emailSent = MailService::sendVerificationEmail(
+            $user['email'],
+            $user['name'],
+            $verificationToken
+        );
+
+        if (!$emailSent) {
+            error_log("Failed to send verification email to: " . $user['email']);
+            Response::error('Failed to send verification email. Please try again.', 500);
+        }
 
         Response::success(null, 'Verification email sent. Please check your inbox.');
     }
