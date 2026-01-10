@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useRecaptcha } from "@/hooks/useRecaptcha";
 import { PasswordStrengthIndicator } from "@/components/auth/PasswordStrengthIndicator";
+import { SocialLoginButtons, AuthDivider } from "@/components/auth/SocialLoginButtons";
 
 const benefits = [
   "Create up to 5 QR codes for free",
@@ -180,6 +181,11 @@ export default function Signup() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+
+          {/* Social Login */}
+          <SocialLoginButtons isLoading={isLoading} mode="signup" />
+
+          <AuthDivider />
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">

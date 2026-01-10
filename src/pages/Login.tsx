@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useRecaptcha } from "@/hooks/useRecaptcha";
+import { SocialLoginButtons, AuthDivider } from "@/components/auth/SocialLoginButtons";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -98,6 +99,11 @@ export default function Login() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+
+          {/* Social Login */}
+          <SocialLoginButtons isLoading={isLoading} mode="login" />
+
+          <AuthDivider />
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
