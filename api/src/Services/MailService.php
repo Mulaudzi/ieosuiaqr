@@ -2,6 +2,11 @@
 
 namespace App\Services;
 
+// Include local PHPMailer files
+require_once __DIR__ . '/../Libraries/PHPMailer/Exception.php';
+require_once __DIR__ . '/../Libraries/PHPMailer/PHPMailer.php';
+require_once __DIR__ . '/../Libraries/PHPMailer/SMTP.php';
+
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception;
