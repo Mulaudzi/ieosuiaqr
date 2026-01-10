@@ -392,6 +392,9 @@ class AuthController
     {
         $user = Auth::check();
 
+        // Rate limit: max 3 resend attempts per 5 minutes per user
+        RateLimit::check('resend_verification_' . $user['id'], 3, 5);
+
         if (!empty($user['email_verified_at'])) {
             Response::error('Email is already verified', 400);
         }
