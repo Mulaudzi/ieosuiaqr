@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useRecaptcha } from "@/hooks/useRecaptcha";
+import { PasswordStrengthIndicator } from "@/components/auth/PasswordStrengthIndicator";
 
 const benefits = [
   "Create up to 5 QR codes for free",
@@ -22,7 +23,9 @@ export default function Signup() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +45,14 @@ export default function Signup() {
     }
     if (password.length < 8) {
       setError("Password must be at least 8 characters long.");
+      return false;
+    }
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password)) {
+      setError("Password must contain uppercase, lowercase, and a number.");
+      return false;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
       return false;
     }
     if (!acceptTerms) {
@@ -233,9 +244,44 @@ export default function Signup() {
                   )}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Must be at least 8 characters
-              </p>
+              <PasswordStrengthIndicator password={password} />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Confirm your password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="pl-10 pr-10"
+                  required
+                  minLength={8}
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+              {confirmPassword && password !== confirmPassword && (
+                <p className="text-xs text-destructive">Passwords do not match</p>
+              )}
+              {confirmPassword && password === confirmPassword && (
+                <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                  <Check className="w-3 h-3" /> Passwords match
+                </p>
+              )}
             </div>
 
             <div className="flex items-start gap-2">
