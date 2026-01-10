@@ -331,6 +331,9 @@ class AuthController
 
     public static function forgotPassword(): void
     {
+        // Rate limit: max 3 forgot password attempts per 15 minutes per IP
+        RateLimit::check('forgot_password', 3, 15);
+
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
         $validator = new Validator($data);
