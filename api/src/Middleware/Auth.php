@@ -2,14 +2,57 @@
 
 namespace App\Middleware;
 
-use Firebase\JWT\JWT;
-use Firebase\JWT\Key;
 use App\Helpers\Response;
 use App\Config\Database;
 
 class Auth
 {
     private static ?array $user = null;
+
+    /**
+     * Base64 URL encode
+     */
+    private static function base64UrlEncode(string $data): string
+    {
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+    }
+
+    /**
+     * Base64 URL decode
+     */
+    private static function base64UrlDecode(string $data): string
+    {
+        return base64_decode(strtr($data, '-_', '+/'));
+    }
+
+    /**
+     * Decode and verify JWT token
+     */
+    private static function decodeToken(string $token): ?object
+    {
+        $parts = explode('.', $token);
+        if (count($parts) !== 3) {
+            return null;
+        }
+
+        [$header, $payload, $signature] = $parts;
+        
+        $secret = $_ENV['JWT_SECRET'] ?? '';
+        $expectedSignature = self::base64UrlEncode(
+            hash_hmac('sha256', "$header.$payload", $secret, true)
+        );
+
+        if (!hash_equals($expectedSignature, $signature)) {
+            return null;
+        }
+
+        $decodedPayload = json_decode(self::base64UrlDecode($payload));
+        if (!$decodedPayload) {
+            return null;
+        }
+
+        return $decodedPayload;
+    }
 
     public static function check(): array
     {
@@ -23,8 +66,11 @@ class Auth
         $token = $matches[1];
 
         try {
-            $secret = $_ENV['JWT_SECRET'] ?? '';
-            $decoded = JWT::decode($token, new Key($secret, 'HS256'));
+            $decoded = self::decodeToken($token);
+            
+            if (!$decoded) {
+                Response::error('Invalid token', 401);
+            }
 
             // Verify token hasn't expired
             if (isset($decoded->exp) && $decoded->exp < time()) {
@@ -85,15 +131,22 @@ class Auth
         $issuer = $_ENV['JWT_ISSUER'] ?? 'qr.ieosuia.com';
         $expiry = (int)($_ENV['JWT_EXPIRY'] ?? 3600);
 
-        $payload = [
+        $header = json_encode(['typ' => 'JWT', 'alg' => 'HS256']);
+        $payload = json_encode([
             'iss' => $issuer,
             'user_id' => $userId,
             'plan' => $plan,
             'iat' => time(),
             'exp' => time() + $expiry
-        ];
+        ]);
 
-        return JWT::encode($payload, $secret, 'HS256');
+        $base64Header = self::base64UrlEncode($header);
+        $base64Payload = self::base64UrlEncode($payload);
+        $signature = self::base64UrlEncode(
+            hash_hmac('sha256', "$base64Header.$base64Payload", $secret, true)
+        );
+
+        return "$base64Header.$base64Payload.$signature";
     }
 
     /**
