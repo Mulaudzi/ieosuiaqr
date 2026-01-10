@@ -95,4 +95,28 @@ class Auth
 
         return JWT::encode($payload, $secret, 'HS256');
     }
+
+    /**
+     * Format user data for frontend consumption
+     * Converts snake_case DB fields to camelCase and transforms data types
+     */
+    public static function formatUserForFrontend(?array $user): ?array
+    {
+        if ($user === null) return null;
+
+        return [
+            'id' => (string)$user['id'],
+            'name' => $user['name'] ?? null,
+            'email' => $user['email'] ?? null,
+            'plan' => $user['plan'] ?? 'Free',
+            'businessName' => $user['business_name'] ?? null,
+            'phone' => $user['phone'] ?? null,
+            'address' => $user['address'] ?? null,
+            'taxNumber' => $user['tax_number'] ?? null,
+            'avatar' => $user['avatar_url'] ?? null,
+            'emailVerified' => !empty($user['email_verified_at']),
+            'emailVerifiedAt' => $user['email_verified_at'] ?? null,
+            'createdAt' => $user['created_at'] ?? null,
+        ];
+    }
 }

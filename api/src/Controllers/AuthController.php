@@ -74,14 +74,13 @@ class AuthController
                 error_log("Failed to send verification email to: " . $data['email']);
             }
 
+            // Fetch the newly created user for formatting
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+            $newUser = $stmt->fetch();
+
             Response::success([
-                'user' => [
-                    'id' => $userId,
-                    'email' => strtolower(trim($data['email'])),
-                    'name' => trim($data['name']),
-                    'plan' => 'Free',
-                    'email_verified' => false
-                ],
+                'user' => Auth::formatUserForFrontend($newUser),
                 'tokens' => [
                     'access_token' => $token,
                     'token_type' => 'Bearer',
@@ -129,13 +128,7 @@ class AuthController
         $token = Auth::generateToken($user['id'], $user['plan']);
 
         Response::success([
-            'user' => [
-                'id' => $user['id'],
-                'email' => $user['email'],
-                'name' => $user['name'],
-                'plan' => $user['plan'],
-                'email_verified' => !empty($user['email_verified_at'])
-            ],
+            'user' => Auth::formatUserForFrontend($user),
             'tokens' => [
                 'access_token' => $token,
                 'token_type' => 'Bearer',
@@ -156,13 +149,7 @@ class AuthController
     {
         $user = Auth::check();
 
-        Response::success([
-            'id' => $user['id'],
-            'email' => $user['email'],
-            'name' => $user['name'],
-            'plan' => $user['plan'],
-            'email_verified' => !empty($user['email_verified_at'])
-        ]);
+        Response::success(Auth::formatUserForFrontend($user));
     }
 
     public static function updateProfile(): void
@@ -236,14 +223,7 @@ class AuthController
         $stmt->execute([$user['id']]);
         $updatedUser = $stmt->fetch();
 
-        Response::success([
-            'id' => $updatedUser['id'],
-            'email' => $updatedUser['email'],
-            'name' => $updatedUser['name'],
-            'plan' => $updatedUser['plan'],
-            'email_verified' => !empty($updatedUser['email_verified_at']),
-            'avatar_url' => $updatedUser['avatar_url']
-        ], 'Profile updated successfully');
+        Response::success(Auth::formatUserForFrontend($updatedUser), 'Profile updated successfully');
     }
 
     public static function uploadAvatar(): void
@@ -321,13 +301,16 @@ class AuthController
     {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
-        if (empty($data['token'])) {
+        // Check both JSON body AND query parameters for token
+        $token = $data['token'] ?? $_GET['token'] ?? null;
+
+        if (empty($token)) {
             Response::error('Verification token is required', 400);
         }
 
         $pdo = Database::getInstance();
         $stmt = $pdo->prepare("SELECT id, email, name FROM users WHERE verification_token = ? AND email_verified_at IS NULL");
-        $stmt->execute([$data['token']]);
+        $stmt->execute([$token]);
         $user = $stmt->fetch();
 
         if (!$user) {
