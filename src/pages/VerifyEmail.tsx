@@ -28,6 +28,10 @@ export default function VerifyEmail() {
       try {
         await authApi.verifyEmail(token);
         setStatus("success");
+        // Auto-redirect to dashboard after 2 seconds
+        setTimeout(() => {
+          navigate("/dashboard", { replace: true });
+        }, 2000);
       } catch (error: unknown) {
         setStatus("error");
         if (error && typeof error === "object" && "response" in error) {
@@ -80,11 +84,15 @@ export default function VerifyEmail() {
             <div className="text-center">
               <h3 className="text-xl font-semibold text-foreground">Email Verified!</h3>
               <p className="mt-2 text-muted-foreground">
-                Your email has been successfully verified. You can now access all features.
+                Your email has been successfully verified. Redirecting to dashboard...
               </p>
             </div>
-            <Button onClick={() => navigate("/dashboard")} className="mt-4">
-              Go to Dashboard
+            <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Redirecting automatically...</span>
+            </div>
+            <Button variant="outline" onClick={() => navigate("/dashboard", { replace: true })} className="mt-2">
+              Go to Dashboard Now
             </Button>
           </div>
         );
