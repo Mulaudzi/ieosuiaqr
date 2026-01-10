@@ -85,8 +85,8 @@ class AuthController
                 error_log("Failed to send verification email to: " . $data['email']);
             }
 
-            // Fetch the newly created user for formatting
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+            // Fetch the newly created user for formatting (explicit columns)
+            $stmt = $pdo->prepare("SELECT id, email, name, plan, email_verified_at, avatar_url, created_at FROM users WHERE id = ?");
             $stmt->execute([$userId]);
             $newUser = $stmt->fetch();
 
@@ -127,7 +127,7 @@ class AuthController
         $pdo = Database::getInstance();
 
         // Find user with all fields needed for frontend
-        $stmt = $pdo->prepare("SELECT id, email, password, name, plan, email_verified_at, created_at FROM users WHERE email = ?");
+        $stmt = $pdo->prepare("SELECT id, email, password, name, plan, email_verified_at, avatar_url, created_at FROM users WHERE email = ?");
         $stmt->execute([strtolower(trim($data['email']))]);
         $user = $stmt->fetch();
 

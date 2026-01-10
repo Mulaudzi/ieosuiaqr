@@ -49,30 +49,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string, captchaToken?: string | null) => {
-    const response = await authApi.login({ email, password, captcha_token: captchaToken });
-    if (response.success && response.data) {
-      const { user: userData, tokens } = response.data;
-      authHelpers.setAuth(tokens, userData);
-      setUser(userData);
-    } else {
-      throw new Error(response.message || "Login failed");
+    try {
+      const response = await authApi.login({ email, password, captcha_token: captchaToken });
+      if (response.success && response.data) {
+        const { user: userData, tokens } = response.data;
+        authHelpers.setAuth(tokens, userData);
+        setUser(userData);
+      } else {
+        throw new Error(response.message || "Login failed");
+      }
+    } catch (error: unknown) {
+      const apiError = error as { message?: string; status?: number };
+      throw new Error(apiError.message || "Login failed. Please check your credentials.");
     }
   }, []);
 
   const signup = useCallback(async (name: string, email: string, password: string, captchaToken?: string | null) => {
-    const response = await authApi.register({
-      name,
-      email,
-      password,
-      password_confirmation: password,
-      captcha_token: captchaToken,
-    });
-    if (response.success && response.data) {
-      const { user: userData, tokens } = response.data;
-      authHelpers.setAuth(tokens, userData);
-      setUser(userData);
-    } else {
-      throw new Error(response.message || "Registration failed");
+    try {
+      const response = await authApi.register({
+        name,
+        email,
+        password,
+        password_confirmation: password,
+        captcha_token: captchaToken,
+      });
+      if (response.success && response.data) {
+        const { user: userData, tokens } = response.data;
+        authHelpers.setAuth(tokens, userData);
+        setUser(userData);
+      } else {
+        throw new Error(response.message || "Registration failed");
+      }
+    } catch (error: unknown) {
+      const apiError = error as { message?: string; status?: number };
+      throw new Error(apiError.message || "Registration failed. Please try again.");
     }
   }, []);
 

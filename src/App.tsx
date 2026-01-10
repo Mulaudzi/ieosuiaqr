@@ -23,6 +23,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import CookiePolicy from "./pages/CookiePolicy";
 import Support from "./pages/Support";
 import NotFound from "./pages/NotFound";
+import GoogleCallback from "./pages/GoogleCallback";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ const App = () => (
             <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
             <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
             <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/auth/google/callback" element={<GoogleCallback />} />
             <Route path="/verification-required" element={<ProtectedRoute requireVerified={false}><VerificationRequired /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/dashboard/create" element={<ProtectedRoute><CreateQRCode /></ProtectedRoute>} />

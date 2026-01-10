@@ -11,6 +11,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useRecaptcha } from "@/hooks/useRecaptcha";
 import { PasswordStrengthIndicator } from "@/components/auth/PasswordStrengthIndicator";
+import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
+import { Separator } from "@/components/ui/separator";
 
 const benefits = [
   "Create up to 5 QR codes for free",
@@ -86,20 +88,37 @@ export default function Signup() {
       navigate("/dashboard");
     } catch (err: unknown) {
       const apiError = err as { message?: string };
+      let errorMessage = "Registration failed. Please try again.";
       
-      if (apiError.message?.includes("409") || apiError.message?.includes("already exists")) {
-        setError("An account with this email already exists. Please sign in instead.");
-      } else if (apiError.message?.includes("422")) {
-        setError("Please check your information and try again.");
-      } else if (apiError.message?.includes("429")) {
-        setError("Too many attempts. Please wait a few minutes and try again.");
-      } else {
-        setError(apiError.message || "Registration failed. Please try again.");
+      // Parse specific error messages
+      if (apiError.message) {
+        if (apiError.message.includes("already exists") || apiError.message.includes("409")) {
+          errorMessage = "An account with this email already exists. Please sign in instead.";
+        } else if (apiError.message.includes("disposable") || apiError.message.includes("temporary")) {
+          errorMessage = "Please use a valid email address. Disposable emails are not allowed.";
+        } else if (apiError.message.includes("422") || apiError.message.includes("validation")) {
+          errorMessage = "Please check your information and try again.";
+        } else if (apiError.message.includes("429") || apiError.message.includes("rate") || apiError.message.includes("Too many")) {
+          errorMessage = "Too many attempts. Please wait a few minutes and try again.";
+        } else if (apiError.message.includes("captcha") || apiError.message.includes("CAPTCHA")) {
+          errorMessage = "Security verification failed. Please refresh and try again.";
+        } else if (apiError.message.includes("email") && apiError.message.includes("failed")) {
+          // Registration succeeded but email failed - this is actually a success case
+          toast({
+            title: "Account created!",
+            description: "Welcome! Note: verification email could not be sent. Please contact support.",
+          });
+          navigate("/dashboard");
+          return;
+        } else {
+          errorMessage = apiError.message;
+        }
       }
       
+      setError(errorMessage);
       toast({
         title: "Registration failed",
-        description: apiError.message || "Please check your information and try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -180,6 +199,18 @@ export default function Signup() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+
+          {/* Google Auth */}
+          <GoogleAuthButton mode="signup" disabled={isLoading} />
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <Separator className="w-full" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">Or continue with email</span>
+            </div>
+          </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
