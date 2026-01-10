@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle2, XCircle, Loader2, Mail, ArrowLeft } from "lucide-react";
 import { authApi } from "@/services/api/auth";
+import { useAuth } from "@/contexts/AuthContext";
 
 type VerificationStatus = "verifying" | "success" | "error" | "no-token";
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
   const [status, setStatus] = useState<VerificationStatus>("verifying");
   const [errorMessage, setErrorMessage] = useState("");
   const [isResending, setIsResending] = useState(false);
@@ -28,6 +30,8 @@ export default function VerifyEmail() {
       try {
         await authApi.verifyEmail(token);
         setStatus("success");
+        // Refresh user data to update verified status
+        await refreshUser();
         // Auto-redirect to dashboard after 2 seconds
         setTimeout(() => {
           navigate("/dashboard", { replace: true });
