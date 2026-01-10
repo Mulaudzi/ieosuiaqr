@@ -13,30 +13,30 @@ import {
 // Get base URL for direct requests
 const API_BASE_URL = import.meta.env.VITE_API_URL || "https://qr.ieosuia.com/api";
 
-// Auth endpoints - ready for Laravel backend
+// Auth endpoints - matching PHP backend routes
 export const authApi = {
   /**
    * Register a new user
-   * POST /api/v1/register
+   * POST /api/v1/auth/register
    */
   register: async (data: RegisterRequest): Promise<ApiResponse<{ user: User; tokens: AuthTokens }>> => {
-    return post("/register", data);
+    return post("/v1/auth/register", data);
   },
 
   /**
    * Login user
-   * POST /api/v1/login
+   * POST /api/v1/auth/login
    */
   login: async (data: LoginRequest): Promise<ApiResponse<{ user: User; tokens: AuthTokens }>> => {
-    return post("/login", data);
+    return post("/v1/auth/login", data);
   },
 
   /**
    * Logout user
-   * POST /api/v1/logout
+   * POST /api/v1/auth/logout
    */
   logout: async (): Promise<ApiResponse<null>> => {
-    return post("/logout");
+    return post("/v1/auth/logout");
   },
 
   /**
@@ -44,15 +44,15 @@ export const authApi = {
    * GET /api/v1/user/profile
    */
   getProfile: async (): Promise<ApiResponse<User>> => {
-    return get("/user/profile");
+    return get("/v1/user/profile");
   },
 
   /**
    * Update user profile
-   * PUT /api/v1/user/update
+   * PUT /api/v1/user/profile
    */
   updateProfile: async (data: UpdateProfileRequest): Promise<ApiResponse<User>> => {
-    return put("/user/update", data);
+    return put("/v1/user/profile", data);
   },
 
   /**
@@ -83,42 +83,42 @@ export const authApi = {
 
   /**
    * Request password reset
-   * POST /api/v1/forgot-password
+   * POST /api/v1/auth/forgot-password
    */
   forgotPassword: async (data: ForgotPasswordRequest): Promise<ApiResponse<null>> => {
-    return post("/forgot-password", data);
+    return post("/v1/auth/forgot-password", data);
   },
 
   /**
    * Reset password with token
-   * POST /api/v1/reset-password
+   * POST /api/v1/auth/reset-password
    */
   resetPassword: async (data: ResetPasswordRequest): Promise<ApiResponse<null>> => {
-    return post("/reset-password", data);
+    return post("/v1/auth/reset-password", data);
   },
 
   /**
    * Verify email with token
-   * POST /api/v1/verify-email
+   * POST /api/v1/auth/verify-email
    */
   verifyEmail: async (token: string): Promise<ApiResponse<null>> => {
-    return post("/verify-email", { token });
+    return post("/v1/auth/verify-email", { token });
   },
 
   /**
    * Resend verification email
-   * POST /api/v1/resend-verification
+   * POST /api/v1/auth/resend-verification
    */
   resendVerification: async (): Promise<ApiResponse<null>> => {
-    return post("/resend-verification");
+    return post("/v1/auth/resend-verification");
   },
 
   /**
    * Refresh auth token
-   * POST /api/v1/refresh-token
+   * POST /api/v1/auth/refresh-token
    */
   refreshToken: async (): Promise<ApiResponse<AuthTokens>> => {
-    return post("/refresh-token");
+    return post("/v1/auth/refresh-token");
   },
 };
 
