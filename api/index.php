@@ -54,6 +54,7 @@ loadEnv(__DIR__ . '/.env');
 use App\Middleware\Cors;
 use App\Helpers\Response;
 use App\Controllers\AuthController;
+use App\Controllers\GoogleAuthController;
 use App\Controllers\QrController;
 use App\Controllers\ScanController;
 use App\Controllers\SubscriptionController;
@@ -94,6 +95,13 @@ try {
     }
     elseif ($uri === '/auth/resend-verification' && $method === 'POST') {
         AuthController::resendVerification();
+    }
+    // Google OAuth
+    elseif ($uri === '/auth/google' && $method === 'GET') {
+        GoogleAuthController::redirect();
+    }
+    elseif ($uri === '/auth/google/callback' && $method === 'GET') {
+        GoogleAuthController::callback();
     }
 
     // User profile (auth required)
