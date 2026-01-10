@@ -9,15 +9,46 @@ error_reporting(E_ALL);
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 
-// Autoload
-require_once __DIR__ . '/vendor/autoload.php';
+// Manual class loading (no composer)
+spl_autoload_register(function ($class) {
+    // Convert namespace to file path
+    $prefix = 'App\\';
+    $base_dir = __DIR__ . '/src/';
+    
+    $len = strlen($prefix);
+    if (strncmp($prefix, $class, $len) !== 0) {
+        return;
+    }
+    
+    $relative_class = substr($class, $len);
+    $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
+    
+    if (file_exists($file)) {
+        require $file;
+    }
+});
 
-// Load environment variables
-use Dotenv\Dotenv;
-if (file_exists(__DIR__ . '/.env')) {
-    $dotenv = Dotenv::createImmutable(__DIR__);
-    $dotenv->load();
+// Load environment variables manually
+function loadEnv($path) {
+    if (!file_exists($path)) return;
+    
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) continue;
+        
+        $parts = explode('=', $line, 2);
+        if (count($parts) === 2) {
+            $key = trim($parts[0]);
+            $value = trim($parts[1]);
+            // Remove quotes if present
+            $value = trim($value, '"\'');
+            $_ENV[$key] = $value;
+            putenv("$key=$value");
+        }
+    }
 }
+
+loadEnv(__DIR__ . '/.env');
 
 // Use classes
 use App\Middleware\Cors;

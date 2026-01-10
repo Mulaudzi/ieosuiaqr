@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute, PublicRoute } from "@/components/auth/ProtectedRoute";
+import { CookieConsent } from "@/components/CookieConsent";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -51,6 +52,7 @@ const App = () => (
             <Route path="/support" element={<Support />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <CookieConsent />
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
