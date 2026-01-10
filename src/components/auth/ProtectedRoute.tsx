@@ -35,8 +35,9 @@ export function ProtectedRoute({
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Check email verification if required
-  if (requireAuth && requireVerified && user && !user.email_verified_at) {
+  // Check email verification if required - check both email_verified boolean and email_verified_at
+  const isEmailVerified = user?.email_verified || user?.email_verified_at;
+  if (requireAuth && requireVerified && user && !isEmailVerified) {
     return <Navigate to="/verification-required" replace />;
   }
 
