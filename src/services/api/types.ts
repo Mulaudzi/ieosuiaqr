@@ -43,6 +43,7 @@ export interface AuthTokens {
 export interface LoginRequest {
   email: string;
   password: string;
+  captcha_token?: string | null;
 }
 
 export interface RegisterRequest {
@@ -50,6 +51,7 @@ export interface RegisterRequest {
   email: string;
   password: string;
   password_confirmation: string;
+  captcha_token?: string | null;
 }
 
 export interface ForgotPasswordRequest {

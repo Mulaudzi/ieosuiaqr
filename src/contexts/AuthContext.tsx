@@ -6,8 +6,8 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, captchaToken?: string | null) => Promise<void>;
+  signup: (name: string, email: string, password: string, captchaToken?: string | null) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (user: User) => void;
   refreshUser: () => Promise<void>;
@@ -48,8 +48,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const response = await authApi.login({ email, password });
+  const login = useCallback(async (email: string, password: string, captchaToken?: string | null) => {
+    const response = await authApi.login({ email, password, captcha_token: captchaToken });
     if (response.success && response.data) {
       const { user: userData, tokens } = response.data;
       authHelpers.setAuth(tokens, userData);
@@ -59,12 +59,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const signup = useCallback(async (name: string, email: string, password: string) => {
+  const signup = useCallback(async (name: string, email: string, password: string, captchaToken?: string | null) => {
     const response = await authApi.register({
       name,
       email,
       password,
       password_confirmation: password,
+      captcha_token: captchaToken,
     });
     if (response.success && response.data) {
       const { user: userData, tokens } = response.data;
