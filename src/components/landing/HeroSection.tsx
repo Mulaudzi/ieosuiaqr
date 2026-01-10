@@ -99,7 +99,7 @@ export function HeroSection() {
                 
                 <div className="bg-background rounded-2xl p-6 mb-6">
                   <QRCodeSVG
-                    value="https://qrcodes.ieosuia.com"
+                    value="https://ieosuia.com"
                     size={200}
                     level="H"
                     includeMargin={false}
