@@ -109,14 +109,14 @@ class Auth
             'name' => $user['name'] ?? null,
             'email' => $user['email'] ?? null,
             'plan' => $user['plan'] ?? 'Free',
-            'businessName' => $user['business_name'] ?? null,
+            'business_name' => $user['business_name'] ?? null,
             'phone' => $user['phone'] ?? null,
             'address' => $user['address'] ?? null,
-            'taxNumber' => $user['tax_number'] ?? null,
-            'avatar' => $user['avatar_url'] ?? null,
-            'emailVerified' => !empty($user['email_verified_at']),
-            'emailVerifiedAt' => $user['email_verified_at'] ?? null,
-            'createdAt' => $user['created_at'] ?? null,
+            'tax_number' => $user['tax_number'] ?? null,
+            'avatar_url' => $user['avatar_url'] ?? null,
+            'email_verified' => !empty($user['email_verified_at']),
+            'email_verified_at' => $user['email_verified_at'] ?? null,
+            'created_at' => $user['created_at'] ?? null,
         ];
     }
 }
