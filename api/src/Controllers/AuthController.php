@@ -127,7 +127,7 @@ class AuthController
         $pdo = Database::getInstance();
 
         // Find user with all fields needed for frontend
-        $stmt = $pdo->prepare("SELECT id, email, password, name, plan, email_verified_at, avatar_url, created_at FROM users WHERE email = ?");
+        $stmt = $pdo->prepare("SELECT id, email, password, name, plan, email_verified_at, created_at FROM users WHERE email = ?");
         $stmt->execute([strtolower(trim($data['email']))]);
         $user = $stmt->fetch();
 
