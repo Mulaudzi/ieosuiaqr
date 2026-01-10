@@ -16,14 +16,14 @@ const footerLinks = {
   ],
   resources: [
     { name: "Documentation", href: "/docs" },
-    { name: "Help Center", href: "/help" },
+    { name: "Support", href: "/support" },
     { name: "Tutorials", href: "/tutorials" },
     { name: "Templates", href: "/templates" },
   ],
   legal: [
     { name: "Privacy Policy", href: "/privacy" },
     { name: "Terms of Service", href: "/terms" },
-    { name: "GDPR", href: "/gdpr" },
+    { name: "Cookie Policy", href: "/cookies" },
     { name: "Security", href: "/security" },
   ],
 };
