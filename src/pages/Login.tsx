@@ -10,8 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useRecaptcha } from "@/hooks/useRecaptcha";
-import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
-import { Separator } from "@/components/ui/separator";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -48,27 +46,18 @@ export default function Login() {
       navigate(from, { replace: true });
     } catch (err: unknown) {
       const apiError = err as { message?: string; status?: number };
-      let errorMessage = "Login failed. Please try again.";
       
-      // Parse specific error messages
-      if (apiError.message) {
-        if (apiError.message.includes("Invalid") || apiError.message.includes("401") || apiError.message.includes("password")) {
-          errorMessage = "Invalid email or password. Please check your credentials and try again.";
-        } else if (apiError.message.includes("429") || apiError.message.includes("rate") || apiError.message.includes("Too many")) {
-          errorMessage = "Too many login attempts. Please wait a few minutes and try again.";
-        } else if (apiError.message.includes("captcha") || apiError.message.includes("CAPTCHA")) {
-          errorMessage = "Security verification failed. Please refresh and try again.";
-        } else if (apiError.message.includes("not found") || apiError.message.includes("exist")) {
-          errorMessage = "No account found with this email. Please check or create an account.";
-        } else {
-          errorMessage = apiError.message;
-        }
+      if (apiError.message?.includes("401") || apiError.message?.includes("Invalid")) {
+        setError("Invalid email or password. Please try again.");
+      } else if (apiError.message?.includes("429")) {
+        setError("Too many login attempts. Please wait a few minutes and try again.");
+      } else {
+        setError(apiError.message || "Login failed. Please try again.");
       }
       
-      setError(errorMessage);
       toast({
         title: "Login failed",
-        description: errorMessage,
+        description: apiError.message || "Please check your credentials and try again.",
         variant: "destructive",
       });
     } finally {
@@ -109,18 +98,6 @@ export default function Login() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-
-          {/* Google Auth */}
-          <GoogleAuthButton mode="login" disabled={isLoading} />
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <Separator className="w-full" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or continue with email</span>
-            </div>
-          </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
