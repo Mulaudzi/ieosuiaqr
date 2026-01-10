@@ -43,108 +43,108 @@ $uri = preg_replace('#^/api#', '', $uri);
 // Route matching
 try {
     // Auth routes (no auth required)
-    if ($uri === '/v1/auth/register' && $method === 'POST') {
+    if ($uri === '/auth/register' && $method === 'POST') {
         AuthController::register();
     }
-    elseif ($uri === '/v1/auth/login' && $method === 'POST') {
+    elseif ($uri === '/auth/login' && $method === 'POST') {
         AuthController::login();
     }
-    elseif ($uri === '/v1/auth/logout' && $method === 'POST') {
+    elseif ($uri === '/auth/logout' && $method === 'POST') {
         AuthController::logout();
     }
-    elseif ($uri === '/v1/auth/verify-email' && $method === 'POST') {
+    elseif ($uri === '/auth/verify-email' && $method === 'POST') {
         AuthController::verifyEmail();
     }
-    elseif ($uri === '/v1/auth/forgot-password' && $method === 'POST') {
+    elseif ($uri === '/auth/forgot-password' && $method === 'POST') {
         AuthController::forgotPassword();
     }
-    elseif ($uri === '/v1/auth/reset-password' && $method === 'POST') {
+    elseif ($uri === '/auth/reset-password' && $method === 'POST') {
         AuthController::resetPassword();
     }
-    elseif ($uri === '/v1/auth/resend-verification' && $method === 'POST') {
+    elseif ($uri === '/auth/resend-verification' && $method === 'POST') {
         AuthController::resendVerification();
     }
 
     // User profile (auth required)
-    elseif ($uri === '/v1/user/profile' && $method === 'GET') {
+    elseif ($uri === '/user/profile' && $method === 'GET') {
         AuthController::getProfile();
     }
-    elseif ($uri === '/v1/user/profile' && $method === 'PUT') {
+    elseif ($uri === '/user/profile' && $method === 'PUT') {
         AuthController::updateProfile();
     }
-    elseif ($uri === '/v1/user/avatar' && $method === 'POST') {
+    elseif ($uri === '/user/avatar' && $method === 'POST') {
         AuthController::uploadAvatar();
     }
 
     // QR codes
-    elseif ($uri === '/v1/qr' && $method === 'POST') {
+    elseif ($uri === '/qr' && $method === 'POST') {
         QrController::create();
     }
-    elseif ($uri === '/v1/qr' && $method === 'GET') {
+    elseif ($uri === '/qr' && $method === 'GET') {
         QrController::list();
     }
-    elseif ($uri === '/v1/qr/bulk' && $method === 'POST') {
+    elseif ($uri === '/qr/bulk' && $method === 'POST') {
         QrController::bulkCreate();
     }
-    elseif (preg_match('#^/v1/qr/(\d+)$#', $uri, $matches) && $method === 'GET') {
+    elseif (preg_match('#^/qr/(\d+)$#', $uri, $matches) && $method === 'GET') {
         QrController::show((int)$matches[1]);
     }
-    elseif (preg_match('#^/v1/qr/(\d+)$#', $uri, $matches) && $method === 'PUT') {
+    elseif (preg_match('#^/qr/(\d+)$#', $uri, $matches) && $method === 'PUT') {
         QrController::update((int)$matches[1]);
     }
-    elseif (preg_match('#^/v1/qr/(\d+)$#', $uri, $matches) && $method === 'DELETE') {
+    elseif (preg_match('#^/qr/(\d+)$#', $uri, $matches) && $method === 'DELETE') {
         QrController::delete((int)$matches[1]);
     }
-    elseif (preg_match('#^/v1/qr/(\d+)/scans$#', $uri, $matches) && $method === 'GET') {
+    elseif (preg_match('#^/qr/(\d+)/scans$#', $uri, $matches) && $method === 'GET') {
         ScanController::getScans((int)$matches[1]);
     }
-    elseif (preg_match('#^/v1/qr/(\d+)/stats$#', $uri, $matches) && $method === 'GET') {
+    elseif (preg_match('#^/qr/(\d+)/stats$#', $uri, $matches) && $method === 'GET') {
         ScanController::getStats((int)$matches[1]);
     }
 
     // Scan logging (public)
-    elseif ($uri === '/v1/scan/log' && $method === 'POST') {
+    elseif ($uri === '/scan/log' && $method === 'POST') {
         ScanController::log();
     }
-    elseif ($uri === '/v1/scan/log' && $method === 'GET') {
+    elseif ($uri === '/scan/log' && $method === 'GET') {
         ScanController::log(); // Also support GET for redirects
     }
 
     // Subscriptions
-    elseif ($uri === '/v1/subscriptions/plans' && $method === 'GET') {
+    elseif ($uri === '/subscriptions/plans' && $method === 'GET') {
         SubscriptionController::getPlans();
     }
-    elseif ($uri === '/v1/subscriptions/current' && $method === 'GET') {
+    elseif ($uri === '/subscriptions/current' && $method === 'GET') {
         SubscriptionController::getCurrentSubscription();
     }
-    elseif ($uri === '/v1/subscriptions/cancel' && $method === 'POST') {
+    elseif ($uri === '/subscriptions/cancel' && $method === 'POST') {
         SubscriptionController::cancel();
     }
 
     // Payments
-    elseif ($uri === '/v1/payments/checkout' && $method === 'POST') {
+    elseif ($uri === '/payments/checkout' && $method === 'POST') {
         PaymentController::checkout();
     }
-    elseif ($uri === '/v1/webhooks/payfast' && $method === 'POST') {
+    elseif ($uri === '/webhooks/payfast' && $method === 'POST') {
         PaymentController::handleWebhook();
     }
 
     // Billing/Invoices
-    elseif ($uri === '/v1/billing/invoices' && $method === 'GET') {
+    elseif ($uri === '/billing/invoices' && $method === 'GET') {
         BillingController::getInvoices();
     }
-    elseif (preg_match('#^/v1/billing/invoices/(\d+)$#', $uri, $matches) && $method === 'GET') {
+    elseif (preg_match('#^/billing/invoices/(\d+)$#', $uri, $matches) && $method === 'GET') {
         BillingController::getInvoice((int)$matches[1]);
     }
-    elseif (preg_match('#^/v1/billing/invoices/(\d+)/receipt$#', $uri, $matches) && $method === 'GET') {
+    elseif (preg_match('#^/billing/invoices/(\d+)/receipt$#', $uri, $matches) && $method === 'GET') {
         BillingController::downloadReceipt((int)$matches[1]);
     }
 
     // Analytics
-    elseif ($uri === '/v1/analytics/dashboard' && $method === 'GET') {
+    elseif ($uri === '/analytics/dashboard' && $method === 'GET') {
         AnalyticsController::getDashboard();
     }
-    elseif ($uri === '/v1/analytics/export' && $method === 'GET') {
+    elseif ($uri === '/analytics/export' && $method === 'GET') {
         AnalyticsController::exportCsv();
     }
 
