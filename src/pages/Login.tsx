@@ -9,6 +9,7 @@ import { QrCode, Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useRecaptcha } from "@/hooks/useRecaptcha";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -21,6 +22,7 @@ export default function Login() {
   const location = useLocation();
   const { toast } = useToast();
   const { login } = useAuth();
+  const { executeRecaptcha } = useRecaptcha();
 
   // Get the redirect destination from location state
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/dashboard";
@@ -31,7 +33,10 @@ export default function Login() {
     setError(null);
 
     try {
-      await login(email, password);
+      // Execute reCAPTCHA
+      const captchaToken = await executeRecaptcha('login');
+      
+      await login(email, password, captchaToken);
       
       toast({
         title: "Welcome back!",

@@ -7,6 +7,7 @@ use App\Helpers\Response;
 use App\Helpers\Validator;
 use App\Middleware\Auth;
 use App\Middleware\RateLimit;
+use App\Services\CaptchaService;
 use App\Services\EmailValidationService;
 use App\Services\MailService;
 
@@ -18,6 +19,9 @@ class AuthController
 
         // Rate limit registration attempts
         RateLimit::check('register', 5, 60);
+
+        // Verify CAPTCHA
+        CaptchaService::verify($data['captcha_token'] ?? null, 'signup');
 
         // Validate input
         $validator = new Validator($data);
@@ -108,6 +112,9 @@ class AuthController
 
         // Rate limit login attempts
         RateLimit::check('login', 5, 5);
+
+        // Verify CAPTCHA
+        CaptchaService::verify($data['captcha_token'] ?? null, 'login');
 
         // Validate input
         $validator = new Validator($data);

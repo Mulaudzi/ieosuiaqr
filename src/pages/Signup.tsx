@@ -9,6 +9,7 @@ import { QrCode, Mail, Lock, User, Eye, EyeOff, ArrowRight, Check, AlertCircle }
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useRecaptcha } from "@/hooks/useRecaptcha";
 
 const benefits = [
   "Create up to 5 QR codes for free",
@@ -28,6 +29,7 @@ export default function Signup() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { signup } = useAuth();
+  const { executeRecaptcha } = useRecaptcha();
 
   const validateForm = (): boolean => {
     if (!name.trim()) {
@@ -60,7 +62,10 @@ export default function Signup() {
     setIsLoading(true);
 
     try {
-      await signup(name.trim(), email.trim(), password);
+      // Execute reCAPTCHA
+      const captchaToken = await executeRecaptcha('signup');
+      
+      await signup(name.trim(), email.trim(), password, captchaToken);
       
       toast({
         title: "Account created!",
