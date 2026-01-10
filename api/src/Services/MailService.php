@@ -2,121 +2,75 @@
 
 namespace App\Services;
 
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception;
+
 class MailService
 {
-    private static string $host;
-    private static int $port;
-    private static string $username;
-    private static string $password;
-    private static string $fromEmail;
-    private static string $fromName;
+    private static ?PHPMailer $mailer = null;
 
-    public static function init(): void
+    private static function getMailer(): PHPMailer
     {
-        self::$host = $_ENV['SMTP_HOST'] ?? 'qr.ieosuia.com';
-        self::$port = (int)($_ENV['SMTP_PORT'] ?? 465);
-        self::$username = $_ENV['SMTP_USER'] ?? 'noreply@qr.ieosuia.com';
-        self::$password = $_ENV['SMTP_PASS'] ?? 'I Am Ieosuia';
-        self::$fromEmail = $_ENV['SMTP_FROM_EMAIL'] ?? 'noreply@qr.ieosuia.com';
-        self::$fromName = $_ENV['SMTP_FROM_NAME'] ?? 'IEOSUIA QR';
+        if (self::$mailer === null) {
+            self::$mailer = new PHPMailer(true);
+
+            // Server settings
+            self::$mailer->isSMTP();
+            self::$mailer->Host = $_ENV['SMTP_HOST'] ?? 'qr.ieosuia.com';
+            self::$mailer->SMTPAuth = true;
+            self::$mailer->Username = $_ENV['SMTP_USER'] ?? 'noreply@qr.ieosuia.com';
+            self::$mailer->Password = $_ENV['SMTP_PASS'] ?? '';
+            self::$mailer->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+            self::$mailer->Port = (int)($_ENV['SMTP_PORT'] ?? 465);
+
+            // Default sender
+            self::$mailer->setFrom(
+                $_ENV['SMTP_FROM_EMAIL'] ?? 'noreply@qr.ieosuia.com',
+                $_ENV['SMTP_FROM_NAME'] ?? 'IEOSUIA QR'
+            );
+
+            // Encoding
+            self::$mailer->CharSet = 'UTF-8';
+            self::$mailer->Encoding = 'base64';
+
+            // Debug (set to 0 for production)
+            self::$mailer->SMTPDebug = ($_ENV['APP_DEBUG'] ?? 'false') === 'true' ? SMTP::DEBUG_SERVER : SMTP::DEBUG_OFF;
+        }
+
+        return self::$mailer;
     }
 
     /**
-     * Send email using SMTP with SSL
+     * Send email using PHPMailer
      */
     public static function send(string $to, string $subject, string $htmlBody, ?string $textBody = null): bool
     {
-        self::init();
-
         try {
-            // Create socket connection with SSL
-            $socket = @fsockopen('ssl://' . self::$host, self::$port, $errno, $errstr, 30);
-            
-            if (!$socket) {
-                error_log("SMTP Connection failed: $errstr ($errno)");
-                return false;
-            }
+            $mail = self::getMailer();
 
-            // Set timeout
-            stream_set_timeout($socket, 30);
+            // Clear previous recipients
+            $mail->clearAddresses();
+            $mail->clearReplyTos();
 
-            // Read greeting
-            self::readResponse($socket);
+            // Recipient
+            $mail->addAddress($to);
 
-            // Send EHLO
-            self::sendCommand($socket, 'EHLO ' . self::$host);
+            // Content
+            $mail->isHTML(true);
+            $mail->Subject = $subject;
+            $mail->Body = $htmlBody;
+            $mail->AltBody = $textBody ?? strip_tags($htmlBody);
 
-            // Authenticate
-            self::sendCommand($socket, 'AUTH LOGIN');
-            self::sendCommand($socket, base64_encode(self::$username));
-            self::sendCommand($socket, base64_encode(self::$password));
+            $mail->send();
 
-            // Set sender
-            self::sendCommand($socket, 'MAIL FROM:<' . self::$fromEmail . '>');
-
-            // Set recipient
-            self::sendCommand($socket, 'RCPT TO:<' . $to . '>');
-
-            // Start data
-            self::sendCommand($socket, 'DATA');
-
-            // Generate boundary for multipart
-            $boundary = md5(uniqid(time()));
-
-            // Build headers
-            $headers = "From: " . self::$fromName . " <" . self::$fromEmail . ">\r\n";
-            $headers .= "To: <$to>\r\n";
-            $headers .= "Subject: $subject\r\n";
-            $headers .= "MIME-Version: 1.0\r\n";
-            $headers .= "Content-Type: multipart/alternative; boundary=\"$boundary\"\r\n";
-            $headers .= "Date: " . date('r') . "\r\n";
-            $headers .= "\r\n";
-
-            // Build body
-            $body = "--$boundary\r\n";
-            $body .= "Content-Type: text/plain; charset=UTF-8\r\n";
-            $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
-            $body .= ($textBody ?? strip_tags($htmlBody)) . "\r\n\r\n";
-            
-            $body .= "--$boundary\r\n";
-            $body .= "Content-Type: text/html; charset=UTF-8\r\n";
-            $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
-            $body .= $htmlBody . "\r\n\r\n";
-            
-            $body .= "--$boundary--\r\n";
-
-            // Send message
-            fwrite($socket, $headers . $body . "\r\n.\r\n");
-            self::readResponse($socket);
-
-            // Quit
-            self::sendCommand($socket, 'QUIT');
-
-            fclose($socket);
+            error_log("Email sent successfully to: $to");
             return true;
 
-        } catch (\Exception $e) {
-            error_log("SMTP Error: " . $e->getMessage());
+        } catch (Exception $e) {
+            error_log("PHPMailer Error: " . $e->getMessage());
             return false;
         }
-    }
-
-    private static function sendCommand($socket, string $command): string
-    {
-        fwrite($socket, $command . "\r\n");
-        return self::readResponse($socket);
-    }
-
-    private static function readResponse($socket): string
-    {
-        $response = '';
-        while ($line = fgets($socket, 515)) {
-            $response .= $line;
-            if (substr($line, 3, 1) === ' ') {
-                break;
-            }
-        }
-        return $response;
     }
 
     /**
