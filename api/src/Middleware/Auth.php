@@ -77,9 +77,9 @@ class Auth
                 Response::error('Token has expired', 401);
             }
 
-            // Get user from database
+            // Get user from database with all fields
             $pdo = Database::getInstance();
-            $stmt = $pdo->prepare("SELECT id, email, name, plan, email_verified_at FROM users WHERE id = ?");
+            $stmt = $pdo->prepare("SELECT id, email, name, plan, email_verified_at, avatar_url, created_at FROM users WHERE id = ?");
             $stmt->execute([$decoded->user_id]);
             $user = $stmt->fetch();
 

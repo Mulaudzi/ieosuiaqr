@@ -26,12 +26,13 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  email_verified: boolean;
   email_verified_at: string | null;
   avatar_url: string | null;
-  plan_id: number;
-  plan: Plan;
+  plan_id?: number;
+  plan: Plan | string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface AuthTokens {
