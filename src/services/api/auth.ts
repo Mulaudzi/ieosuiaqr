@@ -17,54 +17,54 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "https://qr.ieosuia.com/api
 export const authApi = {
   /**
    * Register a new user
-   * POST /api/v1/auth/register
+   * POST /api/auth/register
    */
   register: async (data: RegisterRequest): Promise<ApiResponse<{ user: User; tokens: AuthTokens }>> => {
-    return post("/v1/auth/register", data);
+    return post("/auth/register", data);
   },
 
   /**
    * Login user
-   * POST /api/v1/auth/login
+   * POST /api/auth/login
    */
   login: async (data: LoginRequest): Promise<ApiResponse<{ user: User; tokens: AuthTokens }>> => {
-    return post("/v1/auth/login", data);
+    return post("/auth/login", data);
   },
 
   /**
    * Logout user
-   * POST /api/v1/auth/logout
+   * POST /api/auth/logout
    */
   logout: async (): Promise<ApiResponse<null>> => {
-    return post("/v1/auth/logout");
+    return post("/auth/logout");
   },
 
   /**
    * Get current user profile
-   * GET /api/v1/user/profile
+   * GET /api/user/profile
    */
   getProfile: async (): Promise<ApiResponse<User>> => {
-    return get("/v1/user/profile");
+    return get("/user/profile");
   },
 
   /**
    * Update user profile
-   * PUT /api/v1/user/profile
+   * PUT /api/user/profile
    */
   updateProfile: async (data: UpdateProfileRequest): Promise<ApiResponse<User>> => {
-    return put("/v1/user/profile", data);
+    return put("/user/profile", data);
   },
 
   /**
    * Upload avatar image
-   * POST /api/v1/user/avatar
+   * POST /api/user/avatar
    */
   uploadAvatar: async (file: Blob): Promise<ApiResponse<{ avatar_url: string }>> => {
     const formData = new FormData();
     formData.append("avatar", file, "avatar.jpg");
 
     const token = localStorage.getItem("auth_token");
-    const response = await fetch(`${API_BASE_URL}/v1/user/avatar`, {
+    const response = await fetch(`${API_BASE_URL}/user/avatar`, {
       method: "POST",
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -83,42 +83,42 @@ export const authApi = {
 
   /**
    * Request password reset
-   * POST /api/v1/auth/forgot-password
+   * POST /api/auth/forgot-password
    */
   forgotPassword: async (data: ForgotPasswordRequest): Promise<ApiResponse<null>> => {
-    return post("/v1/auth/forgot-password", data);
+    return post("/auth/forgot-password", data);
   },
 
   /**
    * Reset password with token
-   * POST /api/v1/auth/reset-password
+   * POST /api/auth/reset-password
    */
   resetPassword: async (data: ResetPasswordRequest): Promise<ApiResponse<null>> => {
-    return post("/v1/auth/reset-password", data);
+    return post("/auth/reset-password", data);
   },
 
   /**
    * Verify email with token
-   * POST /api/v1/auth/verify-email
+   * POST /api/auth/verify-email
    */
   verifyEmail: async (token: string): Promise<ApiResponse<null>> => {
-    return post("/v1/auth/verify-email", { token });
+    return post("/auth/verify-email", { token });
   },
 
   /**
    * Resend verification email
-   * POST /api/v1/auth/resend-verification
+   * POST /api/auth/resend-verification
    */
   resendVerification: async (): Promise<ApiResponse<null>> => {
-    return post("/v1/auth/resend-verification");
+    return post("/auth/resend-verification");
   },
 
   /**
    * Refresh auth token
-   * POST /api/v1/auth/refresh-token
+   * POST /api/auth/refresh-token
    */
   refreshToken: async (): Promise<ApiResponse<AuthTokens>> => {
-    return post("/v1/auth/refresh-token");
+    return post("/auth/refresh-token");
   },
 };
 
