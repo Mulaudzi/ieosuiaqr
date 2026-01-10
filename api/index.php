@@ -95,6 +95,16 @@ try {
     elseif ($uri === '/auth/resend-verification' && $method === 'POST') {
         AuthController::resendVerification();
     }
+    // Google OAuth routes
+    elseif ($uri === '/auth/google' && $method === 'GET') {
+        AuthController::googleAuthUrl();
+    }
+    elseif ($uri === '/auth/google/callback' && $method === 'GET') {
+        AuthController::googleCallback();
+    }
+    elseif ($uri === '/auth/google/signin' && $method === 'POST') {
+        AuthController::googleSignIn();
+    }
 
     // User profile (auth required)
     elseif ($uri === '/user/profile' && $method === 'GET') {

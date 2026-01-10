@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { authApi } from "@/services/api/auth";
+import { Loader2 } from "lucide-react";
 
 interface SocialLoginButtonsProps {
   isLoading?: boolean;
@@ -28,19 +31,33 @@ const GoogleIcon = () => (
   </svg>
 );
 
-export function SocialLoginButtons({ isLoading, mode }: SocialLoginButtonsProps) {
+export function SocialLoginButtons({ isLoading: parentLoading, mode }: SocialLoginButtonsProps) {
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
   
   const handleGoogleLogin = async () => {
-    // TODO: Implement Google OAuth with your PHP backend
-    // The backend should provide an OAuth URL to redirect to
-    toast({
-      title: "Coming Soon",
-      description: "Google sign-in will be available soon. Please use email/password for now.",
-    });
+    setIsLoading(true);
+    try {
+      const response = await authApi.getGoogleAuthUrl();
+      if (response.success && response.data?.url) {
+        // Redirect to Google OAuth
+        window.location.href = response.data.url;
+      } else {
+        throw new Error(response.message || "Failed to get Google auth URL");
+      }
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      toast({
+        title: "Google Sign-In Unavailable",
+        description: err.message || "Please use email/password to sign in.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+    }
   };
 
   const actionText = mode === "login" ? "Sign in" : "Sign up";
+  const disabled = parentLoading || isLoading;
 
   return (
     <div className="space-y-4">
@@ -50,10 +67,14 @@ export function SocialLoginButtons({ isLoading, mode }: SocialLoginButtonsProps)
         size="lg"
         className="w-full"
         onClick={handleGoogleLogin}
-        disabled={isLoading}
+        disabled={disabled}
       >
-        <GoogleIcon />
-        <span className="ml-2">{actionText} with Google</span>
+        {isLoading ? (
+          <Loader2 className="w-5 h-5 animate-spin" />
+        ) : (
+          <GoogleIcon />
+        )}
+        <span className="ml-2">{isLoading ? "Connecting..." : `${actionText} with Google`}</span>
       </Button>
     </div>
   );
