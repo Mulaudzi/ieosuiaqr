@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 // reCAPTCHA v3 site key - this is public and safe to expose
-const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '';
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LcG2EUsAAAAAPzqfSAdyHvZL3mhP2av8Xj5VEL0';
 
 declare global {
   interface Window {
