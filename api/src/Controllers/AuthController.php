@@ -7,6 +7,7 @@ use App\Helpers\Response;
 use App\Helpers\Validator;
 use App\Middleware\Auth;
 use App\Middleware\RateLimit;
+use App\Services\EmailValidationService;
 use App\Services\MailService;
 
 class AuthController
@@ -28,6 +29,12 @@ class AuthController
             ->required('password', 'Password is required')
             ->minLength('password', 8, 'Password must be at least 8 characters')
             ->validate();
+
+        // Advanced email validation (disposable, role-based, MX records)
+        $emailValidation = EmailValidationService::validate($data['email']);
+        if (!$emailValidation['valid']) {
+            Response::error($emailValidation['message'], 400);
+        }
 
         $pdo = Database::getInstance();
 
