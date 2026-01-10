@@ -77,6 +77,14 @@ class EmailValidationService
     {
         try {
             $pdo = Database::getInstance();
+            
+            // Check if table exists first
+            $tableCheck = $pdo->query("SHOW TABLES LIKE 'blocked_email_domains'");
+            if ($tableCheck->rowCount() === 0) {
+                // Table doesn't exist, skip this check
+                return false;
+            }
+            
             $stmt = $pdo->prepare("
                 SELECT 1 FROM blocked_email_domains 
                 WHERE domain = ? AND type = 'disposable' 
@@ -98,6 +106,14 @@ class EmailValidationService
     {
         try {
             $pdo = Database::getInstance();
+            
+            // Check if table exists first
+            $tableCheck = $pdo->query("SHOW TABLES LIKE 'blocked_email_domains'");
+            if ($tableCheck->rowCount() === 0) {
+                // Table doesn't exist, skip this check
+                return false;
+            }
+            
             $stmt = $pdo->prepare("
                 SELECT 1 FROM blocked_email_domains 
                 WHERE domain = ? AND type = 'role' 
