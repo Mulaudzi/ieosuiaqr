@@ -10,6 +10,7 @@ use App\Middleware\RateLimit;
 use App\Services\CaptchaService;
 use App\Services\EmailValidationService;
 use App\Services\MailService;
+use App\Services\GoogleOAuthService;
 
 class AuthController
 {
@@ -434,5 +435,229 @@ class AuthController
         }
 
         Response::success(null, 'Verification email sent. Please check your inbox.');
+    }
+
+    /**
+     * Get Google OAuth authorization URL
+     */
+    public static function googleAuthUrl(): void
+    {
+        if (!GoogleOAuthService::isConfigured()) {
+            Response::error('Google Sign-In is not configured', 503);
+        }
+
+        try {
+            $authUrl = GoogleOAuthService::getAuthUrl();
+            Response::success(['url' => $authUrl], 'Redirect to this URL to sign in with Google');
+        } catch (\Exception $e) {
+            error_log("Google auth URL error: " . $e->getMessage());
+            Response::error('Failed to generate Google auth URL', 500);
+        }
+    }
+
+    /**
+     * Handle Google OAuth callback
+     */
+    public static function googleCallback(): void
+    {
+        $code = $_GET['code'] ?? null;
+        $state = $_GET['state'] ?? null;
+        $error = $_GET['error'] ?? null;
+
+        $frontendUrl = $_ENV['FRONTEND_URL'] ?? 'https://qr.ieosuia.com';
+
+        if ($error) {
+            header("Location: $frontendUrl/login?error=google_auth_cancelled");
+            exit;
+        }
+
+        if (!$code) {
+            header("Location: $frontendUrl/login?error=missing_code");
+            exit;
+        }
+
+        // Verify state to prevent CSRF
+        if (!GoogleOAuthService::verifyState($state)) {
+            header("Location: $frontendUrl/login?error=invalid_state");
+            exit;
+        }
+
+        try {
+            // Exchange code for tokens
+            $tokens = GoogleOAuthService::getAccessToken($code);
+            $accessToken = $tokens['access_token'] ?? null;
+
+            if (!$accessToken) {
+                throw new \Exception('No access token received');
+            }
+
+            // Get user info from Google
+            $googleUser = GoogleOAuthService::getUserInfo($accessToken);
+            $email = strtolower($googleUser['email'] ?? '');
+            $name = $googleUser['name'] ?? 'Google User';
+            $avatarUrl = $googleUser['picture'] ?? null;
+            $googleId = $googleUser['id'] ?? null;
+
+            if (!$email) {
+                throw new \Exception('No email received from Google');
+            }
+
+            $pdo = Database::getInstance();
+
+            // Check if user exists
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch();
+
+            if ($user) {
+                // Update Google ID and avatar if not set
+                $updates = [];
+                $params = [];
+
+                if (empty($user['google_id'])) {
+                    $updates[] = "google_id = ?";
+                    $params[] = $googleId;
+                }
+                if (empty($user['avatar_url']) && $avatarUrl) {
+                    $updates[] = "avatar_url = ?";
+                    $params[] = $avatarUrl;
+                }
+                if (!empty($updates)) {
+                    $params[] = $user['id'];
+                    $stmt = $pdo->prepare("UPDATE users SET " . implode(', ', $updates) . " WHERE id = ?");
+                    $stmt->execute($params);
+                }
+            } else {
+                // Create new user (no password for OAuth users)
+                $stmt = $pdo->prepare("
+                    INSERT INTO users (email, name, google_id, avatar_url, plan, email_verified_at, created_at)
+                    VALUES (?, ?, ?, ?, 'Free', NOW(), NOW())
+                ");
+                $stmt->execute([$email, $name, $googleId, $avatarUrl]);
+                
+                $userId = (int)$pdo->lastInsertId();
+
+                // Fetch the new user
+                $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+                $stmt->execute([$userId]);
+                $user = $stmt->fetch();
+
+                // Send welcome email
+                MailService::sendWelcomeEmail($email, $name);
+            }
+
+            // Generate JWT token
+            $token = Auth::generateToken($user['id'], $user['plan']);
+
+            // Redirect to frontend with token
+            $redirectUrl = $frontendUrl . '/auth/google/callback?token=' . urlencode($token);
+            header("Location: $redirectUrl");
+            exit;
+
+        } catch (\Exception $e) {
+            error_log("Google callback error: " . $e->getMessage());
+            header("Location: $frontendUrl/login?error=google_auth_failed");
+            exit;
+        }
+    }
+
+    /**
+     * Handle Google Sign-In from frontend (using ID token)
+     */
+    public static function googleSignIn(): void
+    {
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idToken = $data['id_token'] ?? null;
+
+        if (!$idToken) {
+            Response::error('ID token is required', 400);
+        }
+
+        if (!GoogleOAuthService::isConfigured()) {
+            Response::error('Google Sign-In is not configured', 503);
+        }
+
+        try {
+            // Verify the ID token
+            $payload = GoogleOAuthService::verifyIdToken($idToken);
+
+            if (!$payload) {
+                Response::error('Invalid ID token', 401);
+            }
+
+            $email = strtolower($payload['email'] ?? '');
+            $name = $payload['name'] ?? 'Google User';
+            $avatarUrl = $payload['picture'] ?? null;
+            $googleId = $payload['sub'] ?? null;
+
+            if (!$email) {
+                Response::error('No email in token', 400);
+            }
+
+            $pdo = Database::getInstance();
+
+            // Check if user exists
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch();
+
+            if ($user) {
+                // Update Google ID and avatar if not set
+                $updates = [];
+                $params = [];
+
+                if (empty($user['google_id'])) {
+                    $updates[] = "google_id = ?";
+                    $params[] = $googleId;
+                }
+                if (empty($user['avatar_url']) && $avatarUrl) {
+                    $updates[] = "avatar_url = ?";
+                    $params[] = $avatarUrl;
+                }
+                if (!empty($updates)) {
+                    $params[] = $user['id'];
+                    $stmt = $pdo->prepare("UPDATE users SET " . implode(', ', $updates) . " WHERE id = ?");
+                    $stmt->execute($params);
+                    
+                    // Refetch user
+                    $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+                    $stmt->execute([$user['id']]);
+                    $user = $stmt->fetch();
+                }
+            } else {
+                // Create new user
+                $stmt = $pdo->prepare("
+                    INSERT INTO users (email, name, google_id, avatar_url, plan, email_verified_at, created_at)
+                    VALUES (?, ?, ?, ?, 'Free', NOW(), NOW())
+                ");
+                $stmt->execute([$email, $name, $googleId, $avatarUrl]);
+                
+                $userId = (int)$pdo->lastInsertId();
+
+                // Fetch the new user
+                $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+                $stmt->execute([$userId]);
+                $user = $stmt->fetch();
+
+                // Send welcome email
+                MailService::sendWelcomeEmail($email, $name);
+            }
+
+            // Generate JWT token
+            $token = Auth::generateToken($user['id'], $user['plan']);
+
+            Response::success([
+                'user' => Auth::formatUserForFrontend($user),
+                'tokens' => [
+                    'access_token' => $token,
+                    'token_type' => 'Bearer',
+                    'expires_in' => (int)($_ENV['JWT_EXPIRY'] ?? 3600)
+                ]
+            ], 'Google sign-in successful');
+
+        } catch (\Exception $e) {
+            error_log("Google sign-in error: " . $e->getMessage());
+            Response::error('Google sign-in failed', 500);
+        }
     }
 }

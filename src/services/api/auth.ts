@@ -120,6 +120,22 @@ export const authApi = {
   refreshToken: async (): Promise<ApiResponse<AuthTokens>> => {
     return post("/auth/refresh-token");
   },
+
+  /**
+   * Get Google OAuth URL
+   * GET /api/auth/google
+   */
+  getGoogleAuthUrl: async (): Promise<ApiResponse<{ url: string }>> => {
+    return get("/auth/google");
+  },
+
+  /**
+   * Sign in with Google ID token
+   * POST /api/auth/google/signin
+   */
+  googleSignIn: async (idToken: string): Promise<ApiResponse<{ user: User; tokens: AuthTokens }>> => {
+    return post("/auth/google/signin", { id_token: idToken });
+  },
 };
 
 // Helper functions for auth state management
