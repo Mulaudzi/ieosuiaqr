@@ -189,7 +189,7 @@ export default function Dashboard() {
                 Get more QR codes and advanced analytics
               </p>
               <Button variant="hero" size="sm" className="w-full" asChild>
-                <Link to="/dashboard/settings">Upgrade Now</Link>
+                <Link to="/dashboard/settings?tab=billing">Upgrade Now</Link>
               </Button>
             </div>
           </div>

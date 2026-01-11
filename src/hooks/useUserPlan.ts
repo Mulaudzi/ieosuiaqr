@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export type UserPlan = "free" | "pro" | "enterprise";
 
@@ -35,19 +36,41 @@ const planLimits: Record<UserPlan, PlanLimits> = {
 };
 
 export function useUserPlan() {
+  const { user, refreshUser } = useAuth();
   const [plan, setPlan] = useState<UserPlan>("free");
 
+  // Sync plan from user context
   useEffect(() => {
-    const storedPlan = localStorage.getItem("userPlan") as UserPlan | null;
-    if (storedPlan && ["free", "pro", "enterprise"].includes(storedPlan)) {
-      setPlan(storedPlan);
+    if (user?.plan) {
+      // Handle both string and Plan object types
+      const planValue = typeof user.plan === 'string' ? user.plan : user.plan.name;
+      const userPlan = planValue.toLowerCase() as UserPlan;
+      if (["free", "pro", "enterprise"].includes(userPlan)) {
+        setPlan(userPlan);
+        localStorage.setItem("userPlan", userPlan);
+      }
+    } else {
+      // Fallback to localStorage
+      const storedPlan = localStorage.getItem("userPlan") as UserPlan | null;
+      if (storedPlan && ["free", "pro", "enterprise"].includes(storedPlan)) {
+        setPlan(storedPlan);
+      }
     }
-  }, []);
+  }, [user?.plan]);
 
-  const updatePlan = (newPlan: UserPlan) => {
+  const updatePlan = useCallback((newPlan: UserPlan) => {
     localStorage.setItem("userPlan", newPlan);
     setPlan(newPlan);
-  };
+  }, []);
+
+  // Refresh user data to get updated plan (after upgrade)
+  const refreshPlan = useCallback(async () => {
+    try {
+      await refreshUser();
+    } catch {
+      // Error handled by refreshUser
+    }
+  }, [refreshUser]);
 
   const limits = planLimits[plan];
 
@@ -60,6 +83,7 @@ export function useUserPlan() {
     plan,
     limits,
     updatePlan,
+    refreshPlan,
     canUsePremiumTypes,
     canUseTracking,
     canUseAdvancedAnalytics,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { 
@@ -8,7 +8,8 @@ import {
   CheckCircle,
   Clock,
   XCircle,
-  RefreshCw
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,38 +21,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-
-// Mock invoice data - will be replaced with API calls
-const mockInvoices = [
-  {
-    id: "inv_001",
-    invoice_number: "INV-2025-001",
-    amount_zar: 179,
-    status: "paid" as const,
-    description: "Pro Plan - Monthly",
-    invoice_date: "2025-01-01T00:00:00Z",
-    pdf_url: null,
-  },
-  {
-    id: "inv_002",
-    invoice_number: "INV-2024-012",
-    amount_zar: 179,
-    status: "paid" as const,
-    description: "Pro Plan - Monthly",
-    invoice_date: "2024-12-01T00:00:00Z",
-    pdf_url: null,
-  },
-  {
-    id: "inv_003",
-    invoice_number: "INV-2024-011",
-    amount_zar: 179,
-    status: "paid" as const,
-    description: "Pro Plan - Monthly",
-    invoice_date: "2024-11-01T00:00:00Z",
-    pdf_url: null,
-  },
-];
+import { billingApi } from "@/services/api/billing";
 
 interface Invoice {
   id: string;
@@ -60,7 +32,7 @@ interface Invoice {
   status: "paid" | "pending" | "failed" | "refunded";
   description: string;
   invoice_date: string;
-  pdf_url: string | null;
+  pdf_url?: string | null;
 }
 
 const statusConfig = {
@@ -91,9 +63,40 @@ const statusConfig = {
 };
 
 export function InvoiceHistory() {
-  const [invoices] = useState<Invoice[]>(mockInvoices);
-  const [isLoading, setIsLoading] = useState(false);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [viewingId, setViewingId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    fetchInvoices();
+  }, []);
+
+  const fetchInvoices = async () => {
+    setIsLoading(true);
+    try {
+      const response = await billingApi.getInvoices({ page: 1, per_page: 10 });
+      if (response.success && response.data) {
+        // Map API response to component Invoice type
+        setInvoices(response.data.map(inv => ({
+          id: inv.id,
+          invoice_number: inv.invoice_number,
+          amount_zar: inv.amount_zar,
+          status: inv.status,
+          description: inv.description,
+          invoice_date: inv.invoice_date,
+          pdf_url: inv.pdf_url,
+        })));
+      }
+    } catch (error) {
+      console.error("Failed to fetch invoices:", error);
+      // Show empty state on error
+      setInvoices([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const formatPrice = (amount: number) => {
     return new Intl.NumberFormat("en-ZA", {
@@ -104,31 +107,76 @@ export function InvoiceHistory() {
   };
 
   const handleDownloadReceipt = async (invoice: Invoice) => {
-    setIsLoading(true);
-    
-    // Mock API call - will be replaced with:
-    // const { data } = await billingApi.downloadReceipt(invoice.id);
-    // window.open(data.pdf_url, '_blank');
-    
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    toast({
-      title: "Receipt Downloaded",
-      description: `Receipt for ${invoice.invoice_number} is ready.`,
-    });
-    
-    setIsLoading(false);
-    
-    // In production, open PDF in new tab
-    // window.open(invoice.pdf_url, '_blank');
+    setDownloadingId(invoice.id);
+    try {
+      const response = await billingApi.downloadReceipt(invoice.id);
+      if (response.success && response.data?.download_url) {
+        // Open PDF in new tab for download
+        window.open(response.data.download_url, "_blank");
+        toast({
+          title: "Receipt Ready",
+          description: `Receipt for ${invoice.invoice_number} opened in new tab.`,
+        });
+      } else {
+        throw new Error("No download URL");
+      }
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "Download Failed",
+        description: "Could not download receipt. Please try again.",
+      });
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
-  const handleViewInvoice = (invoice: Invoice) => {
-    toast({
-      title: "Invoice Details",
-      description: `Viewing ${invoice.invoice_number}: ${invoice.description}`,
-    });
+  const handleViewInvoice = async (invoice: Invoice) => {
+    setViewingId(invoice.id);
+    try {
+      const response = await billingApi.getInvoice(invoice.id);
+      if (response.success && response.data) {
+        // If there's a PDF URL, open it; otherwise show details toast
+        if (response.data.pdf_url) {
+          window.open(response.data.pdf_url, "_blank");
+        } else {
+          toast({
+            title: "Invoice Details",
+            description: `${invoice.invoice_number}: ${invoice.description} - ${formatPrice(invoice.amount_zar)}`,
+          });
+        }
+      }
+    } catch {
+      toast({
+        title: "Invoice Details",
+        description: `${invoice.invoice_number}: ${invoice.description}`,
+      });
+    } finally {
+      setViewingId(null);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 rounded-2xl bg-card border border-border">
+        <h3 className="font-display font-semibold mb-4 flex items-center gap-2">
+          <FileText className="w-5 h-5" />
+          Invoice History
+        </h3>
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center justify-between p-3">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+              <Skeleton className="h-6 w-16" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   if (invoices.length === 0) {
     return (
@@ -172,7 +220,7 @@ export function InvoiceHistory() {
           </TableHeader>
           <TableBody>
             {invoices.map((invoice) => {
-              const status = statusConfig[invoice.status];
+              const status = statusConfig[invoice.status] || statusConfig.pending;
               const StatusIcon = status.icon;
 
               return (
@@ -206,16 +254,25 @@ export function InvoiceHistory() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleViewInvoice(invoice)}
+                        disabled={viewingId === invoice.id}
                       >
-                        <ExternalLink className="w-4 h-4" />
+                        {viewingId === invoice.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <ExternalLink className="w-4 h-4" />
+                        )}
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDownloadReceipt(invoice)}
-                        disabled={isLoading}
+                        disabled={downloadingId === invoice.id}
                       >
-                        <Download className="w-4 h-4" />
+                        {downloadingId === invoice.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4" />
+                        )}
                       </Button>
                     </div>
                   </TableCell>
