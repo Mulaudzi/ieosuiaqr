@@ -342,7 +342,7 @@ export default function Settings() {
               Get unlimited QR codes and advanced analytics
             </p>
             <Button variant="hero" size="sm" className="w-full" asChild>
-              <Link to="/pricing">Upgrade Now</Link>
+              <Link to="/dashboard/settings?tab=billing">Upgrade Now</Link>
             </Button>
           </div>
         </div>
@@ -364,9 +364,11 @@ export default function Settings() {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem>
-                <SettingsIcon className="w-4 h-4 mr-2" />
-                Account Settings
+              <DropdownMenuItem asChild>
+                <Link to="/dashboard/profile">
+                  <SettingsIcon className="w-4 h-4 mr-2" />
+                  Account Settings
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
@@ -559,7 +561,14 @@ export default function Settings() {
                     Add an extra layer of security to your account by enabling two-factor
                     authentication.
                   </p>
-                  <Button variant="outline">Enable 2FA</Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      toast({ title: "2FA Setup", description: "Two-factor authentication setup coming soon. Contact support for early access." });
+                    }}
+                  >
+                    Enable 2FA
+                  </Button>
                 </div>
               </motion.div>
             </TabsContent>
@@ -753,7 +762,29 @@ export default function Settings() {
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            <AlertDialogAction 
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch('/api/user/delete', {
+                                    method: 'POST',
+                                    headers: {
+                                      'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+                                      'Content-Type': 'application/json'
+                                    }
+                                  });
+                                  if (response.ok) {
+                                    localStorage.clear();
+                                    toast({ title: "Account deleted", description: "Your account has been permanently deleted." });
+                                    navigate("/login");
+                                  } else {
+                                    throw new Error('Failed to delete');
+                                  }
+                                } catch {
+                                  toast({ variant: "destructive", title: "Error", description: "Failed to delete account. Please try again." });
+                                }
+                              }}
+                            >
                               Delete Account
                             </AlertDialogAction>
                           </AlertDialogFooter>

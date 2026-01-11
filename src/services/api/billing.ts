@@ -67,7 +67,7 @@ export const billingApi = {
   getInvoices: async (params?: {
     page?: number;
     per_page?: number;
-  }): Promise<PaginatedResponse<Invoice>> => {
+  }): Promise<ApiResponse<Invoice[]>> => {
     return get("/billing/invoices", params);
   },
 
@@ -76,15 +76,15 @@ export const billingApi = {
    * GET /api/v1/billing/invoice/:id
    */
   getInvoice: async (id: string): Promise<ApiResponse<Invoice>> => {
-    return get(`/billing/invoice/${id}`);
+    return get(`/billing/invoices/${id}`);
   },
 
   /**
    * Download invoice receipt PDF
    * GET /api/v1/billing/invoice/:id/receipt
    */
-  downloadReceipt: async (id: string): Promise<ApiResponse<{ pdf_url: string }>> => {
-    return get(`/billing/invoice/${id}/receipt`);
+  downloadReceipt: async (id: string): Promise<ApiResponse<{ download_url: string; filename: string }>> => {
+    return get(`/billing/invoices/${id}/receipt`);
   },
 
   /**

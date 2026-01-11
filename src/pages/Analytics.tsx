@@ -329,15 +329,15 @@ export default function Analytics() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Error Alert */}
+      {/* Error Alert - inline below header, not blocking other elements */}
       {error && (
-        <div className="fixed top-4 right-4 z-50 max-w-md">
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="flex items-center justify-between">
-              <span>{error}</span>
+        <div className="lg:ml-64 px-6 pt-4">
+          <Alert variant="default" className="bg-muted border-border">
+            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+            <AlertDescription className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>Showing cached data. Pull to refresh for live data.</span>
               <Button variant="ghost" size="sm" onClick={fetchAnalytics}>
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
               </Button>
             </AlertDescription>
           </Alert>
@@ -391,7 +391,7 @@ export default function Analytics() {
               Get advanced analytics and insights
             </p>
             <Button variant="hero" size="sm" className="w-full" asChild>
-              <Link to="/pricing">Upgrade Now</Link>
+              <Link to="/dashboard/settings?tab=billing">Upgrade Now</Link>
             </Button>
           </div>
         </div>
@@ -678,7 +678,7 @@ export default function Analytics() {
                       Unlock geographic insights and more
                     </p>
                     <Button variant="hero" size="sm" asChild>
-                      <Link to="/pricing">Upgrade Now</Link>
+                      <Link to="/dashboard/settings?tab=billing">Upgrade Now</Link>
                     </Button>
                   </div>
                 </div>
