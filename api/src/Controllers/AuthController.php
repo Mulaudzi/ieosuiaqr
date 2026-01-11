@@ -660,4 +660,75 @@ class AuthController
             Response::error('Google sign-in failed', 500);
         }
     }
+
+    /**
+     * Delete user account (soft delete)
+     */
+    public static function deleteAccount(): void
+    {
+        $user = Auth::check();
+        $pdo = Database::getInstance();
+
+        try {
+            Database::beginTransaction();
+
+            // Soft delete - set deleted_at timestamp
+            $stmt = $pdo->prepare("UPDATE users SET deleted_at = NOW(), email = CONCAT('deleted_', id, '_', email) WHERE id = ?");
+            $stmt->execute([$user['id']]);
+
+            // Optionally deactivate all QR codes
+            $stmt = $pdo->prepare("UPDATE qr_codes SET is_active = 0 WHERE user_id = ?");
+            $stmt->execute([$user['id']]);
+
+            Database::commit();
+
+            Response::success(null, 'Account deleted successfully');
+
+        } catch (\Exception $e) {
+            Database::rollback();
+            error_log("Delete account error: " . $e->getMessage());
+            Response::error('Failed to delete account', 500);
+        }
+    }
+
+    /**
+     * Enable 2FA (stub - returns setup info)
+     */
+    public static function enable2FA(): void
+    {
+        $user = Auth::check();
+        $pdo = Database::getInstance();
+
+        // Generate a secret key (in production, use speakeasy or similar)
+        $secret = strtoupper(substr(bin2hex(random_bytes(16)), 0, 16));
+        
+        // Store the secret (not verified yet)
+        $stmt = $pdo->prepare("UPDATE users SET two_factor_secret = ?, updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$secret, $user['id']]);
+
+        // Generate QR code URL for authenticator apps
+        $appName = urlencode('IEOSUIA QR');
+        $email = urlencode($user['email']);
+        $qrCodeUrl = "otpauth://totp/{$appName}:{$email}?secret={$secret}&issuer={$appName}";
+
+        Response::success([
+            'secret' => $secret,
+            'qr_code_url' => $qrCodeUrl,
+            'message' => 'Scan the QR code with your authenticator app'
+        ], '2FA setup initiated');
+    }
+
+    /**
+     * Disable 2FA
+     */
+    public static function disable2FA(): void
+    {
+        $user = Auth::check();
+        $pdo = Database::getInstance();
+
+        $stmt = $pdo->prepare("UPDATE users SET two_factor_secret = NULL, two_factor_enabled = 0, updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$user['id']]);
+
+        Response::success(null, '2FA disabled successfully');
+    }
 }

@@ -27,7 +27,7 @@ const plans = [
     name: "Pro",
     description: "For growing businesses",
     priceMonthly: 179,
-    priceYearly: 1799,
+    priceYearly: 1728, // 20% discount: 179 * 12 * 0.8
     popular: true,
     features: [
       { name: "50 QR codes", included: true },
@@ -44,7 +44,7 @@ const plans = [
     name: "Enterprise",
     description: "For large organizations",
     priceMonthly: 549,
-    priceYearly: 5499,
+    priceYearly: 5270, // 20% discount: 549 * 12 * 0.8
     popular: false,
     features: [
       { name: "Unlimited QR codes", included: true },
@@ -108,7 +108,7 @@ export function PricingSection() {
             >
               Yearly
               <span className="text-xs px-2 py-0.5 rounded-full bg-success/10 text-success">
-                Save 17%
+                Save 20%
               </span>
             </button>
           </div>

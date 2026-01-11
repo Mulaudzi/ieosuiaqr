@@ -54,8 +54,17 @@ export function HeroSection() {
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Link>
               </Button>
-              <Button variant="hero-outline" size="lg" asChild>
-                <Link to="/#pricing">View Pricing</Link>
+              <Button 
+                variant="hero-outline" 
+                size="lg" 
+                onClick={() => {
+                  const pricingSection = document.getElementById('pricing');
+                  if (pricingSection) {
+                    pricingSection.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
+              >
+                View Pricing
               </Button>
             </div>
 

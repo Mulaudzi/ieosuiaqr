@@ -58,6 +58,7 @@ use App\Controllers\QrController;
 use App\Controllers\ScanController;
 use App\Controllers\SubscriptionController;
 use App\Controllers\PaymentController;
+use App\Controllers\ContactController;
 use App\Controllers\BillingController;
 use App\Controllers\AnalyticsController;
 
@@ -187,6 +188,24 @@ try {
     }
     elseif ($uri === '/analytics/export' && $method === 'GET') {
         AnalyticsController::exportCsv();
+    }
+
+    // Contact form
+    elseif ($uri === '/contact' && $method === 'POST') {
+        ContactController::submit();
+    }
+
+    // User account deletion
+    elseif ($uri === '/user/delete' && $method === 'POST') {
+        AuthController::deleteAccount();
+    }
+
+    // 2FA endpoints
+    elseif ($uri === '/user/2fa/enable' && $method === 'POST') {
+        AuthController::enable2FA();
+    }
+    elseif ($uri === '/user/2fa/disable' && $method === 'POST') {
+        AuthController::disable2FA();
     }
 
     // 404 Not Found

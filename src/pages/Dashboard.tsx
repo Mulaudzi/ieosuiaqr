@@ -35,13 +35,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useQRStorage } from "@/hooks/useQRStorage";
+import { useQRStorage, StoredQRCode } from "@/hooks/useQRStorage";
 import { useUserPlan } from "@/hooks/useUserPlan";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BulkCSVImport } from "@/components/qr/BulkCSVImport";
+import { QRViewModal } from "@/components/qr/QRViewModal";
+import { QREditModal } from "@/components/qr/QREditModal";
+import { QRDeleteConfirmModal } from "@/components/qr/QRDeleteConfirmModal";
+import { useQRDownload } from "@/hooks/useQRDownload";
 
 const typeColors: Record<string, string> = {
   url: "bg-primary/10 text-primary",
@@ -59,11 +63,19 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const { qrCodes, deleteQRCode, getQRCodeCount, isLoading, error, refresh } = useQRStorage();
+  
+  // Modal states
+  const [selectedQR, setSelectedQR] = useState<StoredQRCode | null>(null);
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  
+  const { qrCodes, deleteQRCode, updateQRCode, getQRCodeCount, isLoading, error, refresh } = useQRStorage();
   const { plan, limits } = useUserPlan();
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { downloadPNG } = useQRDownload();
 
   const filteredQRCodes = qrCodes.filter((qr) =>
     qr.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -102,12 +114,39 @@ export default function Dashboard() {
     },
   ];
 
-  const handleDelete = async (id: string, name: string) => {
+  const handleDelete = async (qr: StoredQRCode) => {
+    setSelectedQR(qr);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async (id: string) => {
+    const qr = qrCodes.find(q => q.id === id);
     await deleteQRCode(id);
     toast({
       title: "QR Code deleted",
-      description: `"${name}" has been removed.`,
+      description: `"${qr?.name}" has been removed.`,
     });
+  };
+
+  const handleView = (qr: StoredQRCode) => {
+    setSelectedQR(qr);
+    setViewModalOpen(true);
+  };
+
+  const handleEdit = (qr: StoredQRCode) => {
+    setSelectedQR(qr);
+    setEditModalOpen(true);
+  };
+
+  const handleDownload = async (qr: StoredQRCode) => {
+    await downloadPNG({
+      value: qr.content,
+      fileName: qr.name.replace(/[^a-z0-9]/gi, '_'),
+      fgColor: qr.fgColor,
+      bgColor: qr.bgColor,
+      size: 400,
+    });
+    toast({ title: "Downloaded", description: `${qr.name} saved as PNG` });
   };
 
   const handleRefresh = () => {
@@ -189,7 +228,7 @@ export default function Dashboard() {
                 Get more QR codes and advanced analytics
               </p>
               <Button variant="hero" size="sm" className="w-full" asChild>
-                <Link to="/dashboard/settings">Upgrade Now</Link>
+                <Link to="/dashboard/settings?tab=billing">Upgrade Now</Link>
               </Button>
             </div>
           </div>
@@ -433,22 +472,22 @@ export default function Dashboard() {
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleView(qr)}>
                           <Eye className="w-4 h-4 mr-2" />
                           View
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEdit(qr)}>
                           <Pencil className="w-4 h-4 mr-2" />
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDownload(qr)}>
                           <Download className="w-4 h-4 mr-2" />
                           Download
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-destructive"
-                          onClick={() => handleDelete(qr.id, qr.name)}
+                          onClick={() => handleDelete(qr)}
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
                           Delete
@@ -569,19 +608,19 @@ export default function Dashboard() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-2">
-                          <Button variant="ghost" size="icon">
+                          <Button variant="ghost" size="icon" onClick={() => handleView(qr)}>
                             <Eye className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="icon">
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(qr)}>
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="icon">
+                          <Button variant="ghost" size="icon" onClick={() => handleDownload(qr)}>
                             <Download className="w-4 h-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleDelete(qr.id, qr.name)}
+                            onClick={() => handleDelete(qr)}
                           >
                             <Trash2 className="w-4 h-4 text-destructive" />
                           </Button>
@@ -607,6 +646,35 @@ export default function Dashboard() {
             description: "Your QR codes have been created.",
           });
         }}
+      />
+
+      {/* QR View Modal */}
+      <QRViewModal
+        qrCode={selectedQR}
+        open={viewModalOpen}
+        onOpenChange={setViewModalOpen}
+        onEdit={() => {
+          setViewModalOpen(false);
+          setEditModalOpen(true);
+        }}
+      />
+
+      {/* QR Edit Modal */}
+      <QREditModal
+        qrCode={selectedQR}
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        onSave={async (id, updates) => {
+          await updateQRCode(id, updates);
+        }}
+      />
+
+      {/* QR Delete Confirm Modal */}
+      <QRDeleteConfirmModal
+        qrCode={selectedQR}
+        open={deleteModalOpen}
+        onOpenChange={setDeleteModalOpen}
+        onConfirm={confirmDelete}
       />
     </div>
   );
