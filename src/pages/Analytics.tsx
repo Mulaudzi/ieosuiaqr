@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,6 @@ import {
   Globe,
   Smartphone,
   Monitor,
-  Calendar,
   Download,
   Lock,
 } from "lucide-react";
@@ -26,13 +25,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   LineChart,
   Line,
@@ -56,6 +48,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, RefreshCw } from "lucide-react";
+import { DateRangePicker } from "@/components/analytics/DateRangePicker";
+import { useUserPlan } from "@/hooks/useUserPlan";
 
 // Fallback data for when API fails
 const scanTrendData = [
@@ -144,7 +138,12 @@ const stats = [
 ];
 
 export default function Analytics() {
-  const [dateRange, setDateRange] = useState("7d");
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().split("T")[0];
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -156,46 +155,27 @@ export default function Analytics() {
     hourly: hourlyData,
     stats: stats,
   });
-  const isPro = false; // Mock - would come from user subscription
+  const { isPro } = useUserPlan();
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
-  const getDateRange = () => {
-    const end = new Date();
-    const start = new Date();
-    switch (dateRange) {
-      case "24h":
-        start.setHours(start.getHours() - 24);
-        break;
-      case "7d":
-        start.setDate(start.getDate() - 7);
-        break;
-      case "30d":
-        start.setDate(start.getDate() - 30);
-        break;
-      case "90d":
-        start.setDate(start.getDate() - 90);
-        break;
-    }
-    return {
-      start_date: start.toISOString().split("T")[0],
-      end_date: end.toISOString().split("T")[0],
-    };
-  };
+  const handleDateChange = useCallback((start: string, end: string) => {
+    setStartDate(start);
+    setEndDate(end);
+  }, []);
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    const { start_date, end_date } = getDateRange();
 
     try {
       const [summaryRes, topQRRes, devicesRes, dailyRes, hourlyRes] = await Promise.all([
-        analyticsApi.getSummary({ start_date, end_date }),
-        analyticsApi.getTopQRCodes({ start_date, end_date, limit: 5 }),
-        analyticsApi.getDeviceBreakdown({ start_date, end_date }),
-        analyticsApi.getDailyTrend({ start_date, end_date }),
-        analyticsApi.getHourlyDistribution({ start_date, end_date }),
+        analyticsApi.getSummary({ start_date: startDate, end_date: endDate }),
+        analyticsApi.getTopQRCodes({ start_date: startDate, end_date: endDate, limit: 5 }),
+        analyticsApi.getDeviceBreakdown({ start_date: startDate, end_date: endDate }),
+        analyticsApi.getDailyTrend({ start_date: startDate, end_date: endDate }),
+        analyticsApi.getHourlyDistribution({ start_date: startDate, end_date: endDate }),
       ]);
 
       // Transform API responses to chart data
@@ -284,11 +264,11 @@ export default function Analytics() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [startDate, endDate]);
 
   useEffect(() => {
     fetchAnalytics();
-  }, [dateRange]);
+  }, [fetchAnalytics]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -310,13 +290,12 @@ export default function Analytics() {
   const userInitials = userName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
 
   const handleExport = async () => {
-    const { start_date, end_date } = getDateRange();
     try {
       const response = await analyticsApi.exportReport({
         type: "analytics",
         format: "csv",
-        start_date,
-        end_date,
+        start_date: startDate,
+        end_date: endDate,
       });
       if (response.success && response.data?.download_url) {
         window.open(response.data.download_url, "_blank");
@@ -442,18 +421,7 @@ export default function Analytics() {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger className="w-[140px]">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="24h">Last 24 hours</SelectItem>
-                  <SelectItem value="7d">Last 7 days</SelectItem>
-                  <SelectItem value="30d">Last 30 days</SelectItem>
-                  <SelectItem value="90d">Last 90 days</SelectItem>
-                </SelectContent>
-              </Select>
+              <DateRangePicker onDateChange={handleDateChange} />
               <Button variant="outline" onClick={handleExport}>
                 <Download className="w-4 h-4 mr-2" />
                 Export
