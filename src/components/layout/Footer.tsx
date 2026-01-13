@@ -148,8 +148,16 @@ export function Footer() {
           </p>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Made with</span>
-            <span className="text-primary">♥</span>
-            <span className="text-xs text-muted-foreground">for QR code enthusiasts</span>
+            <span className="text-primary">❤️</span>
+            <span className="text-xs text-muted-foreground">by</span>
+            <a 
+              href="https://www.ieosuia.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              IEOSUIA
+            </a>
           </div>
         </div>
       </div>

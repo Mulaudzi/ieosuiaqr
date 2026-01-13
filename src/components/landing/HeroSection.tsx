@@ -38,19 +38,19 @@ export function HeroSection() {
             </motion.div>
 
             <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight mb-6">
-              QR Codes That{" "}
-              <span className="gradient-text">Drive Results</span>
+              Smart QR Codes:{" "}
+              <span className="gradient-text">Create, Update & Track</span>
             </h1>
 
             <p className="text-lg sm:text-xl text-muted-foreground mb-8 max-w-xl mx-auto lg:mx-0">
-              Create beautiful, trackable QR codes in seconds. Monitor scans, analyze data, and grow your business with powerful analytics.
+              Dynamic QRs with scan insights and inventory management for businesses, churches, schools & more. Track products, assets, and engagement effortlessly.
             </p>
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start mb-12">
               <Button variant="hero" size="xl" asChild>
                 <Link to="/signup">
-                  Start Free Trial
+                  Start Tracking Free
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Link>
               </Button>
@@ -76,11 +76,11 @@ export function HeroSection() {
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <BarChart3 className="w-4 h-4 text-primary" />
-                <span>Real-time Analytics</span>
+                <span>Inventory Tracking</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Sparkles className="w-4 h-4 text-accent" />
-                <span>No Credit Card Required</span>
+                <span>No Hardware Needed</span>
               </div>
             </div>
           </motion.div>
