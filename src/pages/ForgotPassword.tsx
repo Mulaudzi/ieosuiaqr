@@ -4,7 +4,8 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { QrCode, ArrowLeft, Mail, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import { ArrowLeft, Mail, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
 import { authApi } from "@/services/api/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useRateLimit, rateLimitConfigs } from "@/hooks/useRateLimit";
@@ -99,12 +100,7 @@ export default function ForgotPassword() {
         
         <div className="relative z-10 flex flex-col justify-center px-16">
           <Link to="/" className="flex items-center gap-3 mb-12">
-            <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center">
-              <QrCode className="w-7 h-7 text-primary-foreground" />
-            </div>
-            <span className="font-display text-2xl font-bold">
-              <span className="gradient-text">IEOSUIA</span>
-            </span>
+            <img src={ieosuiaLogo} alt="IEOSUIA QR" className="h-12 w-auto" />
           </Link>
           
           <h1 className="font-display text-4xl font-bold mb-4">
@@ -125,12 +121,7 @@ export default function ForgotPassword() {
         >
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
-            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-              <QrCode className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <span className="font-display text-xl font-bold">
-              <span className="gradient-text">IEOSUIA</span>
-            </span>
+            <img src={ieosuiaLogo} alt="IEOSUIA QR" className="h-10 w-auto" />
           </div>
 
           <Link
