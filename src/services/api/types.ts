@@ -72,6 +72,11 @@ export interface UpdateProfileRequest {
   current_password?: string;
   password?: string;
   password_confirmation?: string;
+  // Notification preferences
+  notify_status_change?: boolean;
+  notify_low_activity?: boolean;
+  notify_maintenance?: boolean;
+  low_activity_days?: number;
 }
 
 // Plan & Subscription Types
