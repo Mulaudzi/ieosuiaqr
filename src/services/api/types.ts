@@ -204,8 +204,13 @@ export interface QRCode extends QRCodeBase {
 export interface CreateQRCodeRequest {
   type: QRType;
   name: string;
-  content: QRCodeContent;
+  content: QRCodeContent | Record<string, string>;
   customization?: Partial<QRCodeCustomization>;
+  custom_options?: {
+    fgColor?: string;
+    bgColor?: string;
+    logo_path?: string;
+  };
   is_dynamic?: boolean;
 }
 
