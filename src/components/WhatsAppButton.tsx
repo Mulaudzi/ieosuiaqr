@@ -19,7 +19,7 @@ export function WhatsAppButton() {
       
       {/* Tooltip */}
       <span className="absolute right-16 bg-card text-foreground text-sm px-3 py-2 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-border">
-        Chat with us on WhatsApp
+        Call or WhatsApp us: 079 928 2775
       </span>
       
       {/* Pulse animation */}

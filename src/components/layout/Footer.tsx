@@ -6,7 +6,7 @@ const footerLinks = {
   product: [
     { name: "Features", href: "/#features" },
     { name: "Pricing", href: "/#pricing" },
-    { name: "Use Cases", href: "/#use-cases" },
+    { name: "Solutions", href: "/solutions" },
   ],
   company: [
     { name: "About IEOSUIA", href: "https://www.ieosuia.com", external: true },

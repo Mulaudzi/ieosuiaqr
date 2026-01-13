@@ -10,7 +10,7 @@ import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
 const navLinks = [
   { name: "Features", href: "/#features" },
   { name: "Pricing", href: "/#pricing" },
-  { name: "Use Cases", href: "/#use-cases" },
+  { name: "Solutions", href: "/solutions" },
 ];
 
 export function Header() {

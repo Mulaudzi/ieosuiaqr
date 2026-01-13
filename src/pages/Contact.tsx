@@ -226,9 +226,13 @@ export default function Contact() {
                         <Phone className="w-5 h-5 text-success" />
                       </div>
                       <div>
-                        <p className="font-medium mb-1">Phone (Calls Only)</p>
-                        <p className="text-muted-foreground text-sm">079 928 2775</p>
-                        <p className="text-muted-foreground text-sm">063 154 0696</p>
+                        <p className="font-medium mb-1">Phone & WhatsApp</p>
+                        <a href="tel:+27799282775" className="text-muted-foreground hover:text-primary transition-colors text-sm block">
+                          079 928 2775 (Calls & WhatsApp)
+                        </a>
+                        <a href="tel:+27631540696" className="text-muted-foreground hover:text-primary transition-colors text-sm">
+                          063 154 0696 (Calls Only)
+                        </a>
                       </div>
                     </div>
                     <div className="flex items-start gap-4">
