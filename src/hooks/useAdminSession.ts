@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 const ADMIN_SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes in ms
@@ -7,10 +6,11 @@ const ADMIN_TOKEN_KEY = 'admin_token';
 const ADMIN_LAST_ACTIVITY_KEY = 'admin_last_activity';
 
 export function useAdminSession() {
-  const [isValidSession, setIsValidSession] = useState(false);
+  const [isValidSession, setIsValidSession] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
-  const navigate = useNavigate();
+  const [sessionExpired, setSessionExpired] = useState(false);
   const { toast } = useToast();
+  const hasShownExpiredToast = useRef(false);
 
   const updateActivity = useCallback(() => {
     localStorage.setItem(ADMIN_LAST_ACTIVITY_KEY, Date.now().toString());
@@ -22,7 +22,7 @@ export function useAdminSession() {
     setIsValidSession(false);
   }, []);
 
-  const checkSession = useCallback(() => {
+  const checkSession = useCallback((): boolean => {
     const token = localStorage.getItem(ADMIN_TOKEN_KEY);
     const lastActivity = localStorage.getItem(ADMIN_LAST_ACTIVITY_KEY);
 
@@ -36,12 +36,15 @@ export function useAdminSession() {
       const elapsed = Date.now() - parseInt(lastActivity, 10);
       if (elapsed > ADMIN_SESSION_TIMEOUT) {
         clearAdminSession();
-        toast({
-          title: 'Session Expired',
-          description: 'Your admin session has expired due to inactivity. Please log in again.',
-          variant: 'destructive',
-        });
-        navigate('/login', { replace: true });
+        setSessionExpired(true);
+        if (!hasShownExpiredToast.current) {
+          hasShownExpiredToast.current = true;
+          toast({
+            title: 'Session Expired',
+            description: 'Your admin session has expired due to inactivity. Please log in again.',
+            variant: 'destructive',
+          });
+        }
         return false;
       }
     }
@@ -50,15 +53,7 @@ export function useAdminSession() {
     setIsValidSession(true);
     setIsChecking(false);
     return true;
-  }, [clearAdminSession, navigate, toast, updateActivity]);
-
-  const requireAdminSession = useCallback(() => {
-    if (!checkSession()) {
-      navigate('/login', { replace: true });
-      return false;
-    }
-    return true;
-  }, [checkSession, navigate]);
+  }, [clearAdminSession, toast, updateActivity]);
 
   // Check session on mount and set up activity listeners
   useEffect(() => {
@@ -93,10 +88,10 @@ export function useAdminSession() {
   }, [checkSession, updateActivity]);
 
   return {
-    isValidSession,
+    isValidSession: isValidSession === true,
     isChecking,
+    sessionExpired,
     checkSession,
-    requireAdminSession,
     clearAdminSession,
     updateActivity,
   };

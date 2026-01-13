@@ -41,7 +41,7 @@ export default function AdminSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { isValidSession, isChecking, requireAdminSession, clearAdminSession } = useAdminSession();
+  const { isValidSession, isChecking, clearAdminSession } = useAdminSession();
 
   const adminToken = localStorage.getItem("admin_token");
 
@@ -49,20 +49,20 @@ export default function AdminSettings() {
     if (isChecking) return;
     
     if (!isValidSession || !adminToken) {
-      navigate("/login");
+      navigate("/login", { state: { adminRedirect: true }, replace: true });
       return;
     }
     fetchSettings();
-  }, [isChecking, isValidSession]);
+  }, [isChecking, isValidSession, adminToken]);
 
   const fetchSettings = async () => {
-    if (!requireAdminSession()) return;
+    if (!isValidSession || !adminToken) return;
     
     try {
       const verifyRes = await fetch(`/api/admin/verify?admin_token=${adminToken}`);
       if (!verifyRes.ok) {
         clearAdminSession();
-        navigate("/login");
+        navigate("/login", { state: { adminRedirect: true }, replace: true });
         return;
       }
 
