@@ -1,4 +1,8 @@
 <?php
+/**
+ * CORS Middleware
+ * Handles Cross-Origin Resource Sharing headers
+ */
 
 namespace App\Middleware;
 
