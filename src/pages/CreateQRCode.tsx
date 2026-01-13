@@ -25,6 +25,7 @@ import {
   FileText,
   FileCode,
   Lock,
+  Loader2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -32,15 +33,27 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQRDownload, DownloadFormat } from "@/hooks/useQRDownload";
 import { useUserPlan } from "@/hooks/useUserPlan";
 import { useQRStorage } from "@/hooks/useQRStorage";
 import { UpsellModal } from "@/components/qr/UpsellModal";
+import { LogoUploader } from "@/components/qr/LogoUploader";
 import { WiFiForm, WiFiData, generateWiFiString } from "@/components/qr/WiFiForm";
 import { VCardForm, VCardData, generateVCardString } from "@/components/qr/VCardForm";
 import { EventForm, EventData, generateEventString } from "@/components/qr/EventForm";
 import { LocationForm, LocationData, generateLocationString } from "@/components/qr/LocationForm";
+import { qrCodeApi } from "@/services/api/qrcodes";
 
 const qrTypes = [
   { id: "url", name: "URL", icon: Link2, description: "Link to any website" },
@@ -96,6 +109,9 @@ export default function CreateQRCode() {
   const [selectedColor, setSelectedColor] = useState(colorPresets[0]);
   const [showUpsell, setShowUpsell] = useState(false);
   const [upsellFeature, setUpsellFeature] = useState("");
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [selectedLogo, setSelectedLogo] = useState<string | null>(null);
 
   // Premium type data
   const [wifiData, setWifiData] = useState<WiFiData>(defaultWiFiData);
@@ -106,8 +122,8 @@ export default function CreateQRCode() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { download } = useQRDownload();
-  const { canUsePremiumTypes, limits } = useUserPlan();
-  const { saveQRCode, getQRCodeCount } = useQRStorage();
+  const { canUsePremiumTypes, limits, isPro } = useUserPlan();
+  const { saveQRCode, getQRCodeCount, refresh } = useQRStorage();
 
   const handleDownload = async (format: DownloadFormat) => {
     await download(format, {
@@ -293,8 +309,8 @@ export default function CreateQRCode() {
     setStep(step + 1);
   };
 
-  const handleCreate = () => {
-    // Check QR code limit
+  const handleCreate = async () => {
+    // Check QR code limit locally first
     if (getQRCodeCount() >= limits.maxQRCodes) {
       toast({
         title: "Limit reached",
@@ -306,22 +322,72 @@ export default function CreateQRCode() {
       return;
     }
 
-    // Save to local storage
-    saveQRCode({
-      name: qrName,
-      type: selectedType,
-      content: getQRValue(),
-      contentData: getContentData(),
-      fgColor: selectedColor.fg,
-      bgColor: selectedColor.bg,
-    });
+    setIsCreating(true);
 
-    toast({
-      title: "QR Code created!",
-      description: "Your QR code has been saved successfully.",
-    });
+    try {
+      // Build the API request
+      const contentData = getContentData();
+      const customOptions = {
+        fgColor: selectedColor.fg,
+        bgColor: selectedColor.bg,
+        ...(selectedLogo && { logo_path: selectedLogo }),
+      };
 
-    navigate("/dashboard");
+      const response = await qrCodeApi.create({
+        type: selectedType as "url" | "text" | "email" | "phone" | "wifi" | "vcard" | "event" | "location",
+        name: qrName,
+        content: contentData,
+        custom_options: customOptions,
+      });
+
+      if (response.success) {
+        toast({
+          title: "QR Code created!",
+          description: "Your QR code has been saved successfully.",
+        });
+
+        // Refresh the QR list
+        await refresh();
+        
+        navigate("/dashboard");
+      } else {
+        throw new Error(response.message || "Failed to create QR code");
+      }
+    } catch (error: unknown) {
+      const err = error as { status?: number; message?: string };
+      
+      if (err.status === 403) {
+        // Plan limit reached
+        setShowUpsell(true);
+        setUpsellFeature("More QR codes");
+        toast({
+          variant: "destructive",
+          title: "Limit reached",
+          description: err.message || "Upgrade your plan to create more QR codes.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Creation failed",
+          description: err.message || "Could not create QR code. Please try again.",
+        });
+      }
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleBack = () => {
+    if (step > 1) {
+      setStep(step - 1);
+    } else {
+      // Confirm exit if there are unsaved changes
+      if (qrName || qrContent || wifiData.ssid || vcardData.fullName) {
+        setShowExitConfirm(true);
+      } else {
+        navigate("/dashboard");
+      }
+    }
   };
 
   const getContentData = (): Record<string, string> => {
