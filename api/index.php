@@ -64,6 +64,7 @@ use App\Controllers\AnalyticsController;
 use App\Controllers\InventoryController;
 use App\Controllers\AdminController;
 use App\Controllers\QAController;
+use App\Controllers\AdminAuthController;
 
 // Handle CORS
 Cors::handle();
@@ -108,6 +109,26 @@ try {
     }
     elseif ($uri === '/auth/google/signin' && $method === 'POST') {
         AuthController::googleSignIn();
+    }
+
+    // Admin Auth routes (multi-step authentication)
+    elseif ($uri === '/admin/auth/step1' && $method === 'POST') {
+        AdminAuthController::loginStep1();
+    }
+    elseif ($uri === '/admin/auth/step2' && $method === 'POST') {
+        AdminAuthController::loginStep2();
+    }
+    elseif ($uri === '/admin/auth/step3' && $method === 'POST') {
+        AdminAuthController::loginStep3();
+    }
+    elseif ($uri === '/admin/auth/session' && $method === 'GET') {
+        AdminAuthController::checkSession();
+    }
+    elseif ($uri === '/admin/auth/create' && $method === 'POST') {
+        AdminAuthController::createAdmin();
+    }
+    elseif ($uri === '/admin/auth/passwords' && $method === 'PUT') {
+        AdminAuthController::updatePasswords();
     }
 
     // User profile (auth required)
