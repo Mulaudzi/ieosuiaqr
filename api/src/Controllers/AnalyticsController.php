@@ -195,6 +195,267 @@ class AnalyticsController
         exit;
     }
 
+    /**
+     * Get analytics summary
+     */
+    public static function getSummary(): void
+    {
+        $user = Auth::check();
+        $pdo = Database::getInstance();
+        
+        $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+        $endDate = $_GET['end_date'] ?? date('Y-m-d');
+        
+        // Total scans
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as total 
+            FROM scan_logs sl
+            JOIN qr_codes qr ON sl.qr_id = qr.id
+            WHERE qr.user_id = ? AND DATE(sl.timestamp) BETWEEN ? AND ?
+        ");
+        $stmt->execute([$user['id'], $startDate, $endDate]);
+        $totalScans = (int)$stmt->fetch()['total'];
+        
+        // Previous period for comparison
+        $daysDiff = (strtotime($endDate) - strtotime($startDate)) / 86400;
+        $prevStart = date('Y-m-d', strtotime("-$daysDiff days", strtotime($startDate)));
+        $prevEnd = date('Y-m-d', strtotime('-1 day', strtotime($startDate)));
+        
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as total 
+            FROM scan_logs sl
+            JOIN qr_codes qr ON sl.qr_id = qr.id
+            WHERE qr.user_id = ? AND DATE(sl.timestamp) BETWEEN ? AND ?
+        ");
+        $stmt->execute([$user['id'], $prevStart, $prevEnd]);
+        $prevScans = (int)$stmt->fetch()['total'];
+        
+        $changePercent = $prevScans > 0 ? round((($totalScans - $prevScans) / $prevScans) * 100, 1) : 0;
+        
+        // Unique scans (by IP hash)
+        $stmt = $pdo->prepare("
+            SELECT COUNT(DISTINCT sl.ip_hash) as total 
+            FROM scan_logs sl
+            JOIN qr_codes qr ON sl.qr_id = qr.id
+            WHERE qr.user_id = ? AND DATE(sl.timestamp) BETWEEN ? AND ?
+        ");
+        $stmt->execute([$user['id'], $startDate, $endDate]);
+        $uniqueScans = (int)$stmt->fetch()['total'];
+        
+        // Top device
+        $stmt = $pdo->prepare("
+            SELECT 
+                CASE WHEN JSON_EXTRACT(sl.device, '$.is_mobile') = true THEN 'Mobile' ELSE 'Desktop' END as device_type,
+                COUNT(*) as count
+            FROM scan_logs sl
+            JOIN qr_codes qr ON sl.qr_id = qr.id
+            WHERE qr.user_id = ? AND DATE(sl.timestamp) BETWEEN ? AND ?
+            GROUP BY device_type
+            ORDER BY count DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$user['id'], $startDate, $endDate]);
+        $topDeviceRow = $stmt->fetch();
+        $topDevice = $topDeviceRow['device_type'] ?? 'N/A';
+        
+        Response::success([
+            'total_scans' => $totalScans,
+            'unique_scans' => $uniqueScans,
+            'scan_change_percent' => $changePercent,
+            'top_device' => $topDevice,
+        ]);
+    }
+
+    /**
+     * Get top performing QR codes
+     */
+    public static function getTopQRCodes(): void
+    {
+        $user = Auth::check();
+        $pdo = Database::getInstance();
+        
+        $limit = min(10, max(1, (int)($_GET['limit'] ?? 5)));
+        $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+        $endDate = $_GET['end_date'] ?? date('Y-m-d');
+        
+        $stmt = $pdo->prepare("
+            SELECT 
+                qr.id as qr_id,
+                qr.name as qr_name,
+                qr.type as qr_type,
+                COUNT(sl.id) as scan_count
+            FROM qr_codes qr
+            LEFT JOIN scan_logs sl ON qr.id = sl.qr_id AND DATE(sl.timestamp) BETWEEN ? AND ?
+            WHERE qr.user_id = ?
+            GROUP BY qr.id
+            ORDER BY scan_count DESC
+            LIMIT ?
+        ");
+        $stmt->execute([$startDate, $endDate, $user['id'], $limit]);
+        $topQRs = $stmt->fetchAll();
+        
+        // Add change percent (simplified - just use 0 for now)
+        foreach ($topQRs as &$qr) {
+            $qr['change_percent'] = 0;
+        }
+        
+        Response::success($topQRs);
+    }
+
+    /**
+     * Get device breakdown
+     */
+    public static function getDeviceBreakdown(): void
+    {
+        $user = Auth::check();
+        $pdo = Database::getInstance();
+        
+        $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+        $endDate = $_GET['end_date'] ?? date('Y-m-d');
+        
+        $stmt = $pdo->prepare("
+            SELECT 
+                CASE WHEN JSON_EXTRACT(sl.device, '$.is_mobile') = true THEN 'Mobile' ELSE 'Desktop' END as device_type,
+                JSON_UNQUOTE(JSON_EXTRACT(sl.device, '$.browser')) as browser,
+                JSON_UNQUOTE(JSON_EXTRACT(sl.device, '$.platform')) as os,
+                COUNT(*) as count
+            FROM scan_logs sl
+            JOIN qr_codes qr ON sl.qr_id = qr.id
+            WHERE qr.user_id = ? AND DATE(sl.timestamp) BETWEEN ? AND ?
+            GROUP BY device_type, browser, os
+            ORDER BY count DESC
+        ");
+        $stmt->execute([$user['id'], $startDate, $endDate]);
+        $devices = $stmt->fetchAll();
+        
+        // Calculate percentages
+        $total = array_sum(array_column($devices, 'count'));
+        foreach ($devices as &$device) {
+            $device['percentage'] = $total > 0 ? round(($device['count'] / $total) * 100, 1) : 0;
+        }
+        
+        Response::success($devices);
+    }
+
+    /**
+     * Get daily scan trend
+     */
+    public static function getDailyTrend(): void
+    {
+        $user = Auth::check();
+        $pdo = Database::getInstance();
+        
+        $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+        $endDate = $_GET['end_date'] ?? date('Y-m-d');
+        
+        $stmt = $pdo->prepare("
+            SELECT DATE(sl.timestamp) as date, COUNT(*) as count
+            FROM scan_logs sl
+            JOIN qr_codes qr ON sl.qr_id = qr.id
+            WHERE qr.user_id = ? AND DATE(sl.timestamp) BETWEEN ? AND ?
+            GROUP BY DATE(sl.timestamp)
+            ORDER BY date
+        ");
+        $stmt->execute([$user['id'], $startDate, $endDate]);
+        $trend = $stmt->fetchAll();
+        
+        Response::success($trend);
+    }
+
+    /**
+     * Get hourly scan distribution
+     */
+    public static function getHourlyDistribution(): void
+    {
+        $user = Auth::check();
+        $pdo = Database::getInstance();
+        
+        $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+        $endDate = $_GET['end_date'] ?? date('Y-m-d');
+        
+        $stmt = $pdo->prepare("
+            SELECT HOUR(sl.timestamp) as hour, COUNT(*) as count
+            FROM scan_logs sl
+            JOIN qr_codes qr ON sl.qr_id = qr.id
+            WHERE qr.user_id = ? AND DATE(sl.timestamp) BETWEEN ? AND ?
+            GROUP BY HOUR(sl.timestamp)
+            ORDER BY hour
+        ");
+        $stmt->execute([$user['id'], $startDate, $endDate]);
+        $hourly = $stmt->fetchAll();
+        
+        Response::success($hourly);
+    }
+
+    /**
+     * Export analytics report (POST for more options)
+     */
+    public static function exportReport(): void
+    {
+        $user = Auth::check();
+        Auth::requirePlan(['Pro', 'Enterprise']);
+        
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $format = $data['format'] ?? 'csv';
+        $type = $data['type'] ?? 'analytics';
+        $startDate = $data['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+        $endDate = $data['end_date'] ?? date('Y-m-d');
+        
+        $pdo = Database::getInstance();
+        
+        // Generate filename
+        $filename = "ieosuia-{$type}-{$startDate}-to-{$endDate}.{$format}";
+        $exportPath = $_ENV['EXPORT_PATH'] ?? '/tmp';
+        $filePath = $exportPath . '/' . $filename;
+        
+        // Get scan data
+        $stmt = $pdo->prepare("
+            SELECT 
+                qr.name as qr_name,
+                qr.type as qr_type,
+                sl.timestamp,
+                JSON_UNQUOTE(JSON_EXTRACT(sl.device, '$.browser')) as browser,
+                JSON_UNQUOTE(JSON_EXTRACT(sl.device, '$.platform')) as platform,
+                CASE WHEN JSON_EXTRACT(sl.device, '$.is_mobile') = true THEN 'Mobile' ELSE 'Desktop' END as device_type,
+                JSON_UNQUOTE(JSON_EXTRACT(sl.location, '$.country')) as country,
+                JSON_UNQUOTE(JSON_EXTRACT(sl.location, '$.city')) as city
+            FROM scan_logs sl
+            JOIN qr_codes qr ON sl.qr_id = qr.id
+            WHERE qr.user_id = ? AND DATE(sl.timestamp) BETWEEN ? AND ?
+            ORDER BY sl.timestamp DESC
+        ");
+        $stmt->execute([$user['id'], $startDate, $endDate]);
+        $scans = $stmt->fetchAll();
+        
+        if ($format === 'csv') {
+            $csv = "QR Name,QR Type,Timestamp,Browser,Platform,Device Type,Country,City\n";
+            foreach ($scans as $scan) {
+                $csv .= implode(',', [
+                    '"' . str_replace('"', '""', $scan['qr_name'] ?? '') . '"',
+                    $scan['qr_type'] ?? '',
+                    $scan['timestamp'] ?? '',
+                    $scan['browser'] ?? '',
+                    $scan['platform'] ?? '',
+                    $scan['device_type'] ?? '',
+                    $scan['country'] ?? '',
+                    $scan['city'] ?? ''
+                ]) . "\n";
+            }
+            file_put_contents($filePath, $csv);
+        } else {
+            // JSON format
+            file_put_contents($filePath, json_encode($scans, JSON_PRETTY_PRINT));
+        }
+        
+        $appUrl = $_ENV['APP_URL'] ?? 'https://qr.ieosuia.com';
+        
+        Response::success([
+            'download_url' => $appUrl . '/api/exports/' . $filename,
+            'filename' => $filename,
+            'records' => count($scans),
+        ]);
+    }
+
     private static function getInterval(string $period): string
     {
         return match($period) {

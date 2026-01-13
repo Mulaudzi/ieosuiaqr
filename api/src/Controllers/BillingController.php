@@ -91,4 +91,56 @@ class BillingController
             'filename' => "IEOSUIA-QR-{$invoice['invoice_number']}.pdf"
         ]);
     }
+
+    /**
+     * Get payment history (all payment attempts, both successful and failed)
+     */
+    public static function getPayments(): void
+    {
+        $user = Auth::check();
+
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $limit = min(50, max(1, (int)($_GET['limit'] ?? 20)));
+        $offset = ($page - 1) * $limit;
+
+        $pdo = Database::getInstance();
+
+        // Check if payments table exists
+        try {
+            $stmt = $pdo->query("SHOW TABLES LIKE 'payments'");
+            if ($stmt->rowCount() === 0) {
+                // Table doesn't exist, return empty array
+                Response::success([]);
+                return;
+            }
+        } catch (\Exception $e) {
+            Response::success([]);
+            return;
+        }
+
+        // Get payments from payments table (includes all payment attempts)
+        try {
+            $stmt = $pdo->prepare("
+                SELECT 
+                    id,
+                    payment_id,
+                    amount_zar,
+                    status,
+                    payment_method,
+                    description,
+                    created_at
+                FROM payments 
+                WHERE user_id = ?
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+            ");
+            $stmt->execute([$user['id'], $limit, $offset]);
+            $payments = $stmt->fetchAll();
+
+            Response::success($payments);
+        } catch (\Exception $e) {
+            // If table doesn't exist or other error, return empty array
+            Response::success([]);
+        }
+    }
 }

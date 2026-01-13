@@ -11,7 +11,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserPlan } from "@/hooks/useUserPlan";
 import { useToast } from "@/hooks/use-toast";
 import {
-  QrCode,
   BarChart3,
   Settings,
   LogOut,
@@ -20,8 +19,10 @@ import {
   Package,
   Shield,
   User,
+  QrCode,
 } from "lucide-react";
 import { useState } from "react";
+import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
 
 type NavItem = {
   to: string;
@@ -86,12 +87,7 @@ export function DashboardSidebar({ activeTab, onTabChange }: DashboardSidebarPro
     <aside className="fixed left-0 top-0 bottom-0 w-64 bg-card border-r border-border hidden lg:block">
       <div className="p-6">
         <Link to="/" className="flex items-center gap-2 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-            <QrCode className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <span className="font-display text-lg font-bold">
-            <span className="gradient-text">IEOSUIA</span>
-          </span>
+          <img src={ieosuiaLogo} alt="IEOSUIA QR" className="h-9 w-auto" />
         </Link>
 
         <nav className="space-y-1" data-tutorial="sidebar-nav">

@@ -135,7 +135,6 @@ const componentIcons: Record<string, React.ElementType> = {
 };
 
 const systemConfig = {
-  sms: { label: "SMS System", icon: MessageSquare, color: "text-blue-500" },
   qr: { label: "QR System", icon: QrCode, color: "text-primary" },
   invoicing: { label: "Invoicing", icon: FileText, color: "text-green-500" },
   shared: { label: "Shared Services", icon: Server, color: "text-purple-500" },
