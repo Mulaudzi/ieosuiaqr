@@ -279,9 +279,9 @@ const Support = () => {
                     <CardDescription>Get help via email</CardDescription>
                   </CardHeader>
                   <CardContent className="text-center">
-                    <a href="mailto:support@ieosuia.com" className="text-primary hover:underline">
-                      support@ieosuia.com
-                    </a>
+                    <Link to="/contact?purpose=support" className="text-primary hover:underline">
+                      Contact Support
+                    </Link>
                     <div className="flex items-center justify-center gap-2 mt-3 text-sm text-muted-foreground">
                       <Clock className="h-4 w-4" />
                       <span>Response within 24 hours</span>
@@ -448,10 +448,10 @@ const Support = () => {
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Button asChild size="lg">
-                  <a href="mailto:support@ieosuia.com">
+                  <Link to="/contact?purpose=support">
                     <Mail className="h-4 w-4 mr-2" />
                     Contact Support
-                  </a>
+                  </Link>
                 </Button>
                 <Button variant="outline" size="lg" asChild>
                   <a href="https://wa.me/27799282775" target="_blank" rel="noopener noreferrer">

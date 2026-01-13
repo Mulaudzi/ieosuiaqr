@@ -8,6 +8,15 @@ use App\Services\MailService;
 
 class ContactController
 {
+    // Email routing configuration
+    private static array $emailRouting = [
+        'general' => 'hello@ieosuia.com',
+        'support' => 'support@ieosuia.com',
+        'sales' => 'sales@ieosuia.com',
+    ];
+    
+    private static string $ccEmail = 'info@ieosuia.com';
+
     public static function submit(): void
     {
         $data = json_decode(file_get_contents('php://input'), true);
@@ -31,6 +40,11 @@ class ContactController
         $company = isset($data['company']) ? htmlspecialchars(strip_tags(trim($data['company']))) : '';
         $message = htmlspecialchars(strip_tags(trim($data['message'])));
         $source = isset($data['source']) ? htmlspecialchars(strip_tags(trim($data['source']))) : 'IEOSUIA QR';
+        
+        // New fields for routing
+        $purpose = isset($data['purpose']) ? htmlspecialchars(strip_tags(trim($data['purpose']))) : 'general';
+        $purposeLabel = isset($data['purposeLabel']) ? htmlspecialchars(strip_tags(trim($data['purposeLabel']))) : 'General Inquiry';
+        $originUrl = isset($data['originUrl']) ? htmlspecialchars(strip_tags(trim($data['originUrl']))) : '';
 
         // Validate lengths
         if (strlen($name) > 100) {
@@ -40,32 +54,68 @@ class ContactController
             Response::error('Message must be less than 2000 characters', 422);
         }
 
-        // Try to send email
-        $adminEmail = $_ENV['ADMIN_EMAIL'] ?? 'hello@ieosuia.com';
-        $subject = "[$source] Contact Form: Message from $name";
+        // Determine target email based on purpose
+        $targetEmail = self::$emailRouting[$purpose] ?? self::$emailRouting['general'];
+        
+        // Build subject line with purpose indicator
+        $purposeTag = strtoupper($purpose);
+        $subject = "[$source][$purposeTag] Message from $name";
         
         $body = "
         <h2>New Contact Form Submission</h2>
-        <p><strong>Source:</strong> $source</p>
-        <p><strong>Name:</strong> $name</p>
-        <p><strong>Email:</strong> $email</p>
-        " . ($company ? "<p><strong>Company:</strong> $company</p>" : "") . "
-        <p><strong>Message:</strong></p>
-        <p>" . nl2br($message) . "</p>
-        <hr>
-        <p><small>Sent from $source Contact Form</small></p>
+        <table style='border-collapse: collapse; width: 100%;'>
+            <tr>
+                <td style='padding: 8px; border-bottom: 1px solid #eee;'><strong>Source:</strong></td>
+                <td style='padding: 8px; border-bottom: 1px solid #eee;'>$source</td>
+            </tr>
+            <tr>
+                <td style='padding: 8px; border-bottom: 1px solid #eee;'><strong>Inquiry Type:</strong></td>
+                <td style='padding: 8px; border-bottom: 1px solid #eee;'>$purposeLabel</td>
+            </tr>
+            <tr>
+                <td style='padding: 8px; border-bottom: 1px solid #eee;'><strong>Name:</strong></td>
+                <td style='padding: 8px; border-bottom: 1px solid #eee;'>$name</td>
+            </tr>
+            <tr>
+                <td style='padding: 8px; border-bottom: 1px solid #eee;'><strong>Email:</strong></td>
+                <td style='padding: 8px; border-bottom: 1px solid #eee;'><a href='mailto:$email'>$email</a></td>
+            </tr>
+            " . ($company ? "
+            <tr>
+                <td style='padding: 8px; border-bottom: 1px solid #eee;'><strong>Company:</strong></td>
+                <td style='padding: 8px; border-bottom: 1px solid #eee;'>$company</td>
+            </tr>" : "") . "
+            " . ($originUrl ? "
+            <tr>
+                <td style='padding: 8px; border-bottom: 1px solid #eee;'><strong>Origin Page:</strong></td>
+                <td style='padding: 8px; border-bottom: 1px solid #eee;'><a href='$originUrl'>$originUrl</a></td>
+            </tr>" : "") . "
+        </table>
+        
+        <h3 style='margin-top: 20px;'>Message:</h3>
+        <div style='background: #f9f9f9; padding: 15px; border-radius: 8px; margin-top: 10px;'>
+            " . nl2br($message) . "
+        </div>
+        
+        <hr style='margin-top: 30px; border: none; border-top: 1px solid #eee;'>
+        <p style='color: #888; font-size: 12px;'>
+            Sent from $source Contact Form<br>
+            Routed to: $targetEmail<br>
+            CC'd to: " . self::$ccEmail . "
+        </p>
         ";
 
         try {
-            $sent = MailService::send($adminEmail, $subject, $body);
+            // Send to primary recipient with CC
+            $sent = MailService::sendWithCC($targetEmail, self::$ccEmail, $subject, $body, $email);
             
             if ($sent) {
                 // Log the contact submission
-                error_log("Contact form submission from: $email - $name");
+                error_log("Contact form submission from: $email - $name - Purpose: $purpose - Routed to: $targetEmail");
                 Response::success(['message' => 'Message sent successfully']);
             } else {
                 // Log for manual follow-up even if email fails
-                error_log("Contact form (email failed): $name <$email> - Company: $company - Message: $message");
+                error_log("Contact form (email failed): $name <$email> - Purpose: $purpose - Company: $company - Message: $message");
                 Response::success(['message' => 'Message received, we will contact you soon']);
             }
         } catch (\Exception $e) {

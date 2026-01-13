@@ -79,6 +79,49 @@ class MailService
     }
 
     /**
+     * Send email with CC recipient
+     */
+    public static function sendWithCC(string $to, string $cc, string $subject, string $htmlBody, ?string $replyTo = null, ?string $textBody = null): bool
+    {
+        try {
+            $mail = self::getMailer();
+
+            // Clear previous recipients
+            $mail->clearAddresses();
+            $mail->clearCCs();
+            $mail->clearReplyTos();
+
+            // Primary recipient
+            $mail->addAddress($to);
+            
+            // CC recipient
+            if (!empty($cc)) {
+                $mail->addCC($cc);
+            }
+            
+            // Reply-To (user's email for contact forms)
+            if (!empty($replyTo)) {
+                $mail->addReplyTo($replyTo);
+            }
+
+            // Content
+            $mail->isHTML(true);
+            $mail->Subject = $subject;
+            $mail->Body = $htmlBody;
+            $mail->AltBody = $textBody ?? strip_tags($htmlBody);
+
+            $mail->send();
+
+            error_log("Email sent successfully to: $to (CC: $cc)");
+            return true;
+
+        } catch (Exception $e) {
+            error_log("PHPMailer Error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Send verification email
      */
     public static function sendVerificationEmail(string $email, string $name, string $token): bool

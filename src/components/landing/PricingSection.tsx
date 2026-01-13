@@ -113,7 +113,7 @@ const pricingFaqs = [
   },
   {
     question: "Do you offer discounts for NGOs or educational institutions?",
-    answer: "Yes! We offer special pricing for registered non-profits, NGOs, churches, and educational institutions. Contact us at hello@ieosuia.com for details."
+    answer: "Yes! We offer special pricing for registered non-profits, NGOs, churches, and educational institutions. Contact us through our contact form for details."
   },
 ];
 
