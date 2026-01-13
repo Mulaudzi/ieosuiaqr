@@ -49,6 +49,12 @@ import { QRDeleteConfirmModal } from "@/components/qr/QRDeleteConfirmModal";
 import { useQRDownload } from "@/hooks/useQRDownload";
 import { InventoryTab } from "@/components/inventory/InventoryTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  TutorialProvider, 
+  TutorialOverlay, 
+  TutorialTrigger, 
+  TutorialWelcomeModal 
+} from "@/components/dashboard/DashboardTutorial";
 
 const typeColors: Record<string, string> = {
   url: "bg-primary/10 text-primary",
@@ -183,7 +189,12 @@ export default function Dashboard() {
   const planLabel = plan === "free" ? "Free Plan" : plan === "pro" ? "Pro Plan" : "Enterprise";
 
   return (
+    <TutorialProvider>
     <div className="min-h-screen bg-background">
+      {/* Tutorial Components */}
+      <TutorialOverlay />
+      <TutorialWelcomeModal />
+      
       {/* Sidebar */}
       <aside className="fixed left-0 top-0 bottom-0 w-64 bg-card border-r border-border hidden lg:block">
         <div className="p-6">
@@ -196,7 +207,7 @@ export default function Dashboard() {
             </span>
           </Link>
 
-          <nav className="space-y-1">
+          <nav className="space-y-1" data-tutorial="sidebar-nav">
             <button
               onClick={() => setActiveTab("qr")}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
@@ -210,6 +221,7 @@ export default function Dashboard() {
             </button>
             <button
               onClick={() => setActiveTab("inventory")}
+              data-tutorial="inventory-nav"
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
                 activeTab === "inventory"
                   ? "bg-primary/10 text-primary"
@@ -221,6 +233,7 @@ export default function Dashboard() {
             </button>
             <Link
               to="/dashboard/analytics"
+              data-tutorial="analytics-nav"
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-muted transition-colors"
             >
               <BarChart3 className="w-5 h-5" />
@@ -237,7 +250,7 @@ export default function Dashboard() {
         </div>
 
         {plan === "free" && (
-          <div className="absolute bottom-24 left-4 right-4">
+          <div className="absolute bottom-24 left-4 right-4" data-tutorial="upgrade">
             <div className="p-4 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20">
               <div className="flex items-center gap-2 mb-2">
                 <Crown className="w-5 h-5 text-primary" />
@@ -290,7 +303,7 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="lg:ml-64">
-        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border">
+        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border" data-tutorial="header">
           <div className="flex items-center justify-between px-6 py-4">
             <div>
               <h1 className="font-display text-2xl font-bold">
@@ -303,6 +316,7 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="flex items-center gap-3">
+              <TutorialTrigger />
               {activeTab === "qr" && (
                 <>
                   {plan === "enterprise" && (
@@ -311,7 +325,7 @@ export default function Dashboard() {
                       Bulk Import
                     </Button>
                   )}
-                  <Button variant="hero" asChild>
+                  <Button variant="hero" asChild data-tutorial="create-button">
                     <Link to="/dashboard/create">
                       <Plus className="w-5 h-5 mr-2" />
                       Create QR Code
@@ -345,7 +359,7 @@ export default function Dashboard() {
           ) : (
             <>
           {/* Stats Grid */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" data-tutorial="stats">
             {stats.map((stat, index) => (
               <motion.div
                 key={stat.label}
@@ -401,7 +415,7 @@ export default function Dashboard() {
 
           {/* Toolbar */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-            <div className="relative w-full sm:w-80">
+            <div className="relative w-full sm:w-80" data-tutorial="search">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input
                 placeholder="Search QR codes..."
@@ -424,7 +438,7 @@ export default function Dashboard() {
                 <Filter className="w-4 h-4 mr-2" />
                 Filter
               </Button>
-              <div className="flex items-center border border-border rounded-lg p-1">
+              <div className="flex items-center border border-border rounded-lg p-1" data-tutorial="view-toggle">
                 <button
                   onClick={() => setViewMode("grid")}
                   className={`p-2 rounded-md transition-colors ${
@@ -726,5 +740,6 @@ export default function Dashboard() {
         onConfirm={confirmDelete}
       />
     </div>
+    </TutorialProvider>
   );
 }
