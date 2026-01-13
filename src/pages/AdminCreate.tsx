@@ -45,7 +45,7 @@ export default function AdminCreate() {
           title: "Access Denied",
           description: "Please login as admin first."
         });
-        navigate("/login", { state: { adminRedirect: true }, replace: true });
+        navigate("/admin/login", { replace: true });
       }
     };
     

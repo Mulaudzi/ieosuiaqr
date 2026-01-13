@@ -176,7 +176,7 @@ export default function AdminEmails() {
     
     // Only redirect if session check is complete and explicitly invalid
     if (isValidSession === false || !adminToken) {
-      navigate("/login", { state: { adminRedirect: true }, replace: true });
+      navigate("/admin/login", { replace: true });
       return;
     }
     
@@ -192,13 +192,13 @@ export default function AdminEmails() {
       const verifyRes = await fetch(`/api/admin/verify?admin_token=${adminToken}`);
       if (!verifyRes.ok) {
         clearAdminSession();
-        navigate("/login", { state: { adminRedirect: true }, replace: true });
+        navigate("/admin/login", { replace: true });
         return;
       }
       await fetchEmails();
       await fetchChartData();
     } catch {
-      navigate("/login", { state: { adminRedirect: true }, replace: true });
+      navigate("/admin/login", { replace: true });
     }
   };
 

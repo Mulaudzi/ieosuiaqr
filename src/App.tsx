@@ -37,6 +37,8 @@ import InventoryAnalytics from "./pages/InventoryAnalytics";
 import Careers from "./pages/Careers";
 import Solutions from "./pages/Solutions";
 import SolutionDetail from "./pages/SolutionDetail";
+import AdminIndex from "./pages/AdminIndex";
+import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminEmails from "./pages/AdminEmails";
 import AdminSettings from "./pages/AdminSettings";
@@ -84,7 +86,9 @@ const App = () => (
             <Route path="/careers" element={<Careers />} />
             <Route path="/solutions" element={<Solutions />} />
             <Route path="/solutions/:solutionId" element={<SolutionDetail />} />
-            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin" element={<AdminIndex />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/emails" element={<AdminEmails />} />
             <Route path="/admin/settings" element={<AdminSettings />} />
             <Route path="/admin/stats" element={<AdminStats />} />

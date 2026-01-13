@@ -15,13 +15,13 @@ interface BreadcrumbItem {
 }
 
 const ADMIN_ROUTES: Record<string, { label: string; parent?: string }> = {
-  "/admin": { label: "Dashboard" },
-  "/admin/emails": { label: "Email Management", parent: "/admin" },
-  "/admin/users": { label: "Admin Users", parent: "/admin" },
-  "/admin/settings": { label: "Settings", parent: "/admin" },
-  "/admin/stats": { label: "Statistics", parent: "/admin" },
-  "/admin/audit": { label: "Audit Log", parent: "/admin" },
-  "/admin/qa": { label: "QA Console", parent: "/admin" },
+  "/admin/dashboard": { label: "Dashboard" },
+  "/admin/emails": { label: "Email Management", parent: "/admin/dashboard" },
+  "/admin/users": { label: "Admin Users", parent: "/admin/dashboard" },
+  "/admin/settings": { label: "Settings", parent: "/admin/dashboard" },
+  "/admin/stats": { label: "Statistics", parent: "/admin/dashboard" },
+  "/admin/audit": { label: "Audit Log", parent: "/admin/dashboard" },
+  "/admin/qa": { label: "QA Console", parent: "/admin/dashboard" },
   "/admin/create": { label: "Create Admin", parent: "/admin/users" },
 };
 
@@ -59,7 +59,7 @@ export function AdminBreadcrumb() {
       <BreadcrumbList>
         <BreadcrumbItem>
           <BreadcrumbLink asChild>
-            <Link to="/admin" className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/admin/dashboard" className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
               <Home className="h-4 w-4" />
               <span className="sr-only">Admin Home</span>
             </Link>

@@ -46,7 +46,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     // Only redirect if session check is complete and explicitly invalid
     if (!isChecking && isValidSession === false) {
-      navigate("/login", { state: { adminRedirect: true }, replace: true });
+      navigate("/admin/login", { replace: true });
     }
   }, [isChecking, isValidSession, navigate]);
 
@@ -102,7 +102,7 @@ export default function AdminDashboard() {
       title: "Logged Out",
       description: "You have been logged out of the admin panel."
     });
-    navigate("/login", { replace: true });
+    navigate("/admin/login", { replace: true });
   };
 
   const navItems = [
