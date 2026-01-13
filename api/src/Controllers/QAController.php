@@ -1358,4 +1358,382 @@ class QAController
         
         Response::success($summary);
     }
+
+    // ========== USER-ACCESSIBLE QA METHODS (no admin required) ==========
+
+    /**
+     * Require regular user auth (not admin)
+     */
+    private static function requireUser(): array
+    {
+        return \App\Middleware\Auth::check();
+    }
+
+    /**
+     * Get QA dashboard summary - User version
+     */
+    public static function getDashboardUser(): void
+    {
+        self::requireUser();
+        
+        $pdo = Database::getInstance();
+        
+        $summary = [
+            'systems' => [],
+            'recent_tests' => [],
+            'quick_stats' => [],
+        ];
+        
+        // Quick stats
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) as c FROM users");
+            $summary['quick_stats']['users'] = (int)$stmt->fetch()['c'];
+        } catch (\Exception $e) { $summary['quick_stats']['users'] = 0; }
+        
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) as c FROM qr_codes");
+            $summary['quick_stats']['qr_codes'] = (int)$stmt->fetch()['c'];
+        } catch (\Exception $e) { $summary['quick_stats']['qr_codes'] = 0; }
+        
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) as c FROM invoices");
+            $summary['quick_stats']['invoices'] = (int)$stmt->fetch()['c'];
+        } catch (\Exception $e) { $summary['quick_stats']['invoices'] = 0; }
+        
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) as c FROM email_logs WHERE status = 'failed'");
+            $summary['quick_stats']['failed_emails'] = (int)$stmt->fetch()['c'];
+        } catch (\Exception $e) { $summary['quick_stats']['failed_emails'] = 0; }
+        
+        // System health indicators
+        $systems = ['shared', 'qr', 'invoicing', 'sms'];
+        foreach ($systems as $sys) {
+            $tables = self::REQUIRED_TABLES[$sys] ?? [];
+            $existingTables = 0;
+            
+            foreach (array_keys($tables) as $table) {
+                try {
+                    $stmt = $pdo->query("SELECT 1 FROM {$table} LIMIT 1");
+                    $existingTables++;
+                } catch (\Exception $e) {
+                    // Table doesn't exist
+                }
+            }
+            
+            $summary['systems'][$sys] = [
+                'tables_found' => $existingTables,
+                'tables_required' => count($tables),
+                'health' => $existingTables === count($tables) ? 'healthy' : 
+                           ($existingTables > 0 ? 'partial' : 'missing'),
+            ];
+        }
+        
+        Response::success($summary);
+    }
+
+    /**
+     * Run full system QA - User version
+     */
+    public static function runQAUser(): void
+    {
+        self::requireUser();
+        
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $system = $data['system'] ?? 'all';
+        $userMode = $data['user_mode'] ?? 'admin';
+        $includeSeeding = $data['include_seeding'] ?? false;
+        
+        if (!in_array($system, self::SYSTEMS)) {
+            Response::error('Invalid system specified', 400);
+        }
+        
+        if (!in_array($userMode, self::USER_MODES)) {
+            Response::error('Invalid user mode', 400);
+        }
+        
+        $results = [
+            'system' => $system,
+            'user_mode' => $userMode,
+            'timestamp' => date('Y-m-d H:i:s'),
+            'duration_ms' => 0,
+            'summary' => [
+                'total_tests' => 0,
+                'passed' => 0,
+                'warnings' => 0,
+                'errors' => 0,
+                'missing' => 0,
+            ],
+            'tests' => [],
+        ];
+        
+        $startTime = microtime(true);
+        
+        // Run tests based on system selection
+        $systemsToTest = $system === 'all' 
+            ? ['shared', 'qr', 'invoicing', 'sms']
+            : [$system];
+        
+        foreach ($systemsToTest as $sys) {
+            $results['tests'][$sys] = [
+                'database' => self::testDatabase($sys),
+                'api' => self::testApi($sys),
+                'pages' => self::testPages($sys),
+                'permissions' => self::testPermissions($sys, $userMode),
+                'business_logic' => self::testBusinessLogic($sys),
+            ];
+        }
+        
+        // Cross-system tests if running all
+        if ($system === 'all') {
+            $results['tests']['cross_system'] = self::testCrossSystem();
+        }
+        
+        // Calculate summary
+        foreach ($results['tests'] as $sysTests) {
+            foreach ($sysTests as $category) {
+                foreach ($category as $test) {
+                    $results['summary']['total_tests']++;
+                    switch ($test['status']) {
+                        case 'passed': $results['summary']['passed']++; break;
+                        case 'warning': $results['summary']['warnings']++; break;
+                        case 'error': $results['summary']['errors']++; break;
+                        case 'missing': $results['summary']['missing']++; break;
+                    }
+                }
+            }
+        }
+        
+        $results['duration_ms'] = round((microtime(true) - $startTime) * 1000, 2);
+        
+        Response::success($results);
+    }
+
+    /**
+     * Seed test data - User version
+     */
+    public static function seedTestDataUser(): void
+    {
+        self::requireUser();
+        
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $system = $data['system'] ?? 'all';
+        $count = min(100, max(1, (int)($data['count'] ?? 5)));
+        
+        $pdo = Database::getInstance();
+        $seeded = [
+            'timestamp' => date('Y-m-d H:i:s'),
+            'system' => $system,
+            'records' => [],
+        ];
+        
+        try {
+            $pdo->beginTransaction();
+            
+            $systemsToSeed = $system === 'all' 
+                ? ['shared', 'qr', 'invoicing']
+                : [$system];
+            
+            foreach ($systemsToSeed as $sys) {
+                $seeded['records'][$sys] = self::seedSystem($pdo, $sys, $count);
+            }
+            
+            $pdo->commit();
+            
+            Response::success(['seeded' => $seeded]);
+            
+        } catch (\Exception $e) {
+            $pdo->rollBack();
+            Response::error('Seeding failed: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Cleanup test data - User version
+     */
+    public static function cleanupTestDataUser(): void
+    {
+        self::requireUser();
+        
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $system = $data['system'] ?? 'all';
+        $dryRun = $data['dry_run'] ?? false;
+        
+        $pdo = Database::getInstance();
+        $cleaned = [
+            'timestamp' => date('Y-m-d H:i:s'),
+            'system' => $system,
+            'dry_run' => $dryRun,
+            'records' => [],
+            'totals' => ['found' => 0, 'deleted' => 0],
+        ];
+        
+        try {
+            if (!$dryRun) {
+                $pdo->beginTransaction();
+            }
+            
+            // QR codes test data
+            try {
+                $stmt = $pdo->query("SELECT COUNT(*) as c FROM qr_codes WHERE content LIKE 'TEST_%'");
+                $count = (int)$stmt->fetch()['c'];
+                $cleaned['records']['qr_codes'] = $count;
+                $cleaned['totals']['found'] += $count;
+                
+                if (!$dryRun && $count > 0) {
+                    $pdo->exec("DELETE FROM qr_codes WHERE content LIKE 'TEST_%'");
+                    $cleaned['totals']['deleted'] += $count;
+                }
+            } catch (\Exception $e) {}
+            
+            // Test users
+            try {
+                $stmt = $pdo->query("SELECT COUNT(*) as c FROM users WHERE email LIKE 'testuser_%@test.local'");
+                $count = (int)$stmt->fetch()['c'];
+                $cleaned['records']['test_users'] = $count;
+                $cleaned['totals']['found'] += $count;
+                
+                if (!$dryRun && $count > 0) {
+                    $pdo->exec("DELETE FROM users WHERE email LIKE 'testuser_%@test.local'");
+                    $cleaned['totals']['deleted'] += $count;
+                }
+            } catch (\Exception $e) {}
+            
+            if (!$dryRun) {
+                $pdo->commit();
+            }
+            
+            Response::success(['cleaned' => $cleaned]);
+            
+        } catch (\Exception $e) {
+            if (!$dryRun) {
+                $pdo->rollBack();
+            }
+            Response::error('Cleanup failed: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Get seeding status - User version
+     */
+    public static function getSeedingStatusUser(): void
+    {
+        self::requireUser();
+        
+        $pdo = Database::getInstance();
+        
+        $status = [
+            'timestamp' => date('Y-m-d H:i:s'),
+            'test_data' => [],
+            'has_test_data' => false,
+        ];
+        
+        // Check test users
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) as c FROM users WHERE email LIKE 'testuser_%@test.local'");
+            $status['test_data']['test_users'] = (int)$stmt->fetch()['c'];
+        } catch (\Exception $e) {
+            $status['test_data']['test_users'] = 0;
+        }
+        
+        // Check test QR codes
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) as c FROM qr_codes WHERE content LIKE 'TEST_%'");
+            $status['test_data']['qr_codes'] = (int)$stmt->fetch()['c'];
+        } catch (\Exception $e) {
+            $status['test_data']['qr_codes'] = 0;
+        }
+        
+        // Check test invoices
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) as c FROM invoices WHERE invoice_number LIKE 'TEST-%'");
+            $status['test_data']['invoices'] = (int)$stmt->fetch()['c'];
+        } catch (\Exception $e) {
+            $status['test_data']['invoices'] = 0;
+        }
+        
+        $status['has_test_data'] = array_sum($status['test_data']) > 0;
+        
+        Response::success($status);
+    }
+
+    /**
+     * Get copyable error report - User version
+     */
+    public static function getErrorReportUser(): void
+    {
+        self::requireUser();
+        
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $testResults = $data['results'] ?? [];
+        
+        $errors = [];
+        $format = $data['format'] ?? 'text';
+        
+        foreach ($testResults['tests'] ?? [] as $system => $categories) {
+            foreach ($categories as $category => $tests) {
+                foreach ($tests as $test) {
+                    if (in_array($test['status'], ['error', 'warning', 'missing'])) {
+                        $errors[] = [
+                            'system' => $system,
+                            'component' => $test['component'] ?? $category,
+                            'name' => $test['name'],
+                            'status' => strtoupper($test['status']),
+                            'message' => $test['message'],
+                            'suggestion' => $test['suggestion'] ?? null,
+                        ];
+                    }
+                }
+            }
+        }
+        
+        switch ($format) {
+            case 'json':
+                Response::success(['errors' => $errors]);
+                break;
+                
+            case 'markdown':
+                $md = "# QA Error Report\n\n";
+                $md .= "Generated: " . date('Y-m-d H:i:s') . "\n\n";
+                
+                $grouped = [];
+                foreach ($errors as $e) {
+                    $grouped[$e['system']][] = $e;
+                }
+                
+                foreach ($grouped as $sys => $errs) {
+                    $md .= "## System: " . ucfirst($sys) . "\n\n";
+                    foreach ($errs as $e) {
+                        $md .= "### [{$e['status']}] {$e['name']}\n";
+                        $md .= "- **Component:** {$e['component']}\n";
+                        $md .= "- **Message:** {$e['message']}\n";
+                        if ($e['suggestion']) {
+                            $md .= "- **Suggestion:** {$e['suggestion']}\n";
+                        }
+                        $md .= "\n";
+                    }
+                }
+                
+                Response::success(['report' => $md]);
+                break;
+                
+            default:
+                $text = "QA ERROR REPORT\n";
+                $text .= "Generated: " . date('Y-m-d H:i:s') . "\n";
+                $text .= str_repeat("=", 50) . "\n\n";
+                
+                foreach ($errors as $e) {
+                    $text .= "SYSTEM: {$e['system']}\n";
+                    $text .= "COMPONENT: {$e['component']}\n";
+                    $text .= "STATUS: {$e['status']}\n";
+                    $text .= "TEST: {$e['name']}\n";
+                    $text .= "ERROR: {$e['message']}\n";
+                    if ($e['suggestion']) {
+                        $text .= "FIX: {$e['suggestion']}\n";
+                    }
+                    $text .= "\n";
+                }
+                
+                Response::success(['report' => $text]);
+        }
+    }
 }
