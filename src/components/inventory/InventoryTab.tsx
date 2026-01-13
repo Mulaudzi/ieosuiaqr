@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -29,6 +30,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useUserPlan } from "@/hooks/useUserPlan";
+import { useQRStorage, StoredQRCode } from "@/hooks/useQRStorage";
 import { inventoryApi, InventoryItem, InventoryStatus } from "@/services/api/inventory";
 import { UpsellModal } from "@/components/qr/UpsellModal";
 import {
@@ -47,8 +49,10 @@ import {
   CheckCircle,
   Clock,
   Crown,
+  Link as LinkIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
 
 const statusConfig: Record<InventoryStatus, { label: string; color: string; icon: React.ElementType }> = {
   in_stock: { label: "In Stock", color: "bg-success/10 text-success", icon: CheckCircle },
@@ -121,6 +125,7 @@ export function InventoryTab() {
     notes?: string;
     status: InventoryStatus;
     location?: string;
+    qr_id?: string;
   }) => {
     if (items.length >= maxItems) {
       setShowUpsell(true);
@@ -413,7 +418,7 @@ function InventoryForm({
   isEdit = false,
 }: {
   initialData?: Partial<InventoryItem>;
-  onSubmit: (data: { name: string; category: string; notes?: string; status: InventoryStatus; location?: string }) => void;
+  onSubmit: (data: { name: string; category: string; notes?: string; status: InventoryStatus; location?: string; qr_id?: string }) => void;
   isEdit?: boolean;
 }) {
   const [name, setName] = useState(initialData?.name || "");
@@ -421,12 +426,26 @@ function InventoryForm({
   const [notes, setNotes] = useState(initialData?.notes || "");
   const [status, setStatus] = useState<InventoryStatus>(initialData?.status || "in_stock");
   const [location, setLocation] = useState(initialData?.location || "");
+  const [linkToQR, setLinkToQR] = useState(false);
+  const [selectedQRId, setSelectedQRId] = useState<string>(initialData?.qr_id || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const { qrCodes, isLoading: loadingQRCodes } = useQRStorage();
+  
+  // Filter QR codes that aren't already linked to inventory
+  const availableQRCodes = qrCodes;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    await onSubmit({ name, category, notes: notes || undefined, status, location: location || undefined });
+    await onSubmit({ 
+      name, 
+      category, 
+      notes: notes || undefined, 
+      status, 
+      location: location || undefined,
+      qr_id: linkToQR && selectedQRId ? selectedQRId : undefined,
+    });
     setIsSubmitting(false);
   };
 
@@ -491,6 +510,79 @@ function InventoryForm({
           rows={3}
         />
       </div>
+
+      {/* QR Code Linking Section */}
+      {!isEdit && (
+        <div className="space-y-3 pt-3 border-t border-border">
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="link-qr" 
+              checked={linkToQR} 
+              onCheckedChange={(checked) => setLinkToQR(checked === true)}
+            />
+            <Label htmlFor="link-qr" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+              <LinkIcon className="w-4 h-4 text-primary" />
+              Link to existing QR Code
+            </Label>
+          </div>
+          
+          {linkToQR && (
+            <div className="space-y-2 pl-6">
+              {loadingQRCodes ? (
+                <Skeleton className="h-10 w-full" />
+              ) : availableQRCodes.length === 0 ? (
+                <div className="text-sm text-muted-foreground p-3 rounded-lg bg-muted">
+                  No QR codes available.{" "}
+                  <Link to="/dashboard/create" className="text-primary hover:underline">
+                    Create one first
+                  </Link>
+                </div>
+              ) : (
+                <Select value={selectedQRId} onValueChange={setSelectedQRId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a QR code" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableQRCodes.map((qr) => (
+                      <SelectItem key={qr.id} value={qr.id}>
+                        <div className="flex items-center gap-2">
+                          <QrCode className="w-4 h-4 text-primary" />
+                          <span>{qr.name}</span>
+                          <Badge variant="outline" className="text-xs capitalize">{qr.type}</Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              
+              {selectedQRId && (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
+                  <div className="bg-background p-2 rounded-lg">
+                    <QRCodeSVG 
+                      value={availableQRCodes.find(q => q.id === selectedQRId)?.content || "https://qr.ieosuia.com"} 
+                      size={60}
+                      level="M"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">
+                      {availableQRCodes.find(q => q.id === selectedQRId)?.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {availableQRCodes.find(q => q.id === selectedQRId)?.content}
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              <p className="text-xs text-muted-foreground">
+                💡 Scanning this QR will update the item's last scan date and location.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       <Button type="submit" variant="hero" className="w-full" disabled={isSubmitting || !name}>
         {isSubmitting ? (
