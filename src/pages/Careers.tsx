@@ -90,15 +90,15 @@ const Careers = () => {
                   <div className="p-4 rounded-xl bg-background/50 border border-border">
                     <h3 className="font-semibold mb-2">Interested in joining us?</h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Send your CV and a brief introduction to:
+                      Send your CV and a brief introduction:
                     </p>
-                    <a 
-                      href="mailto:hello@ieosuia.com?subject=Career Inquiry - IEOSUIA QR"
+                    <Link 
+                      to="/contact?purpose=general"
                       className="inline-flex items-center gap-2 text-primary hover:underline font-medium"
                     >
                       <Mail className="h-4 w-4" />
-                      hello@ieosuia.com
-                    </a>
+                      Apply via Contact Form
+                    </Link>
                   </div>
 
                   <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">

@@ -1,10 +1,17 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { useToast } from "@/hooks/use-toast";
@@ -17,15 +24,56 @@ import {
   MessageSquare,
   Clock,
   Building2,
+  HelpCircle,
+  Headphones,
+  Briefcase,
 } from "lucide-react";
 
+type InquiryPurpose = "general" | "support" | "sales";
+
+const purposeConfig: Record<InquiryPurpose, { 
+  label: string; 
+  email: string; 
+  icon: React.ElementType;
+  description: string;
+}> = {
+  general: {
+    label: "General / Friendly Inquiry",
+    email: "hello@ieosuia.com",
+    icon: HelpCircle,
+    description: "General questions and inquiries",
+  },
+  support: {
+    label: "Support / Technical Help",
+    email: "support@ieosuia.com",
+    icon: Headphones,
+    description: "Get help with technical issues",
+  },
+  sales: {
+    label: "Sales / Quotes / Partnerships",
+    email: "sales@ieosuia.com",
+    icon: Briefcase,
+    description: "Pricing, quotes, and business inquiries",
+  },
+};
+
 export default function Contact() {
+  const [searchParams] = useSearchParams();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
   const [message, setMessage] = useState("");
+  const [purpose, setPurpose] = useState<InquiryPurpose>("general");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+
+  // Handle preselected purpose from URL parameter
+  useEffect(() => {
+    const purposeParam = searchParams.get("purpose");
+    if (purposeParam && purposeParam in purposeConfig) {
+      setPurpose(purposeParam as InquiryPurpose);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +107,10 @@ export default function Contact() {
           email, 
           company, 
           message,
+          purpose,
+          purposeLabel: purposeConfig[purpose].label,
+          targetEmail: purposeConfig[purpose].email,
+          originUrl: window.location.href,
           source: "IEOSUIA QR - Contact Form" 
         }),
       });
@@ -66,12 +118,13 @@ export default function Contact() {
       if (response.ok) {
         toast({
           title: "Message sent!",
-          description: "We'll get back to you within 24 hours.",
+          description: `We'll get back to you within 24 hours at ${email}.`,
         });
         setName("");
         setEmail("");
         setCompany("");
         setMessage("");
+        setPurpose("general");
       } else {
         throw new Error("Failed to send message");
       }
@@ -79,7 +132,7 @@ export default function Contact() {
       toast({
         variant: "destructive",
         title: "Failed to send",
-        description: "Please try again or email us directly.",
+        description: "Please try again or contact us via WhatsApp.",
       });
     } finally {
       setIsSubmitting(false);
@@ -138,6 +191,7 @@ export default function Contact() {
                           onChange={(e) => setName(e.target.value)}
                           placeholder="Your name"
                           required
+                          maxLength={100}
                         />
                       </div>
                       <div className="space-y-2">
@@ -149,6 +203,7 @@ export default function Contact() {
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="you@company.com"
                           required
+                          maxLength={255}
                         />
                       </div>
                     </div>
@@ -159,8 +214,33 @@ export default function Contact() {
                         value={company}
                         onChange={(e) => setCompany(e.target.value)}
                         placeholder="Your company name"
+                        maxLength={100}
                       />
                     </div>
+                    
+                    {/* Purpose of Inquiry */}
+                    <div className="space-y-2">
+                      <Label htmlFor="purpose">Purpose of Inquiry *</Label>
+                      <Select value={purpose} onValueChange={(val) => setPurpose(val as InquiryPurpose)}>
+                        <SelectTrigger id="purpose" className="w-full">
+                          <SelectValue placeholder="Select the purpose of your inquiry" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card">
+                          {Object.entries(purposeConfig).map(([key, config]) => (
+                            <SelectItem key={key} value={key}>
+                              <div className="flex items-center gap-2">
+                                <config.icon className="w-4 h-4 text-muted-foreground" />
+                                <span>{config.label}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Your message will be routed to: {purposeConfig[purpose].email}
+                      </p>
+                    </div>
+                    
                     <div className="space-y-2">
                       <Label htmlFor="message">Message *</Label>
                       <Textarea
@@ -170,7 +250,11 @@ export default function Contact() {
                         placeholder="Tell us about your QR code needs..."
                         rows={5}
                         required
+                        maxLength={2000}
                       />
+                      <p className="text-xs text-muted-foreground text-right">
+                        {message.length}/2000
+                      </p>
                     </div>
                     <Button
                       type="submit"
@@ -213,12 +297,15 @@ export default function Contact() {
                       </div>
                       <div>
                         <p className="font-medium mb-1">Email</p>
-                        <a href="mailto:hello@ieosuia.com" className="text-muted-foreground hover:text-primary transition-colors block">
-                          hello@ieosuia.com
-                        </a>
-                        <a href="mailto:support@ieosuia.com" className="text-muted-foreground hover:text-primary transition-colors text-sm">
-                          support@ieosuia.com
-                        </a>
+                        <p className="text-muted-foreground text-sm mb-1">
+                          hello@ieosuia.com <span className="text-xs">(General)</span>
+                        </p>
+                        <p className="text-muted-foreground text-sm mb-1">
+                          support@ieosuia.com <span className="text-xs">(Support)</span>
+                        </p>
+                        <p className="text-muted-foreground text-sm">
+                          sales@ieosuia.com <span className="text-xs">(Sales)</span>
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-4">

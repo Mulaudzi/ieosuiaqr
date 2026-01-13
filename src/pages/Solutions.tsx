@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import {
@@ -18,10 +19,14 @@ import {
   Users,
   Dumbbell,
   Briefcase,
+  Search,
+  X,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
 const solutions = [
   {
@@ -38,6 +43,7 @@ const solutions = [
       "Maintenance scheduling",
     ],
     color: "primary",
+    category: "Operations",
   },
   {
     id: "retail-ecommerce",
@@ -53,6 +59,7 @@ const solutions = [
       "Loyalty program integration",
     ],
     color: "accent",
+    category: "Sales",
   },
   {
     id: "restaurants-cafes",
@@ -68,6 +75,7 @@ const solutions = [
       "Reduced printing costs",
     ],
     color: "success",
+    category: "Hospitality",
   },
   {
     id: "real-estate",
@@ -83,6 +91,7 @@ const solutions = [
       "Instant agent contact",
     ],
     color: "warning",
+    category: "Sales",
   },
   {
     id: "events-entertainment",
@@ -98,6 +107,7 @@ const solutions = [
       "Attendance tracking",
     ],
     color: "primary",
+    category: "Events",
   },
   {
     id: "education",
@@ -113,6 +123,7 @@ const solutions = [
       "Paperless submissions",
     ],
     color: "accent",
+    category: "Education",
   },
   {
     id: "churches-religious",
@@ -128,6 +139,7 @@ const solutions = [
       "Resource distribution",
     ],
     color: "success",
+    category: "Non-Profit",
   },
   {
     id: "healthcare-medical",
@@ -143,6 +155,7 @@ const solutions = [
       "Compliance tracking",
     ],
     color: "warning",
+    category: "Healthcare",
   },
   {
     id: "logistics-warehousing",
@@ -158,6 +171,7 @@ const solutions = [
       "Complete audit trails",
     ],
     color: "primary",
+    category: "Operations",
   },
   {
     id: "manufacturing",
@@ -173,6 +187,7 @@ const solutions = [
       "Traceability",
     ],
     color: "accent",
+    category: "Operations",
   },
   {
     id: "hospitality-tourism",
@@ -188,6 +203,7 @@ const solutions = [
       "Review collection",
     ],
     color: "success",
+    category: "Hospitality",
   },
   {
     id: "maintenance-repairs",
@@ -203,6 +219,7 @@ const solutions = [
       "Parts ordering",
     ],
     color: "warning",
+    category: "Operations",
   },
   {
     id: "non-profits-ngos",
@@ -218,6 +235,7 @@ const solutions = [
       "Transparency",
     ],
     color: "primary",
+    category: "Non-Profit",
   },
   {
     id: "fitness-gyms",
@@ -233,6 +251,7 @@ const solutions = [
       "Equipment tracking",
     ],
     color: "accent",
+    category: "Hospitality",
   },
   {
     id: "professional-services",
@@ -248,6 +267,7 @@ const solutions = [
       "Document distribution",
     ],
     color: "success",
+    category: "Sales",
   },
 ];
 
@@ -258,7 +278,26 @@ const colorClasses = {
   warning: "bg-warning/10 text-warning border-warning/20",
 };
 
+const categories = ["All", "Operations", "Sales", "Hospitality", "Education", "Healthcare", "Events", "Non-Profit"];
+
 export default function Solutions() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+
+  const filteredSolutions = useMemo(() => {
+    return solutions.filter((solution) => {
+      const matchesSearch = 
+        solution.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        solution.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        solution.examples.some(ex => ex.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        solution.benefits.some(b => b.toLowerCase().includes(searchQuery.toLowerCase()));
+      
+      const matchesCategory = selectedCategory === "All" || solution.category === selectedCategory;
+      
+      return matchesSearch && matchesCategory;
+    });
+  }, [searchQuery, selectedCategory]);
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -291,7 +330,7 @@ export default function Solutions() {
                     <ArrowRight className="w-4 h-4" />
                   </Button>
                 </Link>
-                <Link to="/contact">
+                <Link to="/contact?purpose=sales">
                   <Button size="lg" variant="outline">
                     Contact Sales
                   </Button>
@@ -301,70 +340,144 @@ export default function Solutions() {
           </div>
         </section>
 
+        {/* Search & Filter Section */}
+        <section className="py-8 border-b border-border bg-card/50">
+          <div className="container mx-auto px-4">
+            <div className="max-w-4xl mx-auto space-y-4">
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search for your industry, use case, or feature..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-12 pr-12 py-6 text-lg rounded-xl"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full transition-colors"
+                  >
+                    <X className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+
+              {/* Category Filters */}
+              <div className="flex flex-wrap gap-2 justify-center">
+                {categories.map((category) => (
+                  <Badge
+                    key={category}
+                    variant={selectedCategory === category ? "default" : "outline"}
+                    className={`cursor-pointer transition-all px-4 py-2 text-sm ${
+                      selectedCategory === category 
+                        ? "bg-primary text-primary-foreground" 
+                        : "hover:bg-primary/10"
+                    }`}
+                    onClick={() => setSelectedCategory(category)}
+                  >
+                    {category}
+                  </Badge>
+                ))}
+              </div>
+
+              {/* Results Count */}
+              <p className="text-center text-sm text-muted-foreground">
+                Showing {filteredSolutions.length} of {solutions.length} solutions
+              </p>
+            </div>
+          </div>
+        </section>
+
         {/* Solutions Grid */}
         <section className="py-16 lg:py-24 bg-muted/30">
           <div className="container mx-auto px-4">
-            <div className="grid lg:grid-cols-2 gap-8">
-              {solutions.map((solution, index) => (
-                <motion.div
-                  key={solution.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: index * 0.1 }}
-                >
-                <Link to={`/solutions/${solution.id}`} className="block h-full">
-                  <div className="h-full p-8 rounded-3xl bg-card border border-border hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 group">
-                    <div className="flex items-start gap-6">
-                      <div
-                        className={`w-16 h-16 rounded-2xl ${
-                          colorClasses[solution.color as keyof typeof colorClasses]
-                        } border flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}
-                      >
-                        <solution.icon className="w-8 h-8" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-display text-2xl font-bold mb-3 group-hover:text-primary transition-colors">
-                          {solution.title}
-                        </h3>
-                        <p className="text-muted-foreground mb-4">
-                          {solution.description}
-                        </p>
-                        
-                        {/* Benefits */}
-                        <div className="grid sm:grid-cols-2 gap-2 mb-4">
-                          {solution.benefits.map((benefit) => (
-                            <div key={benefit} className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
-                              <span>{benefit}</span>
-                            </div>
-                          ))}
+            {filteredSolutions.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-16"
+              >
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                  <Search className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2">No solutions found</h3>
+                <p className="text-muted-foreground mb-4">
+                  Try adjusting your search or filter to find what you're looking for.
+                </p>
+                <Button variant="outline" onClick={() => { setSearchQuery(""); setSelectedCategory("All"); }}>
+                  Clear Filters
+                </Button>
+              </motion.div>
+            ) : (
+              <div className="grid lg:grid-cols-2 gap-8">
+                {filteredSolutions.map((solution, index) => (
+                  <motion.div
+                    key={solution.title}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.5, delay: index * 0.05 }}
+                  >
+                  <Link to={`/solutions/${solution.id}`} className="block h-full">
+                    <div className="h-full p-8 rounded-3xl bg-card border border-border hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 group">
+                      <div className="flex items-start gap-6">
+                        <div
+                          className={`w-16 h-16 rounded-2xl ${
+                            colorClasses[solution.color as keyof typeof colorClasses]
+                          } border flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}
+                        >
+                          <solution.icon className="w-8 h-8" />
                         </div>
-                        
-                        {/* Examples */}
-                        <div className="flex flex-wrap gap-2 mb-4">
-                          {solution.examples.map((example) => (
-                            <span
-                              key={example}
-                              className="text-xs px-3 py-1.5 rounded-full bg-muted text-muted-foreground"
-                            >
-                              {example}
-                            </span>
-                          ))}
-                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant="secondary" className="text-xs">
+                              {solution.category}
+                            </Badge>
+                          </div>
+                          <h3 className="font-display text-2xl font-bold mb-3 group-hover:text-primary transition-colors">
+                            {solution.title}
+                          </h3>
+                          <p className="text-muted-foreground mb-4">
+                            {solution.description}
+                          </p>
+                          
+                          {/* Benefits */}
+                          <div className="grid sm:grid-cols-2 gap-2 mb-4">
+                            {solution.benefits.map((benefit) => (
+                              <div key={benefit} className="flex items-center gap-2 text-sm">
+                                <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
+                                <span>{benefit}</span>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {/* Examples */}
+                          <div className="flex flex-wrap gap-2 mb-4">
+                            {solution.examples.map((example) => (
+                              <span
+                                key={example}
+                                className="text-xs px-3 py-1.5 rounded-full bg-muted text-muted-foreground"
+                              >
+                                {example}
+                              </span>
+                            ))}
+                          </div>
 
-                        {/* Learn More Link */}
-                        <div className="flex items-center gap-2 text-primary font-medium text-sm group-hover:gap-3 transition-all">
-                          Learn More
-                          <ArrowRight className="w-4 h-4" />
+                          {/* Learn More Link */}
+                          <div className="flex items-center gap-2 text-primary font-medium text-sm group-hover:gap-3 transition-all">
+                            Learn More
+                            <ArrowRight className="w-4 h-4" />
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </Link>
-                </motion.div>
-              ))}
-            </div>
+                  </Link>
+                  </motion.div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
