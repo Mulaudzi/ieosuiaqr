@@ -6,6 +6,7 @@ use App\Config\Database;
 use App\Helpers\Response;
 use App\Helpers\Validator;
 use App\Middleware\Auth;
+use App\Services\MailService;
 
 class InventoryController
 {
@@ -364,10 +365,12 @@ class InventoryController
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
         $pdo = Database::getInstance();
 
-        // Find item
+        // Find item with owner info
         $stmt = $pdo->prepare("
-            SELECT i.*, i.user_id as owner_id
+            SELECT i.*, i.user_id as owner_id, u.email as owner_email, u.name as owner_name, 
+                   COALESCE(u.notify_status_change, 1) as notify_status_change
             FROM inventory_items i
+            LEFT JOIN users u ON i.user_id = u.id
             WHERE i.qr_id = ?
         ");
         $stmt->execute([$qrId]);
@@ -407,6 +410,12 @@ class InventoryController
             Response::error('Invalid status', 400);
         }
 
+        // Store old values for history
+        $oldStatus = $item['status'];
+        $oldLocation = $item['location'];
+        $newStatus = $data['status'] ?? $oldStatus;
+        $newLocation = $data['location'] ?? $oldLocation;
+
         // Update item
         $updates = ["updated_at = NOW()"];
         $params = [];
@@ -428,11 +437,81 @@ class InventoryController
         $stmt = $pdo->prepare("UPDATE inventory_items SET " . implode(', ', $updates) . " WHERE id = ?");
         $stmt->execute($params);
 
+        // Log status change history
+        if ($oldStatus !== $newStatus || $oldLocation !== $newLocation) {
+            try {
+                $stmt = $pdo->prepare("
+                    INSERT INTO inventory_status_history 
+                    (item_id, old_status, new_status, old_location, new_location, changed_by, changed_by_name, changed_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+                ");
+                $stmt->execute([
+                    $item['id'],
+                    $oldStatus,
+                    $newStatus,
+                    $oldLocation,
+                    $newLocation,
+                    $user['id'],
+                    $user['name']
+                ]);
+            } catch (\Exception $e) {
+                error_log("Failed to log status history: " . $e->getMessage());
+            }
+
+            // Send email notification if status changed and notifications enabled
+            if ($oldStatus !== $newStatus && $item['notify_status_change'] && $item['owner_email']) {
+                try {
+                    MailService::sendStatusChangeEmail(
+                        $item['owner_email'],
+                        $item['owner_name'],
+                        $item['name'],
+                        $oldStatus,
+                        $newStatus,
+                        $newLocation
+                    );
+                } catch (\Exception $e) {
+                    error_log("Failed to send status change email: " . $e->getMessage());
+                }
+            }
+        }
+
         // Return updated item
         $stmt = $pdo->prepare("SELECT * FROM inventory_items WHERE id = ?");
         $stmt->execute([$item['id']]);
         $updatedItem = $stmt->fetch();
 
         Response::success($updatedItem, 'Item updated successfully');
+    }
+
+    /**
+     * Get status history for an item by QR code (public)
+     */
+    public static function getHistoryByQrCode(int $qrId): void
+    {
+        $pdo = Database::getInstance();
+
+        // Find item
+        $stmt = $pdo->prepare("SELECT id FROM inventory_items WHERE qr_id = ?");
+        $stmt->execute([$qrId]);
+        $item = $stmt->fetch();
+
+        if (!$item) {
+            Response::success(['data' => []]);
+            return;
+        }
+
+        // Get history
+        $stmt = $pdo->prepare("
+            SELECT id, item_id, old_status, new_status, old_location, new_location, 
+                   changed_by_name as changed_by, changed_at
+            FROM inventory_status_history
+            WHERE item_id = ?
+            ORDER BY changed_at DESC
+            LIMIT 50
+        ");
+        $stmt->execute([$item['id']]);
+        $history = $stmt->fetchAll();
+
+        Response::success(['data' => $history]);
     }
 }

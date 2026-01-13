@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
-import { Package, MapPin, Clock, CheckCircle, AlertTriangle, Wrench, LogOut, Loader2, QrCode } from "lucide-react";
+import { useParams, Link } from "react-router-dom";
+import { Package, MapPin, Clock, CheckCircle, AlertTriangle, Wrench, LogOut, Loader2, QrCode, History } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -173,6 +173,17 @@ export default function Scan() {
                   <p className="text-sm text-muted-foreground">{item.notes}</p>
                 </div>
               )}
+              
+              {/* View History Link */}
+              <div className="pt-2">
+                <Link 
+                  to={`/scan/${id}/history`}
+                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                >
+                  <History className="h-4 w-4" />
+                  View scan & status history
+                </Link>
+              </div>
             </div>
 
             {/* Status Update Form - Only for authorized users */}
