@@ -478,12 +478,61 @@ class ContactController
             </html>
             ";
 
-            MailService::send(self::$adminNotificationEmail, $subject, $adminBody);
-            error_log("Admin notification sent for contact form from: $senderEmail");
+            // Get notification emails from settings
+            $notificationEmails = self::getNotificationEmails();
+            
+            foreach ($notificationEmails as $adminEmail) {
+                MailService::send($adminEmail, $subject, $adminBody);
+            }
+            error_log("Admin notification sent to " . count($notificationEmails) . " recipients for contact form from: $senderEmail");
             
         } catch (\Exception $e) {
             // Don't fail if admin notification fails
             error_log("Failed to send admin notification: " . $e->getMessage());
         }
+    }
+    
+    /**
+     * Get notification emails from admin settings
+     */
+    private static function getNotificationEmails(): array
+    {
+        try {
+            $pdo = Database::getInstance();
+            $stmt = $pdo->prepare("SELECT setting_value FROM admin_settings WHERE setting_key = 'notification_emails'");
+            $stmt->execute();
+            $result = $stmt->fetch();
+            
+            if ($result && $result['setting_value']) {
+                $emails = json_decode($result['setting_value'], true);
+                return is_array($emails) && count($emails) > 0 ? $emails : [self::$adminNotificationEmail];
+            }
+        } catch (\Exception $e) {
+            error_log("Failed to get notification emails from settings: " . $e->getMessage());
+        }
+        
+        return [self::$adminNotificationEmail];
+    }
+    
+    /**
+     * Check if notifications are enabled for a specific type
+     */
+    private static function isNotificationEnabled(string $type): bool
+    {
+        try {
+            $pdo = Database::getInstance();
+            $key = "notify_on_{$type}";
+            $stmt = $pdo->prepare("SELECT setting_value FROM admin_settings WHERE setting_key = ?");
+            $stmt->execute([$key]);
+            $result = $stmt->fetch();
+            
+            if ($result) {
+                return $result['setting_value'] === 'true' || $result['setting_value'] === '1';
+            }
+        } catch (\Exception $e) {
+            error_log("Failed to check notification setting: " . $e->getMessage());
+        }
+        
+        return true; // Default to enabled
     }
 }

@@ -638,4 +638,226 @@ class AdminController
             unlink($cacheFile);
         }
     }
+    
+    /**
+     * Get admin settings
+     */
+    public static function getSettings(): void
+    {
+        self::requireAdmin();
+        
+        $pdo = Database::getInstance();
+        $stmt = $pdo->query("SELECT * FROM admin_settings ORDER BY setting_key");
+        $settings = $stmt->fetchAll();
+        
+        // Parse JSON values
+        $parsed = [];
+        foreach ($settings as $setting) {
+            $value = $setting['setting_value'];
+            if ($setting['setting_type'] === 'json') {
+                $value = json_decode($value, true);
+            } elseif ($setting['setting_type'] === 'boolean') {
+                $value = $value === 'true' || $value === '1';
+            } elseif ($setting['setting_type'] === 'number') {
+                $value = (float)$value;
+            }
+            $parsed[$setting['setting_key']] = [
+                'value' => $value,
+                'type' => $setting['setting_type'],
+                'description' => $setting['description']
+            ];
+        }
+        
+        Response::success($parsed);
+    }
+    
+    /**
+     * Update admin settings
+     */
+    public static function updateSettings(): void
+    {
+        self::requireAdmin();
+        
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        
+        if (empty($data)) {
+            Response::error('No settings provided', 400);
+        }
+        
+        $pdo = Database::getInstance();
+        
+        foreach ($data as $key => $value) {
+            // Determine type and serialize
+            $type = 'string';
+            $serialized = $value;
+            
+            if (is_array($value)) {
+                $type = 'json';
+                $serialized = json_encode($value);
+            } elseif (is_bool($value)) {
+                $type = 'boolean';
+                $serialized = $value ? 'true' : 'false';
+            } elseif (is_numeric($value) && !is_string($value)) {
+                $type = 'number';
+                $serialized = (string)$value;
+            }
+            
+            $stmt = $pdo->prepare("
+                INSERT INTO admin_settings (setting_key, setting_value, setting_type)
+                VALUES (?, ?, ?)
+                ON DUPLICATE KEY UPDATE setting_value = ?, setting_type = ?
+            ");
+            $stmt->execute([$key, $serialized, $type, $serialized, $type]);
+        }
+        
+        Response::success(['message' => 'Settings updated']);
+    }
+    
+    /**
+     * Get email statistics
+     */
+    public static function getEmailStats(): void
+    {
+        self::requireAdmin();
+        
+        $pdo = Database::getInstance();
+        
+        // Get date range from query params (default last 30 days)
+        $days = min(365, max(1, (int)($_GET['days'] ?? 30)));
+        $startDate = date('Y-m-d', strtotime("-{$days} days"));
+        
+        // Total submissions by type
+        $stmt = $pdo->prepare("
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN email_type = 'contact' THEN 1 ELSE 0 END) as contact_submissions,
+                SUM(CASE WHEN email_type = 'contact' AND is_replied = 1 THEN 1 ELSE 0 END) as replied,
+                SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as delivered,
+                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+                SUM(CASE WHEN status = 'bounced' THEN 1 ELSE 0 END) as bounced
+            FROM email_logs
+            WHERE created_at >= ?
+        ");
+        $stmt->execute([$startDate]);
+        $totals = $stmt->fetch();
+        
+        // Response rate calculation
+        $responseRate = $totals['contact_submissions'] > 0 
+            ? round(($totals['replied'] / $totals['contact_submissions']) * 100, 1) 
+            : 0;
+        
+        // Average response time (only for replied contact forms)
+        $stmt = $pdo->prepare("
+            SELECT AVG(TIMESTAMPDIFF(HOUR, created_at, replied_at)) as avg_hours
+            FROM email_logs
+            WHERE email_type = 'contact' 
+            AND is_replied = 1 
+            AND replied_at IS NOT NULL
+            AND created_at >= ?
+        ");
+        $stmt->execute([$startDate]);
+        $avgResponse = $stmt->fetch();
+        $avgResponseHours = $avgResponse['avg_hours'] ? round($avgResponse['avg_hours'], 1) : null;
+        
+        // Daily submissions for chart
+        $stmt = $pdo->prepare("
+            SELECT 
+                DATE(created_at) as date,
+                COUNT(*) as total,
+                SUM(CASE WHEN email_type = 'contact' THEN 1 ELSE 0 END) as contacts,
+                SUM(CASE WHEN is_replied = 1 THEN 1 ELSE 0 END) as replied
+            FROM email_logs
+            WHERE created_at >= ?
+            GROUP BY DATE(created_at)
+            ORDER BY date ASC
+        ");
+        $stmt->execute([$startDate]);
+        $dailyData = $stmt->fetchAll();
+        
+        // Submissions by inquiry type
+        $stmt = $pdo->prepare("
+            SELECT 
+                inquiry_purpose,
+                COUNT(*) as count
+            FROM email_logs
+            WHERE email_type = 'contact' 
+            AND created_at >= ?
+            AND inquiry_purpose IS NOT NULL
+            GROUP BY inquiry_purpose
+            ORDER BY count DESC
+        ");
+        $stmt->execute([$startDate]);
+        $byPurpose = $stmt->fetchAll();
+        
+        // Submissions by hour of day
+        $stmt = $pdo->prepare("
+            SELECT 
+                HOUR(created_at) as hour,
+                COUNT(*) as count
+            FROM email_logs
+            WHERE email_type = 'contact' AND created_at >= ?
+            GROUP BY HOUR(created_at)
+            ORDER BY hour
+        ");
+        $stmt->execute([$startDate]);
+        $byHour = $stmt->fetchAll();
+        
+        // Recent activity (last 10 contact submissions)
+        $stmt = $pdo->prepare("
+            SELECT id, sender_name, sender_email, inquiry_purpose, is_read, is_replied, created_at
+            FROM email_logs
+            WHERE email_type = 'contact'
+            ORDER BY created_at DESC
+            LIMIT 10
+        ");
+        $stmt->execute();
+        $recentActivity = $stmt->fetchAll();
+        
+        Response::success([
+            'period_days' => $days,
+            'totals' => [
+                'all_emails' => (int)$totals['total'],
+                'contact_submissions' => (int)$totals['contact_submissions'],
+                'replied' => (int)$totals['replied'],
+                'delivered' => (int)$totals['delivered'],
+                'failed' => (int)$totals['failed'],
+                'bounced' => (int)$totals['bounced'],
+            ],
+            'metrics' => [
+                'response_rate' => $responseRate,
+                'avg_response_hours' => $avgResponseHours,
+                'delivery_rate' => $totals['total'] > 0 
+                    ? round(($totals['delivered'] / $totals['total']) * 100, 1) 
+                    : 0
+            ],
+            'charts' => [
+                'daily' => $dailyData,
+                'by_purpose' => $byPurpose,
+                'by_hour' => $byHour
+            ],
+            'recent_activity' => $recentActivity
+        ]);
+    }
+    
+    /**
+     * Get notification emails from settings
+     */
+    public static function getNotificationEmails(): array
+    {
+        try {
+            $pdo = Database::getInstance();
+            $stmt = $pdo->prepare("SELECT setting_value FROM admin_settings WHERE setting_key = 'notification_emails'");
+            $stmt->execute();
+            $result = $stmt->fetch();
+            
+            if ($result && $result['setting_value']) {
+                $emails = json_decode($result['setting_value'], true);
+                return is_array($emails) ? $emails : ['admin@ieosuia.com'];
+            }
+        } catch (\Exception $e) {
+            error_log("Failed to get notification emails: " . $e->getMessage());
+        }
+        
+        return ['admin@ieosuia.com'];
+    }
 }

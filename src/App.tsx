@@ -37,6 +37,8 @@ import Solutions from "./pages/Solutions";
 import SolutionDetail from "./pages/SolutionDetail";
 import AdminLogin from "./pages/AdminLogin";
 import AdminEmails from "./pages/AdminEmails";
+import AdminSettings from "./pages/AdminSettings";
+import AdminStats from "./pages/AdminStats";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -79,6 +81,8 @@ const App = () => (
             <Route path="/solutions/:solutionId" element={<SolutionDetail />} />
             <Route path="/admin" element={<AdminLogin />} />
             <Route path="/admin/emails" element={<AdminEmails />} />
+            <Route path="/admin/settings" element={<AdminSettings />} />
+            <Route path="/admin/stats" element={<AdminStats />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <CookieConsent />
