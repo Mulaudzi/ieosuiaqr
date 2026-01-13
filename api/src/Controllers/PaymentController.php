@@ -17,6 +17,11 @@ class PaymentController
         '41.74.179.192', '41.74.179.193', '41.74.179.194', '41.74.179.195'
     ];
 
+    // Paystack valid IPs (for webhook validation)
+    private const PAYSTACK_VALID_IPS = [
+        '52.31.139.75', '52.49.173.169', '52.214.14.220'
+    ];
+
     public static function checkout(): void
     {
         $user = Auth::check();
@@ -62,7 +67,7 @@ class PaymentController
             'merchant_key' => $merchantKey,
             'return_url' => "{$appUrl}/settings?tab=billing&success=1",
             'cancel_url' => "{$appUrl}/settings?tab=billing&canceled=1",
-            'notify_url' => "{$appUrl}/api/v1/webhooks/payfast",
+            'notify_url' => "{$appUrl}/api/webhooks/payfast",
             'name_first' => explode(' ', $user['name'])[0],
             'name_last' => explode(' ', $user['name'])[1] ?? '',
             'email_address' => $user['email'],
@@ -92,7 +97,7 @@ class PaymentController
         
         $payfastData['signature'] = md5($signatureString);
 
-        // Store pending subscription
+        // Store pending subscription and payment record
         try {
             Database::beginTransaction();
 
@@ -101,6 +106,9 @@ class PaymentController
                 VALUES (?, ?, 'pending', ?, NOW())
             ");
             $stmt->execute([$user['id'], $plan['id'], $data['frequency']]);
+
+            // Record payment attempt
+            self::recordPayment($pdo, $user['id'], $paymentId, (float)$amount, 'pending', 'payfast', "IEOSUIA QR {$data['plan']} Plan ({$data['frequency']})");
 
             Database::commit();
         } catch (\Exception $e) {
@@ -118,6 +126,9 @@ class PaymentController
         ]);
     }
 
+    /**
+     * Handle PayFast webhook (ITN - Instant Transaction Notification)
+     */
     public static function handleWebhook(): void
     {
         // Immediately send 200 OK to PayFast
@@ -148,9 +159,6 @@ class PaymentController
             exit;
         }
 
-        // Validate amount (should match plan price ±0.01)
-        // Skip for now as we trust validated signature
-
         // Process payment
         $paymentStatus = $postData['payment_status'] ?? '';
         $mPaymentId = $postData['m_payment_id'] ?? '';
@@ -178,6 +186,8 @@ class PaymentController
 
                 if (!$user) {
                     error_log("PayFast ITN: User not found - {$email}");
+                    // Update payment to failed
+                    self::updatePaymentStatus($pdo, $mPaymentId, 'failed');
                     Database::rollback();
                     exit;
                 }
@@ -189,6 +199,7 @@ class PaymentController
 
                 if (!$planData) {
                     error_log("PayFast ITN: Plan not found - {$plan}");
+                    self::updatePaymentStatus($pdo, $mPaymentId, 'failed');
                     Database::rollback();
                     exit;
                 }
@@ -219,6 +230,9 @@ class PaymentController
                 // Create invoice
                 InvoiceService::create($user['id'], $subscription['id'], (float)$amountGross, $plan);
 
+                // Update payment status to succeeded
+                self::updatePaymentStatus($pdo, $mPaymentId, 'succeeded');
+
                 Database::commit();
                 error_log("PayFast ITN: Payment processed successfully for {$email}");
 
@@ -241,6 +255,9 @@ class PaymentController
                 $stmt = $pdo->prepare("UPDATE users SET plan = 'Free', updated_at = NOW() WHERE email = ?");
                 $stmt->execute([$email]);
 
+                // Update payment status to failed
+                self::updatePaymentStatus($pdo, $mPaymentId, 'failed');
+
                 error_log("PayFast ITN: Subscription canceled for {$email}");
             } catch (\Exception $e) {
                 error_log("PayFast ITN cancel error: " . $e->getMessage());
@@ -250,6 +267,291 @@ class PaymentController
         exit;
     }
 
+    /**
+     * Handle Paystack webhook
+     */
+    public static function handlePaystackWebhook(): void
+    {
+        // Immediately send 200 OK
+        http_response_code(200);
+
+        // Get raw POST data
+        $input = file_get_contents('php://input');
+        
+        if (empty($input)) {
+            error_log("Paystack Webhook: No data received");
+            exit;
+        }
+
+        // Validate signature
+        $paystackSignature = $_SERVER['HTTP_X_PAYSTACK_SIGNATURE'] ?? '';
+        $secretKey = $_ENV['PAYSTACK_SECRET_KEY'] ?? '';
+        
+        if (!self::validatePaystackSignature($input, $paystackSignature, $secretKey)) {
+            error_log("Paystack Webhook: Invalid signature");
+            exit;
+        }
+
+        $event = json_decode($input, true);
+        
+        if (!$event || !isset($event['event'])) {
+            error_log("Paystack Webhook: Invalid JSON");
+            exit;
+        }
+
+        error_log("Paystack Webhook received: " . $event['event']);
+
+        $pdo = Database::getInstance();
+
+        switch ($event['event']) {
+            case 'charge.success':
+                self::handlePaystackChargeSuccess($pdo, $event['data']);
+                break;
+                
+            case 'subscription.create':
+                self::handlePaystackSubscriptionCreate($pdo, $event['data']);
+                break;
+                
+            case 'subscription.disable':
+            case 'subscription.not_renew':
+                self::handlePaystackSubscriptionCancel($pdo, $event['data']);
+                break;
+                
+            case 'charge.failed':
+                self::handlePaystackChargeFailed($pdo, $event['data']);
+                break;
+                
+            case 'refund.processed':
+                self::handlePaystackRefund($pdo, $event['data']);
+                break;
+                
+            default:
+                error_log("Paystack Webhook: Unhandled event - " . $event['event']);
+        }
+
+        exit;
+    }
+
+    /**
+     * Handle Paystack successful charge
+     */
+    private static function handlePaystackChargeSuccess(\PDO $pdo, array $data): void
+    {
+        try {
+            Database::beginTransaction();
+
+            $email = $data['customer']['email'] ?? '';
+            $amountKobo = $data['amount'] ?? 0;
+            $amountZar = $amountKobo / 100;
+            $reference = $data['reference'] ?? '';
+            $metadata = $data['metadata'] ?? [];
+            $plan = $metadata['plan'] ?? 'Pro';
+
+            // Get user
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch();
+
+            if (!$user) {
+                error_log("Paystack: User not found - {$email}");
+                Database::rollback();
+                return;
+            }
+
+            // Get plan
+            $stmt = $pdo->prepare("SELECT id FROM plans WHERE name = ?");
+            $stmt->execute([$plan]);
+            $planData = $stmt->fetch();
+
+            if (!$planData) {
+                error_log("Paystack: Plan not found - {$plan}");
+                Database::rollback();
+                return;
+            }
+
+            // Update or create subscription
+            $stmt = $pdo->prepare("
+                INSERT INTO subscriptions (user_id, plan_id, status, paystack_subscription_code, renewal_date, last_payment_date, created_at)
+                VALUES (?, ?, 'active', ?, DATE_ADD(NOW(), INTERVAL 1 MONTH), NOW(), NOW())
+                ON DUPLICATE KEY UPDATE 
+                    plan_id = VALUES(plan_id),
+                    status = 'active',
+                    renewal_date = VALUES(renewal_date),
+                    last_payment_date = NOW(),
+                    updated_at = NOW()
+            ");
+            $stmt->execute([$user['id'], $planData['id'], $data['subscription_code'] ?? null]);
+
+            // Update user plan
+            $stmt = $pdo->prepare("UPDATE users SET plan = ?, updated_at = NOW() WHERE id = ?");
+            $stmt->execute([$plan, $user['id']]);
+
+            // Get subscription ID
+            $stmt = $pdo->prepare("SELECT id FROM subscriptions WHERE user_id = ? ORDER BY created_at DESC LIMIT 1");
+            $stmt->execute([$user['id']]);
+            $subscription = $stmt->fetch();
+
+            // Create invoice
+            InvoiceService::create($user['id'], $subscription['id'], $amountZar, $plan);
+
+            // Record payment
+            self::recordPayment($pdo, $user['id'], $reference, $amountZar, 'succeeded', 'paystack', "IEOSUIA QR {$plan} Plan");
+
+            Database::commit();
+            error_log("Paystack: Payment processed successfully for {$email}");
+
+        } catch (\Exception $e) {
+            Database::rollback();
+            error_log("Paystack charge.success error: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle Paystack subscription creation
+     */
+    private static function handlePaystackSubscriptionCreate(\PDO $pdo, array $data): void
+    {
+        try {
+            $email = $data['customer']['email'] ?? '';
+            $subscriptionCode = $data['subscription_code'] ?? '';
+            
+            $stmt = $pdo->prepare("
+                UPDATE subscriptions s
+                JOIN users u ON s.user_id = u.id
+                SET s.paystack_subscription_code = ?, s.updated_at = NOW()
+                WHERE u.email = ? AND s.status = 'active'
+            ");
+            $stmt->execute([$subscriptionCode, $email]);
+            
+            error_log("Paystack: Subscription created for {$email}");
+        } catch (\Exception $e) {
+            error_log("Paystack subscription.create error: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle Paystack subscription cancellation
+     */
+    private static function handlePaystackSubscriptionCancel(\PDO $pdo, array $data): void
+    {
+        try {
+            $email = $data['customer']['email'] ?? '';
+            
+            $stmt = $pdo->prepare("
+                UPDATE subscriptions s
+                JOIN users u ON s.user_id = u.id
+                SET s.status = 'canceled', s.updated_at = NOW()
+                WHERE u.email = ? AND s.status = 'active'
+            ");
+            $stmt->execute([$email]);
+
+            $stmt = $pdo->prepare("UPDATE users SET plan = 'Free', updated_at = NOW() WHERE email = ?");
+            $stmt->execute([$email]);
+            
+            error_log("Paystack: Subscription canceled for {$email}");
+        } catch (\Exception $e) {
+            error_log("Paystack subscription cancel error: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle Paystack failed charge
+     */
+    private static function handlePaystackChargeFailed(\PDO $pdo, array $data): void
+    {
+        try {
+            $email = $data['customer']['email'] ?? '';
+            $reference = $data['reference'] ?? '';
+            $amountKobo = $data['amount'] ?? 0;
+            $amountZar = $amountKobo / 100;
+
+            // Get user
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch();
+
+            if ($user) {
+                self::recordPayment($pdo, $user['id'], $reference, $amountZar, 'failed', 'paystack', 'Payment failed');
+            }
+            
+            error_log("Paystack: Charge failed for {$email}");
+        } catch (\Exception $e) {
+            error_log("Paystack charge.failed error: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle Paystack refund
+     */
+    private static function handlePaystackRefund(\PDO $pdo, array $data): void
+    {
+        try {
+            $email = $data['customer']['email'] ?? '';
+            $reference = $data['transaction']['reference'] ?? '';
+            $amountKobo = $data['amount'] ?? 0;
+            $amountZar = $amountKobo / 100;
+
+            // Get user
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch();
+
+            if ($user) {
+                self::recordPayment($pdo, $user['id'], 'REF-' . $reference, $amountZar, 'refunded', 'paystack', 'Refund processed');
+            }
+            
+            error_log("Paystack: Refund processed for {$email}");
+        } catch (\Exception $e) {
+            error_log("Paystack refund error: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Record payment in payments table
+     */
+    private static function recordPayment(\PDO $pdo, int $userId, string $paymentId, float $amount, string $status, string $method, string $description): void
+    {
+        try {
+            // Check if payments table exists
+            $stmt = $pdo->query("SHOW TABLES LIKE 'payments'");
+            if ($stmt->rowCount() === 0) {
+                return;
+            }
+
+            $stmt = $pdo->prepare("
+                INSERT INTO payments (user_id, payment_id, amount_zar, status, payment_method, description, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, NOW())
+                ON DUPLICATE KEY UPDATE
+                    status = VALUES(status),
+                    updated_at = NOW()
+            ");
+            $stmt->execute([$userId, $paymentId, $amount, $status, $method, $description]);
+        } catch (\Exception $e) {
+            error_log("Failed to record payment: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Update payment status
+     */
+    private static function updatePaymentStatus(\PDO $pdo, string $paymentId, string $status): void
+    {
+        try {
+            $stmt = $pdo->query("SHOW TABLES LIKE 'payments'");
+            if ($stmt->rowCount() === 0) {
+                return;
+            }
+
+            $stmt = $pdo->prepare("UPDATE payments SET status = ?, updated_at = NOW() WHERE payment_id = ?");
+            $stmt->execute([$status, $paymentId]);
+        } catch (\Exception $e) {
+            error_log("Failed to update payment status: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Validate PayFast IP
+     */
     private static function validatePayfastIp(string $ip): bool
     {
         $isSandbox = filter_var($_ENV['PAYFAST_SANDBOX'] ?? true, FILTER_VALIDATE_BOOLEAN);
@@ -262,6 +564,9 @@ class PaymentController
         return in_array($ip, self::PAYFAST_VALID_IPS);
     }
 
+    /**
+     * Validate PayFast signature
+     */
     private static function validateSignature(array $data, string $passphrase): bool
     {
         $signature = $data['signature'] ?? '';
@@ -280,5 +585,110 @@ class PaymentController
         }
 
         return md5($signatureString) === $signature;
+    }
+
+    /**
+     * Validate Paystack signature
+     */
+    private static function validatePaystackSignature(string $input, string $signature, string $secretKey): bool
+    {
+        if (empty($secretKey) || empty($signature)) {
+            // In dev mode, allow without signature validation
+            $isDev = filter_var($_ENV['PAYSTACK_TEST_MODE'] ?? true, FILTER_VALIDATE_BOOLEAN);
+            return $isDev;
+        }
+
+        $computedSignature = hash_hmac('sha512', $input, $secretKey);
+        return hash_equals($computedSignature, $signature);
+    }
+
+    /**
+     * Get real-time subscription status
+     */
+    public static function getSubscriptionStatus(): void
+    {
+        $user = Auth::check();
+        $pdo = Database::getInstance();
+
+        // Get current subscription
+        $stmt = $pdo->prepare("
+            SELECT s.*, p.name as plan_name, p.price_monthly_zar, p.price_annual_zar, p.qr_limit, p.features
+            FROM subscriptions s
+            JOIN plans p ON s.plan_id = p.id
+            WHERE s.user_id = ? AND s.status = 'active'
+            ORDER BY s.created_at DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$user['id']]);
+        $subscription = $stmt->fetch();
+
+        if (!$subscription) {
+            // Return free plan info
+            $stmt = $pdo->prepare("SELECT * FROM plans WHERE name = 'Free'");
+            $stmt->execute();
+            $freePlan = $stmt->fetch();
+            
+            Response::success([
+                'plan' => 'Free',
+                'status' => 'active',
+                'qr_limit' => $freePlan['qr_limit'] ?? 5,
+                'features' => json_decode($freePlan['features'] ?? '[]', true),
+                'renewal_date' => null,
+                'is_synced' => true
+            ]);
+            return;
+        }
+
+        Response::success([
+            'id' => $subscription['id'],
+            'plan' => $subscription['plan_name'],
+            'status' => $subscription['status'],
+            'frequency' => $subscription['frequency'],
+            'qr_limit' => $subscription['qr_limit'],
+            'features' => json_decode($subscription['features'] ?? '[]', true),
+            'renewal_date' => $subscription['renewal_date'],
+            'last_payment_date' => $subscription['last_payment_date'],
+            'price' => $subscription['frequency'] === 'annual' 
+                ? $subscription['price_annual_zar'] 
+                : $subscription['price_monthly_zar'],
+            'is_synced' => true
+        ]);
+    }
+
+    /**
+     * Sync subscription from payment provider
+     */
+    public static function syncSubscription(): void
+    {
+        $user = Auth::check();
+        $pdo = Database::getInstance();
+
+        // Get current subscription
+        $stmt = $pdo->prepare("
+            SELECT s.*, p.name as plan_name
+            FROM subscriptions s
+            JOIN plans p ON s.plan_id = p.id
+            WHERE s.user_id = ? AND s.status = 'active'
+            ORDER BY s.created_at DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$user['id']]);
+        $subscription = $stmt->fetch();
+
+        if (!$subscription) {
+            Response::success(['synced' => true, 'plan' => 'Free']);
+            return;
+        }
+
+        // Update user plan to match subscription
+        $stmt = $pdo->prepare("UPDATE users SET plan = ?, updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$subscription['plan_name'], $user['id']]);
+
+        Response::success([
+            'synced' => true,
+            'plan' => $subscription['plan_name'],
+            'status' => $subscription['status'],
+            'renewal_date' => $subscription['renewal_date']
+        ]);
     }
 }

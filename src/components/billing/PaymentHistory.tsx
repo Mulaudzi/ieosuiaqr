@@ -21,17 +21,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { billingApi } from "@/services/api/billing";
-
-interface Payment {
-  id: string;
-  payment_id: string;
-  amount_zar: number;
-  status: "succeeded" | "failed" | "pending" | "refunded";
-  payment_method: string;
-  description: string;
-  created_at: string;
-}
+import { billingApi, PaymentRecord } from "@/services/api/billing";
 
 const statusConfig = {
   succeeded: {
@@ -57,9 +47,10 @@ const statusConfig = {
 };
 
 export function PaymentHistory() {
-  const [payments, setPayments] = useState<Payment[]>([]);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -90,6 +81,29 @@ export function PaymentHistory() {
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
+    }
+  };
+
+  const handleSyncSubscription = async () => {
+    setIsSyncing(true);
+    try {
+      const response = await billingApi.syncSubscription();
+      if (response.success) {
+        toast({
+          title: "Subscription synced",
+          description: `Current plan: ${response.data?.plan || 'Free'}`,
+        });
+        // Refresh payments after sync
+        await fetchPayments();
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Sync failed",
+        description: "Could not sync subscription status. Please try again.",
+      });
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -126,10 +140,25 @@ export function PaymentHistory() {
   if (payments.length === 0) {
     return (
       <div className="p-6 rounded-2xl bg-card border border-border">
-        <h3 className="font-display font-semibold mb-4 flex items-center gap-2">
-          <CreditCard className="w-5 h-5" />
-          Payment History
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display font-semibold flex items-center gap-2">
+            <CreditCard className="w-5 h-5" />
+            Payment History
+          </h3>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSyncSubscription}
+            disabled={isSyncing}
+          >
+            {isSyncing ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4 mr-2" />
+            )}
+            Sync
+          </Button>
+        </div>
         <div className="text-center py-8">
           <CreditCard className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
           <p className="text-muted-foreground">No payments yet</p>
@@ -152,18 +181,33 @@ export function PaymentHistory() {
           <CreditCard className="w-5 h-5" />
           Payment History
         </h3>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => fetchPayments(true)}
-          disabled={isRefreshing}
-        >
-          {isRefreshing ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <RefreshCw className="w-4 h-4" />
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSyncSubscription}
+            disabled={isSyncing}
+          >
+            {isSyncing ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4 mr-2" />
+            )}
+            Sync
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => fetchPayments(true)}
+            disabled={isRefreshing}
+          >
+            {isRefreshing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-border overflow-hidden">

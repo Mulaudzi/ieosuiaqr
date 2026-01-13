@@ -9,27 +9,66 @@ import {
   Subscription,
 } from "./types";
 
+export interface PaymentRecord {
+  id: string;
+  payment_id: string;
+  amount_zar: number;
+  status: "succeeded" | "failed" | "pending" | "refunded";
+  payment_method: string;
+  description: string;
+  created_at: string;
+}
+
+export interface SubscriptionStatus {
+  id?: number;
+  plan: string;
+  status: string;
+  frequency?: string;
+  qr_limit: number;
+  features: string[];
+  renewal_date: string | null;
+  last_payment_date?: string;
+  price?: number;
+  is_synced: boolean;
+}
+
 // Billing & Subscription endpoints - ready for Laravel + PayFast backend
 export const billingApi = {
   /**
    * Get all available plans
-   * GET /api/v1/plans
+   * GET /api/subscriptions/plans
    */
   getPlans: async (): Promise<ApiResponse<Plan[]>> => {
-    return get("/plans");
+    return get("/subscriptions/plans");
   },
 
   /**
    * Get current user's subscription
-   * GET /api/v1/subscription
+   * GET /api/subscriptions/current
    */
   getSubscription: async (): Promise<ApiResponse<Subscription | null>> => {
-    return get("/subscription");
+    return get("/subscriptions/current");
+  },
+
+  /**
+   * Get real-time subscription status
+   * GET /api/subscriptions/status
+   */
+  getSubscriptionStatus: async (): Promise<ApiResponse<SubscriptionStatus>> => {
+    return get("/subscriptions/status");
+  },
+
+  /**
+   * Sync subscription from payment provider
+   * POST /api/subscriptions/sync
+   */
+  syncSubscription: async (): Promise<ApiResponse<{ synced: boolean; plan: string }>> => {
+    return post("/subscriptions/sync");
   },
 
   /**
    * Initiate PayFast checkout
-   * POST /api/v1/payments/checkout
+   * POST /api/payments/checkout
    * Returns PayFast payment URL for redirect
    */
   checkout: async (data: CheckoutRequest): Promise<ApiResponse<CheckoutResponse>> => {
@@ -38,15 +77,15 @@ export const billingApi = {
 
   /**
    * Cancel subscription
-   * POST /api/v1/subscription/cancel
+   * POST /api/subscriptions/cancel
    */
   cancelSubscription: async (): Promise<ApiResponse<{ cancelled_at: string }>> => {
-    return post("/subscription/cancel");
+    return post("/subscriptions/cancel");
   },
 
   /**
    * Resume cancelled subscription (before end of billing period)
-   * POST /api/v1/subscription/resume
+   * POST /api/subscription/resume
    */
   resumeSubscription: async (): Promise<ApiResponse<Subscription>> => {
     return post("/subscription/resume");
@@ -54,7 +93,7 @@ export const billingApi = {
 
   /**
    * Change subscription plan
-   * POST /api/v1/subscription/change
+   * POST /api/subscription/change
    */
   changePlan: async (data: CheckoutRequest): Promise<ApiResponse<CheckoutResponse | Subscription>> => {
     return post("/subscription/change", data);
@@ -62,7 +101,7 @@ export const billingApi = {
 
   /**
    * Get invoice history
-   * GET /api/v1/billing/invoices
+   * GET /api/billing/invoices
    */
   getInvoices: async (params?: {
     page?: number;
@@ -73,26 +112,18 @@ export const billingApi = {
 
   /**
    * Get payment history (all payment attempts)
-   * GET /api/v1/billing/payments
+   * GET /api/billing/payments
    */
   getPaymentHistory: async (params?: {
     page?: number;
     per_page?: number;
-  }): Promise<ApiResponse<Array<{
-    id: string;
-    payment_id: string;
-    amount_zar: number;
-    status: "succeeded" | "failed" | "pending" | "refunded";
-    payment_method: string;
-    description: string;
-    created_at: string;
-  }>>> => {
+  }): Promise<ApiResponse<PaymentRecord[]>> => {
     return get("/billing/payments", params);
   },
 
   /**
    * Get single invoice details
-   * GET /api/v1/billing/invoice/:id
+   * GET /api/billing/invoices/:id
    */
   getInvoice: async (id: string): Promise<ApiResponse<Invoice>> => {
     return get(`/billing/invoices/${id}`);
@@ -100,7 +131,7 @@ export const billingApi = {
 
   /**
    * Download invoice receipt PDF
-   * GET /api/v1/billing/invoice/:id/receipt
+   * GET /api/billing/invoices/:id/receipt
    */
   downloadReceipt: async (id: string): Promise<ApiResponse<{ download_url: string; filename: string }>> => {
     return get(`/billing/invoices/${id}/receipt`);
@@ -108,7 +139,7 @@ export const billingApi = {
 
   /**
    * Get upcoming invoice preview
-   * GET /api/v1/billing/upcoming
+   * GET /api/billing/upcoming
    */
   getUpcomingInvoice: async (): Promise<ApiResponse<{
     amount_zar: number;
