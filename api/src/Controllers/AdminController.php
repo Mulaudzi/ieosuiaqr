@@ -860,4 +860,191 @@ class AdminController
         
         return ['admin@ieosuia.com'];
     }
+    
+    /**
+     * Export email logs as CSV
+     */
+    public static function exportEmailsCsv(): void
+    {
+        self::requireAdmin();
+        
+        $pdo = Database::getInstance();
+        
+        // Filters
+        $status = $_GET['status'] ?? '';
+        $type = $_GET['type'] ?? '';
+        $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+        $endDate = $_GET['end_date'] ?? date('Y-m-d');
+        
+        $where = ["created_at >= ? AND created_at <= ?"];
+        $params = [$startDate . ' 00:00:00', $endDate . ' 23:59:59'];
+        
+        if ($status && in_array($status, ['sent', 'failed', 'bounced', 'pending'])) {
+            $where[] = "status = ?";
+            $params[] = $status;
+        }
+        
+        if ($type && in_array($type, ['contact', 'verification', 'password_reset', 'welcome', 'notification', 'other'])) {
+            $where[] = "email_type = ?";
+            $params[] = $type;
+        }
+        
+        $whereClause = "WHERE " . implode(" AND ", $where);
+        
+        $sql = "SELECT 
+            id, recipient_email, cc_email, reply_to_email, subject, email_type, status, 
+            sender_name, sender_email, sender_company, inquiry_purpose, 
+            is_read, is_replied, priority, created_at, read_at, replied_at
+            FROM email_logs {$whereClause} ORDER BY created_at DESC";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $logs = $stmt->fetchAll();
+        
+        // Build CSV
+        $csv = "ID,Recipient,CC,Reply-To,Subject,Type,Status,Sender Name,Sender Email,Company,Purpose,Read,Replied,Priority,Created,Read At,Replied At\n";
+        
+        foreach ($logs as $log) {
+            $csv .= sprintf(
+                '"%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s"' . "\n",
+                $log['id'],
+                str_replace('"', '""', $log['recipient_email'] ?? ''),
+                str_replace('"', '""', $log['cc_email'] ?? ''),
+                str_replace('"', '""', $log['reply_to_email'] ?? ''),
+                str_replace('"', '""', $log['subject'] ?? ''),
+                $log['email_type'] ?? '',
+                $log['status'] ?? '',
+                str_replace('"', '""', $log['sender_name'] ?? ''),
+                str_replace('"', '""', $log['sender_email'] ?? ''),
+                str_replace('"', '""', $log['sender_company'] ?? ''),
+                str_replace('"', '""', $log['inquiry_purpose'] ?? ''),
+                $log['is_read'] ? 'Yes' : 'No',
+                $log['is_replied'] ? 'Yes' : 'No',
+                $log['priority'] ?? 'normal',
+                $log['created_at'] ?? '',
+                $log['read_at'] ?? '',
+                $log['replied_at'] ?? ''
+            );
+        }
+        
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="email_logs_' . date('Y-m-d') . '.csv"');
+        header('Cache-Control: no-cache, must-revalidate');
+        echo $csv;
+        exit;
+    }
+    
+    /**
+     * Export statistics report
+     */
+    public static function exportStatsReport(): void
+    {
+        self::requireAdmin();
+        
+        $pdo = Database::getInstance();
+        
+        $days = min(365, max(1, (int)($_GET['days'] ?? 30)));
+        $startDate = date('Y-m-d', strtotime("-{$days} days"));
+        $format = $_GET['format'] ?? 'csv';
+        
+        // Get totals
+        $stmt = $pdo->prepare("
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN email_type = 'contact' THEN 1 ELSE 0 END) as contact_submissions,
+                SUM(CASE WHEN email_type = 'contact' AND is_replied = 1 THEN 1 ELSE 0 END) as replied,
+                SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as delivered,
+                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+                SUM(CASE WHEN status = 'bounced' THEN 1 ELSE 0 END) as bounced
+            FROM email_logs WHERE created_at >= ?
+        ");
+        $stmt->execute([$startDate]);
+        $totals = $stmt->fetch();
+        
+        // Response metrics
+        $responseRate = $totals['contact_submissions'] > 0 
+            ? round(($totals['replied'] / $totals['contact_submissions']) * 100, 1) 
+            : 0;
+        
+        $stmt = $pdo->prepare("
+            SELECT AVG(TIMESTAMPDIFF(HOUR, created_at, replied_at)) as avg_hours
+            FROM email_logs WHERE email_type = 'contact' AND is_replied = 1 AND replied_at IS NOT NULL AND created_at >= ?
+        ");
+        $stmt->execute([$startDate]);
+        $avgResponse = $stmt->fetch();
+        $avgResponseHours = $avgResponse['avg_hours'] ? round($avgResponse['avg_hours'], 1) : 0;
+        
+        // Daily breakdown
+        $stmt = $pdo->prepare("
+            SELECT DATE(created_at) as date, COUNT(*) as total,
+                SUM(CASE WHEN email_type = 'contact' THEN 1 ELSE 0 END) as contacts,
+                SUM(CASE WHEN is_replied = 1 THEN 1 ELSE 0 END) as replied
+            FROM email_logs WHERE created_at >= ? GROUP BY DATE(created_at) ORDER BY date
+        ");
+        $stmt->execute([$startDate]);
+        $dailyData = $stmt->fetchAll();
+        
+        // By purpose
+        $stmt = $pdo->prepare("
+            SELECT inquiry_purpose, COUNT(*) as count
+            FROM email_logs WHERE email_type = 'contact' AND created_at >= ? AND inquiry_purpose IS NOT NULL
+            GROUP BY inquiry_purpose ORDER BY count DESC
+        ");
+        $stmt->execute([$startDate]);
+        $byPurpose = $stmt->fetchAll();
+        
+        if ($format === 'csv') {
+            $csv = "IEOSUIA QR - Email Statistics Report\n";
+            $csv .= "Generated: " . date('Y-m-d H:i:s') . "\n";
+            $csv .= "Period: Last {$days} days ({$startDate} to " . date('Y-m-d') . ")\n\n";
+            
+            $csv .= "SUMMARY\n";
+            $csv .= "Metric,Value\n";
+            $csv .= "Total Emails,{$totals['total']}\n";
+            $csv .= "Contact Submissions,{$totals['contact_submissions']}\n";
+            $csv .= "Replied,{$totals['replied']}\n";
+            $csv .= "Response Rate,{$responseRate}%\n";
+            $csv .= "Avg Response Time (hours),{$avgResponseHours}\n";
+            $csv .= "Delivered,{$totals['delivered']}\n";
+            $csv .= "Failed,{$totals['failed']}\n";
+            $csv .= "Bounced,{$totals['bounced']}\n\n";
+            
+            $csv .= "DAILY BREAKDOWN\n";
+            $csv .= "Date,Total,Contacts,Replied\n";
+            foreach ($dailyData as $day) {
+                $csv .= "{$day['date']},{$day['total']},{$day['contacts']},{$day['replied']}\n";
+            }
+            $csv .= "\n";
+            
+            $csv .= "BY INQUIRY TYPE\n";
+            $csv .= "Purpose,Count\n";
+            foreach ($byPurpose as $purpose) {
+                $csv .= "\"{$purpose['inquiry_purpose']}\",{$purpose['count']}\n";
+            }
+            
+            header('Content-Type: text/csv; charset=utf-8');
+            header('Content-Disposition: attachment; filename="email_stats_report_' . date('Y-m-d') . '.csv"');
+            header('Cache-Control: no-cache, must-revalidate');
+            echo $csv;
+            exit;
+        }
+        
+        // JSON format for PDF generation on frontend
+        Response::success([
+            'report_date' => date('Y-m-d H:i:s'),
+            'period' => ['days' => $days, 'start' => $startDate, 'end' => date('Y-m-d')],
+            'summary' => [
+                'total_emails' => (int)$totals['total'],
+                'contact_submissions' => (int)$totals['contact_submissions'],
+                'replied' => (int)$totals['replied'],
+                'response_rate' => $responseRate,
+                'avg_response_hours' => $avgResponseHours,
+                'delivered' => (int)$totals['delivered'],
+                'failed' => (int)$totals['failed'],
+                'bounced' => (int)$totals['bounced']
+            ],
+            'daily' => $dailyData,
+            'by_purpose' => $byPurpose
+        ]);
+    }
 }
