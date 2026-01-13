@@ -30,6 +30,8 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import CookiePolicy from "./pages/CookiePolicy";
 import Support from "./pages/Support";
 import Contact from "./pages/Contact";
+import Documentation from "./pages/Documentation";
+import Careers from "./pages/Careers";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -66,6 +68,8 @@ const App = () => (
             <Route path="/cookies" element={<CookiePolicy />} />
             <Route path="/support" element={<Support />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/docs" element={<Documentation />} />
+            <Route path="/careers" element={<Careers />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <CookieConsent />

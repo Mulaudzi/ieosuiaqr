@@ -207,10 +207,10 @@ export default function Contact() {
                       </div>
                       <div>
                         <p className="font-medium mb-1">Email</p>
-                        <a
-                          href="mailto:support@ieosuia.com"
-                          className="text-muted-foreground hover:text-primary transition-colors"
-                        >
+                        <a href="mailto:hello@ieosuia.com" className="text-muted-foreground hover:text-primary transition-colors block">
+                          hello@ieosuia.com
+                        </a>
+                        <a href="mailto:support@ieosuia.com" className="text-muted-foreground hover:text-primary transition-colors text-sm">
                           support@ieosuia.com
                         </a>
                       </div>
@@ -220,13 +220,9 @@ export default function Contact() {
                         <Phone className="w-5 h-5 text-success" />
                       </div>
                       <div>
-                        <p className="font-medium mb-1">Phone</p>
-                        <a
-                          href="tel:+27123456789"
-                          className="text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          +27 12 345 6789
-                        </a>
+                        <p className="font-medium mb-1">Phone (Calls Only)</p>
+                        <p className="text-muted-foreground text-sm">079 928 2775</p>
+                        <p className="text-muted-foreground text-sm">063 154 0696</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-4">
@@ -235,8 +231,9 @@ export default function Contact() {
                       </div>
                       <div>
                         <p className="font-medium mb-1">Location</p>
-                        <p className="text-muted-foreground">
-                          Johannesburg, South Africa
+                        <p className="text-muted-foreground text-sm">
+                          26 Rock Alder, Extension 15,<br />
+                          Naturena, Johannesburg, 2095
                         </p>
                       </div>
                     </div>

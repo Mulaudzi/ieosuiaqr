@@ -1,30 +1,27 @@
 import { Link } from "react-router-dom";
-import { QrCode, Github, Twitter, Linkedin } from "lucide-react";
+import { QrCode, Youtube, Linkedin, MessageCircle, MapPin, Mail, Phone } from "lucide-react";
 
 const footerLinks = {
   product: [
     { name: "Features", href: "/#features" },
     { name: "Pricing", href: "/#pricing" },
     { name: "Use Cases", href: "/#use-cases" },
-    { name: "API", href: "/api" },
   ],
   company: [
-    { name: "About", href: "/about" },
-    { name: "Blog", href: "/blog" },
+    { name: "About IEOSUIA", href: "https://www.ieosuia.com", external: true },
     { name: "Careers", href: "/careers" },
     { name: "Contact", href: "/contact" },
   ],
   resources: [
     { name: "Documentation", href: "/docs" },
     { name: "Support", href: "/support" },
-    { name: "Tutorials", href: "/tutorials" },
-    { name: "Templates", href: "/templates" },
+    { name: "Tutorials", href: "https://www.youtube.com/@JohannesMilke", external: true },
   ],
   legal: [
     { name: "Privacy Policy", href: "/privacy" },
     { name: "Terms of Service", href: "/terms" },
     { name: "Cookie Policy", href: "/cookies" },
-    { name: "Security", href: "/security" },
+    { name: "POPIA Compliance", href: "/privacy#popia" },
   ],
 };
 
@@ -39,38 +36,63 @@ export function Footer() {
               <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
                 <QrCode className="w-5 h-5 text-primary-foreground" />
               </div>
-              <span className="font-display text-xl font-bold">
-                <span className="gradient-text">IEOSUIA</span>
-                <span className="text-foreground"> QR</span>
-              </span>
+              <div className="flex flex-col">
+                <span className="font-display text-xl font-bold">
+                  <span className="gradient-text">IEOSUIA</span>
+                  <span className="text-foreground"> QR</span>
+                </span>
+                <span className="text-[10px] text-muted-foreground -mt-1">Your Story, Beautifully Told</span>
+              </div>
             </Link>
-            <p className="text-sm text-muted-foreground mb-6 max-w-xs">
-              Create, manage, and track QR codes with powerful analytics. Trusted by thousands of businesses worldwide.
+            <p className="text-sm text-muted-foreground mb-4 max-w-xs">
+              Create, manage, and track QR codes with powerful analytics and inventory management. A complete digital solution from IEOSUIA.
             </p>
+            
+            {/* Contact Info */}
+            <div className="space-y-2 mb-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Mail className="w-4 h-4" />
+                <a href="mailto:hello@ieosuia.com" className="hover:text-foreground transition-colors">
+                  hello@ieosuia.com
+                </a>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Phone className="w-4 h-4" />
+                <span>079 928 2775 / 063 154 0696</span>
+              </div>
+              <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                <MapPin className="w-4 h-4 mt-0.5" />
+                <span>26 Rock Alder, Extension 15,<br />Naturena, Johannesburg, 2095</span>
+              </div>
+            </div>
+
             <div className="flex items-center gap-4">
               <a
-                href="https://twitter.com"
+                href="https://wa.me/27799282775"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
+                className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center hover:bg-success hover:text-success-foreground transition-colors"
+                title="Chat on WhatsApp"
               >
-                <Twitter className="w-4 h-4" />
+                <MessageCircle className="w-4 h-4" />
               </a>
               <a
-                href="https://linkedin.com"
+                href="https://www.youtube.com/@JohannesMilke"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
+                title="YouTube"
+              >
+                <Youtube className="w-4 h-4" />
+              </a>
+              <a
+                href="https://linkedin.com/in/JohannesMilke"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
+                title="LinkedIn"
               >
                 <Linkedin className="w-4 h-4" />
-              </a>
-              <a
-                href="https://github.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
-              >
-                <Github className="w-4 h-4" />
               </a>
             </div>
           </div>
@@ -97,12 +119,23 @@ export function Footer() {
             <ul className="space-y-3">
               {footerLinks.company.map((link) => (
                 <li key={link.name}>
-                  <Link
-                    to={link.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {link.name}
-                  </Link>
+                  {'external' in link && link.external ? (
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {link.name}
+                    </a>
+                  ) : (
+                    <Link
+                      to={link.href}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {link.name}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>
@@ -113,12 +146,23 @@ export function Footer() {
             <ul className="space-y-3">
               {footerLinks.resources.map((link) => (
                 <li key={link.name}>
-                  <Link
-                    to={link.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {link.name}
-                  </Link>
+                  {'external' in link && link.external ? (
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {link.name}
+                    </a>
+                  ) : (
+                    <Link
+                      to={link.href}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {link.name}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>

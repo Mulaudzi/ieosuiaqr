@@ -35,7 +35,7 @@ export function HeroSection() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6"
             >
               <Sparkles className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium text-primary">Trusted by 50,000+ businesses</span>
+              <span className="text-sm font-medium text-primary">Complete Digital Solutions by IEOSUIA</span>
             </motion.div>
 
             <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight mb-6">
