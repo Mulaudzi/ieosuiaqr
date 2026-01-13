@@ -145,6 +145,155 @@ class MailService
     }
 
     /**
+     * Send status change notification email
+     */
+    public static function sendStatusChangeEmail(
+        string $email, 
+        string $name, 
+        string $itemName, 
+        string $oldStatus, 
+        string $newStatus, 
+        ?string $location = null
+    ): bool {
+        $appUrl = $_ENV['APP_URL'] ?? 'https://qr.ieosuia.com';
+        $dashboardUrl = $appUrl . '/dashboard/inventory';
+
+        $statusLabels = [
+            'in_stock' => 'In Stock',
+            'out' => 'Out',
+            'maintenance' => 'Maintenance',
+            'checked_out' => 'Checked Out',
+        ];
+
+        $oldLabel = $statusLabels[$oldStatus] ?? $oldStatus;
+        $newLabel = $statusLabels[$newStatus] ?? $newStatus;
+
+        $subject = "Inventory Alert: {$itemName} status changed to {$newLabel}";
+
+        $locationText = $location ? "<br><br><strong>Current Location:</strong> {$location}" : '';
+
+        $html = self::getStatusChangeTemplate(
+            $itemName,
+            $name,
+            $oldLabel,
+            $newLabel,
+            $dashboardUrl,
+            $locationText
+        );
+
+        return self::send($email, $subject, $html);
+    }
+
+    /**
+     * Get status change email template
+     */
+    private static function getStatusChangeTemplate(
+        string $itemName,
+        string $userName,
+        string $oldStatus,
+        string $newStatus,
+        string $dashboardUrl,
+        string $locationText
+    ): string {
+        $statusColors = [
+            'In Stock' => '#10b981',
+            'Out' => '#ef4444',
+            'Maintenance' => '#f59e0b',
+            'Checked Out' => '#3b82f6',
+        ];
+
+        $newColor = $statusColors[$newStatus] ?? '#10b981';
+        $timestamp = date('M j, Y \a\t g:i A');
+
+        return <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Status Change Notification</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td align="center" style="padding: 40px 0;">
+                <table role="presentation" style="width: 600px; max-width: 100%; border-collapse: collapse; background-color: #141414; border-radius: 16px; overflow: hidden;">
+                    <!-- Header -->
+                    <tr>
+                        <td style="padding: 40px 40px 30px 40px; text-align: center; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                            <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #ffffff;">📦 Inventory Alert</h1>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px;">
+                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #e5e5e5; line-height: 1.5;">Hello {$userName},</p>
+                            
+                            <p style="margin: 0 0 25px 0; font-size: 16px; color: #a3a3a3; line-height: 1.6;">
+                                The status of your inventory item has been updated:
+                            </p>
+                            
+                            <!-- Item Card -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #1f1f1f; border-radius: 12px; margin-bottom: 25px;">
+                                <tr>
+                                    <td style="padding: 24px;">
+                                        <h3 style="margin: 0 0 15px 0; font-size: 18px; font-weight: 600; color: #ffffff;">{$itemName}</h3>
+                                        
+                                        <table role="presentation" style="border-collapse: collapse;">
+                                            <tr>
+                                                <td style="padding: 8px 0;">
+                                                    <span style="display: inline-block; padding: 6px 14px; font-size: 13px; font-weight: 500; color: #a3a3a3; background-color: #262626; border-radius: 6px;">{$oldStatus}</span>
+                                                </td>
+                                                <td style="padding: 8px 15px; color: #525252;">→</td>
+                                                <td style="padding: 8px 0;">
+                                                    <span style="display: inline-block; padding: 6px 14px; font-size: 13px; font-weight: 600; color: #ffffff; background-color: {$newColor}; border-radius: 6px;">{$newStatus}</span>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        {$locationText}
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="margin: 0 0 25px 0; font-size: 14px; color: #737373;">
+                                Changed at: {$timestamp}
+                            </p>
+                            
+                            <!-- Button -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{$dashboardUrl}" style="display: inline-block; padding: 16px 32px; font-size: 16px; font-weight: 600; color: #ffffff; background: linear-gradient(135deg, #10b981 0%, #059669 100%); text-decoration: none; border-radius: 8px;">View Inventory</a>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="margin: 25px 0 0 0; font-size: 12px; color: #525252; line-height: 1.5;">
+                                You're receiving this because status change notifications are enabled for your account. 
+                                <a href="{$dashboardUrl}" style="color: #10b981;">Manage notification preferences</a>
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; text-align: center; background-color: #0a0a0a; border-top: 1px solid #262626;">
+                            <p style="margin: 0; font-size: 12px; color: #525252;">
+                                &copy; 2025 IEOSUIA QR. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+HTML;
+    }
+
+
      * Get styled email template
      */
     private static function getEmailTemplate(

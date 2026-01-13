@@ -59,6 +59,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { BulkInventoryImport } from "./BulkInventoryImport";
 import { ScanHistoryModal } from "./ScanHistoryModal";
 import { CreateQRAndItemModal } from "./CreateQRAndItemModal";
+import { QRLabelPrinter } from "./QRLabelPrinter";
 
 const statusConfig: Record<InventoryStatus, { label: string; color: string; icon: React.ElementType }> = {
   in_stock: { label: "In Stock", color: "bg-success/10 text-success", icon: CheckCircle },
@@ -89,7 +90,9 @@ export function InventoryTab() {
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [showScanHistory, setShowScanHistory] = useState(false);
   const [showQRItemModal, setShowQRItemModal] = useState(false);
+  const [showLabelPrinter, setShowLabelPrinter] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [selectedItems, setSelectedItems] = useState<InventoryItem[]>([]);
   const [showUpsell, setShowUpsell] = useState(false);
   
   const { toast } = useToast();
@@ -221,6 +224,19 @@ export function InventoryTab() {
             <Sparkles className="w-4 h-4 mr-2" />
             QR + Item
           </Button>
+          
+          {/* Print Labels */}
+          {items.length > 0 && (
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setSelectedItems(items.filter(i => i.qr_id));
+                setShowLabelPrinter(true);
+              }}
+            >
+              Print Labels
+            </Button>
+          )}
           
           {/* Bulk Import (Enterprise) */}
           {isEnterprise && (
@@ -471,6 +487,13 @@ export function InventoryTab() {
         open={showQRItemModal}
         onOpenChange={setShowQRItemModal}
         onSuccess={fetchItems}
+      />
+      
+      {/* QR Label Printer */}
+      <QRLabelPrinter
+        items={selectedItems}
+        open={showLabelPrinter}
+        onOpenChange={setShowLabelPrinter}
       />
     </div>
   );

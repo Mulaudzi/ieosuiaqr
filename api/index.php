@@ -240,6 +240,9 @@ try {
     elseif (preg_match('#^/inventory/qr/(\d+)/status$#', $uri, $matches) && $method === 'POST') {
         InventoryController::updateStatusByQrCode((int)$matches[1]);
     }
+    elseif (preg_match('#^/inventory/qr/(\d+)/history$#', $uri, $matches) && $method === 'GET') {
+        InventoryController::getHistoryByQrCode((int)$matches[1]);
+    }
     elseif (preg_match('#^/inventory/(\d+)$#', $uri, $matches) && $method === 'GET') {
         InventoryController::show((int)$matches[1]);
     }
