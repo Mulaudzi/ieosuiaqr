@@ -392,7 +392,7 @@ try {
     elseif ($uri === '/admin/export/stats' && $method === 'GET') {
         AdminController::exportStatsReport();
     }
-    // QA/Debug Console endpoints
+    // QA/Debug Console endpoints (admin routes - keep for backward compatibility)
     elseif ($uri === '/admin/qa/dashboard' && $method === 'GET') {
         QAController::getDashboard();
     }
@@ -410,6 +410,26 @@ try {
     }
     elseif ($uri === '/admin/qa/errors' && $method === 'POST') {
         QAController::getErrorReport();
+    }
+
+    // User QA routes (uses regular user auth instead of admin auth)
+    elseif ($uri === '/qa/dashboard' && $method === 'GET') {
+        QAController::getDashboardUser();
+    }
+    elseif ($uri === '/qa/run' && $method === 'POST') {
+        QAController::runQAUser();
+    }
+    elseif ($uri === '/qa/seed' && $method === 'POST') {
+        QAController::seedTestDataUser();
+    }
+    elseif ($uri === '/qa/cleanup' && $method === 'POST') {
+        QAController::cleanupTestDataUser();
+    }
+    elseif ($uri === '/qa/status' && $method === 'GET') {
+        QAController::getSeedingStatusUser();
+    }
+    elseif ($uri === '/qa/errors' && $method === 'POST') {
+        QAController::getErrorReportUser();
     }
 
     // 404 Not Found

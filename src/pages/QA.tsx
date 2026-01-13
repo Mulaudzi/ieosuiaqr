@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -142,11 +142,7 @@ const systemConfig = {
   cross_system: { label: "Cross-System", icon: Link2, color: "text-orange-500" },
 };
 
-// Allowed email for QA access
-const QA_ALLOWED_EMAIL = "vendaboy.lm@gmail.com";
-
 export default function QA() {
-  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [isRunning, setIsRunning] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
@@ -174,28 +170,14 @@ export default function QA() {
 
   const userToken = localStorage.getItem("auth_token");
 
-  // Protect route - only allow specific email
   useEffect(() => {
-    if (user && user.email !== QA_ALLOWED_EMAIL) {
-      toast({
-        variant: "destructive",
-        title: "Access Denied",
-        description: "You don't have permission to access this page.",
-      });
-      navigate("/dashboard", { replace: true });
-    }
-  }, [user, navigate, toast]);
-
-  useEffect(() => {
-    if (user?.email === QA_ALLOWED_EMAIL) {
-      fetchDashboard();
-    }
-  }, [user]);
+    fetchDashboard();
+  }, []);
 
   const fetchDashboard = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("/api/admin/qa/dashboard", {
+      const response = await fetch("/api/qa/dashboard", {
         headers: { Authorization: `Bearer ${userToken}` },
       });
       if (response.ok) {
@@ -216,7 +198,7 @@ export default function QA() {
     setActiveTab("results");
     
     try {
-      const response = await fetch("/api/admin/qa/run", {
+      const response = await fetch("/api/qa/run", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -257,7 +239,7 @@ export default function QA() {
   const seedTestData = async (count: number = 5) => {
     setIsSeeding(true);
     try {
-      const response = await fetch("/api/admin/qa/seed", {
+      const response = await fetch("/api/qa/seed", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -283,7 +265,7 @@ export default function QA() {
   const cleanupTestData = async (dryRun: boolean = false) => {
     setIsCleaning(true);
     try {
-      const response = await fetch("/api/admin/qa/cleanup", {
+      const response = await fetch("/api/qa/cleanup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -311,7 +293,7 @@ export default function QA() {
 
   const fetchSeedingStatus = async () => {
     try {
-      const response = await fetch("/api/admin/qa/status", {
+      const response = await fetch("/api/qa/status", {
         headers: { Authorization: `Bearer ${userToken}` },
       });
       if (response.ok) {
@@ -327,7 +309,7 @@ export default function QA() {
     if (!results) return;
 
     try {
-      const response = await fetch("/api/admin/qa/errors", {
+      const response = await fetch("/api/qa/errors", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

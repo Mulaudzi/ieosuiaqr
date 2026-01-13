@@ -30,28 +30,14 @@ type NavItem = {
   matchExact?: boolean;
 };
 
-// Allowed email for QA access
-const QA_ALLOWED_EMAIL = "vendaboy.lm@gmail.com";
-
-const getNavItems = (userEmail: string | undefined): NavItem[] => {
-  const baseItems: NavItem[] = [
-    { to: "/dashboard", icon: QrCode, label: "My QR Codes", matchExact: true },
-    { to: "/dashboard/inventory", icon: Package, label: "Inventory" },
-    { to: "/dashboard/analytics", icon: BarChart3, label: "Analytics" },
-  ];
-  
-  // Only show QA for allowed email
-  if (userEmail === QA_ALLOWED_EMAIL) {
-    baseItems.push({ to: "/dashboard/qa", icon: Shield, label: "QA & Debug" });
-  }
-  
-  baseItems.push(
-    { to: "/dashboard/profile", icon: User, label: "Profile" },
-    { to: "/dashboard/settings", icon: Settings, label: "Settings" }
-  );
-  
-  return baseItems;
-};
+const navItems: NavItem[] = [
+  { to: "/dashboard", icon: QrCode, label: "My QR Codes", matchExact: true },
+  { to: "/dashboard/inventory", icon: Package, label: "Inventory" },
+  { to: "/dashboard/analytics", icon: BarChart3, label: "Analytics" },
+  { to: "/dashboard/qa", icon: Shield, label: "QA & Debug" },
+  { to: "/dashboard/profile", icon: User, label: "Profile" },
+  { to: "/dashboard/settings", icon: Settings, label: "Settings" },
+];
 
 interface DashboardSidebarProps {
   activeTab?: "qr" | "inventory";
@@ -67,11 +53,8 @@ export function DashboardSidebar({ activeTab, onTabChange }: DashboardSidebarPro
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const userName = user?.name || "User";
-  const userEmail = user?.email;
   const userInitials = userName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
   const planLabel = plan === "free" ? "Free Plan" : plan === "pro" ? "Pro Plan" : "Enterprise";
-
-  const navItems = getNavItems(userEmail);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
