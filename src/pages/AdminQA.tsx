@@ -30,6 +30,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import { useAdminSession } from "@/hooks/useAdminSession";
 import {
   Shield,
   Play,
@@ -164,28 +165,33 @@ export default function AdminQA() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { isValidSession, isChecking, requireAdminSession, clearAdminSession } = useAdminSession();
 
   const adminToken = localStorage.getItem("admin_token");
 
   useEffect(() => {
-    if (!adminToken) {
-      navigate("/admin");
+    if (isChecking) return;
+    
+    if (!isValidSession || !adminToken) {
+      navigate("/login");
       return;
     }
     verifyAndFetch();
-  }, []);
+  }, [isChecking, isValidSession]);
 
   const verifyAndFetch = async () => {
+    if (!requireAdminSession()) return;
+    
     try {
       const verifyRes = await fetch(`/api/admin/verify?admin_token=${adminToken}`);
       if (!verifyRes.ok) {
-        localStorage.removeItem("admin_token");
-        navigate("/admin");
+        clearAdminSession();
+        navigate("/login");
         return;
       }
       await fetchDashboard();
     } catch {
-      navigate("/admin");
+      navigate("/login");
     }
   };
 

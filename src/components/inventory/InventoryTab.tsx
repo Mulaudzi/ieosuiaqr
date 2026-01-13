@@ -314,23 +314,23 @@ export function InventoryTab() {
             className="pl-9"
           />
         </div>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+        <Select value={categoryFilter || "all"} onValueChange={(val) => setCategoryFilter(val === "all" ? "" : val)}>
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Categories</SelectItem>
+            <SelectItem value="all">All Categories</SelectItem>
             {categoryOptions.map((cat) => (
               <SelectItem key={cat} value={cat}>{cat}</SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter || "all"} onValueChange={(val) => setStatusFilter(val === "all" ? "" : val)}>
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Statuses</SelectItem>
+            <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="in_stock">In Stock</SelectItem>
             <SelectItem value="out">Checked Out</SelectItem>
             <SelectItem value="maintenance">Maintenance</SelectItem>

@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { useAdminSession } from "@/hooks/useAdminSession";
 import {
   AreaChart,
   Area,
@@ -165,29 +166,34 @@ export default function AdminEmails() {
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { isValidSession, isChecking, requireAdminSession, clearAdminSession } = useAdminSession();
 
   const adminToken = localStorage.getItem("admin_token");
 
   useEffect(() => {
-    if (!adminToken) {
-      navigate("/admin");
+    if (isChecking) return;
+    
+    if (!isValidSession || !adminToken) {
+      navigate("/login");
       return;
     }
     verifyAndFetch();
-  }, [page, statusFilter, typeFilter, readFilter, repliedFilter, archivedFilter]);
+  }, [page, statusFilter, typeFilter, readFilter, repliedFilter, archivedFilter, isChecking, isValidSession]);
 
   const verifyAndFetch = async () => {
+    if (!requireAdminSession()) return;
+    
     try {
       const verifyRes = await fetch(`/api/admin/verify?admin_token=${adminToken}`);
       if (!verifyRes.ok) {
-        localStorage.removeItem("admin_token");
-        navigate("/admin");
+        clearAdminSession();
+        navigate("/login");
         return;
       }
       await fetchEmails();
       await fetchChartData();
     } catch {
-      navigate("/admin");
+      navigate("/login");
     }
   };
 
