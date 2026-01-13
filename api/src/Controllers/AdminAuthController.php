@@ -14,6 +14,97 @@ class AdminAuthController
     private const LOCKOUT_MINUTES = 15;
 
     /**
+     * Batch login - Validate all 3 passwords at once
+     * Returns generic error on any failure to avoid revealing which password was wrong
+     */
+    public static function batchLogin(): void
+    {
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        // Rate limit admin login attempts by IP
+        RateLimit::check('admin_login', 10, 15);
+
+        $validator = new Validator($data);
+        $validator
+            ->required('email', 'Email is required')
+            ->email('email', 'Please provide a valid email address')
+            ->required('password1', 'Password 1 is required')
+            ->required('password2', 'Password 2 is required')
+            ->required('password3', 'Password 3 is required')
+            ->validate();
+
+        $pdo = Database::getInstance();
+
+        // Find admin user
+        $stmt = $pdo->prepare("SELECT * FROM admin_users WHERE email = ? AND is_active = TRUE");
+        $stmt->execute([strtolower(trim($data['email']))]);
+        $admin = $stmt->fetch();
+
+        // Generic error message for all failures
+        $genericError = 'Authentication failed';
+
+        if (!$admin) {
+            self::logAttempt(null, $data['email'], false, 0, 'batch_login');
+            Response::error($genericError, 401);
+        }
+
+        // Check if locked
+        if ($admin['locked_until'] && strtotime($admin['locked_until']) > time()) {
+            $remaining = ceil((strtotime($admin['locked_until']) - time()) / 60);
+            $remainingAttempts = 0;
+            Response::success([
+                'success' => false,
+                'locked' => true,
+                'locked_minutes' => $remaining,
+                'remaining_attempts' => $remainingAttempts,
+                'message' => "Account locked. Try again in {$remaining} minutes."
+            ], 429);
+        }
+
+        // Calculate remaining attempts before checking passwords
+        $remainingAttempts = max(0, self::MAX_FAILED_ATTEMPTS - $admin['failed_attempts']);
+
+        // Verify all three passwords
+        $pw1Valid = password_verify($data['password1'], $admin['password']);
+        $pw2Valid = password_verify($data['password2'], $admin['password_step2']);
+        $pw3Valid = password_verify($data['password3'], $admin['password_step3']);
+
+        if (!$pw1Valid || !$pw2Valid || !$pw3Valid) {
+            self::incrementFailedAttempts($admin['id']);
+            self::logAttempt($admin['id'], $data['email'], false, 0, 'batch_login');
+            
+            // Recalculate remaining attempts after increment
+            $remainingAttempts = max(0, self::MAX_FAILED_ATTEMPTS - ($admin['failed_attempts'] + 1));
+            
+            Response::json([
+                'success' => false,
+                'message' => $genericError,
+                'remaining_attempts' => $remainingAttempts,
+                'locked' => $remainingAttempts === 0
+            ], 401);
+        }
+
+        // All passwords verified - reset failed attempts and generate token
+        $stmt = $pdo->prepare("UPDATE admin_users SET failed_attempts = 0, locked_until = NULL, last_login_at = NOW() WHERE id = ?");
+        $stmt->execute([$admin['id']]);
+
+        $adminToken = self::generateAdminToken($admin['id']);
+
+        self::logAttempt($admin['id'], $data['email'], true, 0, 'batch_login');
+        self::logAudit($admin['id'], $admin['email'], 'login', 'auth', null, null, null, null, 'success');
+
+        Response::success([
+            'admin_token' => $adminToken,
+            'admin' => [
+                'id' => $admin['id'],
+                'email' => $admin['email'],
+                'name' => $admin['name']
+            ],
+            'message' => 'Admin access granted. Session expires in 30 minutes of inactivity.'
+        ]);
+    }
+
+    /**
      * Step 1: Validate email and first password
      */
     public static function loginStep1(): void
