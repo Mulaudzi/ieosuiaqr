@@ -112,6 +112,9 @@ try {
     }
 
     // Admin Auth routes (multi-step authentication)
+    elseif ($uri === '/admin/auth/batch' && $method === 'POST') {
+        AdminAuthController::batchLogin();
+    }
     elseif ($uri === '/admin/auth/step1' && $method === 'POST') {
         AdminAuthController::loginStep1();
     }

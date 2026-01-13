@@ -49,6 +49,20 @@ export interface AdminLoginStep3Response {
   message: string;
 }
 
+export interface AdminBatchLoginResponse {
+  admin_token: string;
+  admin: AdminUser;
+  message: string;
+}
+
+export interface AdminBatchLoginError {
+  success: false;
+  message: string;
+  remaining_attempts: number;
+  locked: boolean;
+  locked_minutes?: number;
+}
+
 export interface AdminSessionResponse {
   valid: boolean;
   admin: AdminUser;
@@ -83,6 +97,28 @@ export const adminApi = {
       body: JSON.stringify({ email })
     });
     return handleResponse(response);
+  },
+
+  /**
+   * Batch admin login - verify all 3 passwords at once
+   */
+  batchLogin: async (email: string, password1: string, password2: string, password3: string): Promise<ApiResponse<AdminBatchLoginResponse> & { remaining_attempts?: number; locked?: boolean; locked_minutes?: number }> => {
+    const response = await fetch(`${getBaseUrl()}/admin/auth/batch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password1, password2, password3 })
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      throw { 
+        status: response.status, 
+        message: result.message || "Authentication failed",
+        remaining_attempts: result.remaining_attempts,
+        locked: result.locked,
+        locked_minutes: result.locked_minutes
+      };
+    }
+    return result;
   },
 
   /**
