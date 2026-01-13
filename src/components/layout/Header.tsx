@@ -3,6 +3,8 @@ import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Menu, X, QrCode } from "lucide-react";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navLinks = [
   { name: "Features", href: "/#features" },
@@ -14,6 +16,7 @@ export function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -63,14 +66,25 @@ export function Header() {
             </div>
           )}
 
-          {/* Auth Buttons */}
+          {/* Auth Buttons / User Menu */}
           <div className="hidden lg:flex items-center gap-3">
-            <Button variant="ghost" asChild>
-              <Link to="/login">Sign In</Link>
-            </Button>
-            <Button variant="hero" asChild>
-              <Link to="/signup">Get Started Free</Link>
-            </Button>
+            {isAuthenticated ? (
+              <>
+                <NotificationBell />
+                <Button variant="ghost" asChild>
+                  <Link to="/dashboard">Dashboard</Link>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" asChild>
+                  <Link to="/login">Sign In</Link>
+                </Button>
+                <Button variant="hero" asChild>
+                  <Link to="/signup">Get Started Free</Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -109,12 +123,26 @@ export function Header() {
                   </a>
                 ))}
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
-                <Button variant="ghost" asChild className="w-full justify-center">
-                  <Link to="/login">Sign In</Link>
-                </Button>
-                <Button variant="hero" asChild className="w-full justify-center">
-                  <Link to="/signup">Get Started Free</Link>
-                </Button>
+                {isAuthenticated ? (
+                  <>
+                    <div className="flex items-center justify-between px-2 py-2">
+                      <span className="text-sm text-muted-foreground">Notifications</span>
+                      <NotificationBell />
+                    </div>
+                    <Button variant="hero" asChild className="w-full justify-center">
+                      <Link to="/dashboard">Go to Dashboard</Link>
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="ghost" asChild className="w-full justify-center">
+                      <Link to="/login">Sign In</Link>
+                    </Button>
+                    <Button variant="hero" asChild className="w-full justify-center">
+                      <Link to="/signup">Get Started Free</Link>
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

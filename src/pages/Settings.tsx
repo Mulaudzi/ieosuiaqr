@@ -14,6 +14,7 @@ import { authApi } from "@/services/api/auth";
 import { useAuth } from "@/contexts/AuthContext";
 import { TwoFactorSetup } from "@/components/auth/TwoFactorSetup";
 import { PasswordStrengthIndicator, getPasswordScore } from "@/components/auth/PasswordStrengthIndicator";
+import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import {
   QrCode,
   BarChart3,
@@ -595,75 +596,7 @@ export default function Settings() {
 
             {/* Notifications Tab */}
             <TabsContent value="notifications">
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-6 rounded-2xl bg-card border border-border"
-              >
-                <h3 className="font-display font-semibold mb-6">Email Notifications</h3>
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Email Notifications</p>
-                      <p className="text-sm text-muted-foreground">
-                        Receive email updates about your account
-                      </p>
-                    </div>
-                    <Switch
-                      checked={emailNotifications}
-                      onCheckedChange={setEmailNotifications}
-                    />
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Scan Alerts</p>
-                      <p className="text-sm text-muted-foreground">
-                        Get notified when your QR codes reach scan milestones
-                      </p>
-                    </div>
-                    <Switch checked={scanAlerts} onCheckedChange={setScanAlerts} />
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Weekly Report</p>
-                      <p className="text-sm text-muted-foreground">
-                        Receive a weekly summary of your QR code performance
-                      </p>
-                    </div>
-                    <Switch checked={weeklyReport} onCheckedChange={setWeeklyReport} />
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Marketing Emails</p>
-                      <p className="text-sm text-muted-foreground">
-                        Receive updates about new features and promotions
-                      </p>
-                    </div>
-                    <Switch
-                      checked={marketingEmails}
-                      onCheckedChange={setMarketingEmails}
-                    />
-                  </div>
-
-                  <Button variant="hero" onClick={handleNotificationsSave} disabled={isSavingNotifications}>
-                    {isSavingNotifications ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <Check className="w-4 h-4 mr-2" />
-                    )}
-                    {isSavingNotifications ? "Saving..." : "Save Preferences"}
-                  </Button>
-                </div>
-              </motion.div>
+              <NotificationSettings />
             </TabsContent>
 
             {/* Billing Tab */}

@@ -151,9 +151,9 @@ export function PricingSection() {
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
               className={cn(
-                "relative rounded-3xl border transition-all duration-300 overflow-hidden",
+                "relative rounded-3xl border transition-all duration-300",
                 plan.popular
-                  ? "bg-card border-primary shadow-xl shadow-primary/10 scale-105"
+                  ? "bg-card border-primary shadow-xl shadow-primary/10 scale-105 mt-4"
                   : "bg-card border-border hover:border-primary/30 hover:shadow-lg"
               )}
             >
