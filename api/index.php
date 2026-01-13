@@ -234,6 +234,16 @@ try {
     elseif ($uri === '/webhooks/payfast' && $method === 'POST') {
         PaymentController::handleWebhook();
     }
+    elseif ($uri === '/webhooks/paystack' && $method === 'POST') {
+        PaymentController::handlePaystackWebhook();
+    }
+    // Subscription sync
+    elseif ($uri === '/subscriptions/status' && $method === 'GET') {
+        PaymentController::getSubscriptionStatus();
+    }
+    elseif ($uri === '/subscriptions/sync' && $method === 'POST') {
+        PaymentController::syncSubscription();
+    }
 
     // Billing/Invoices
     elseif ($uri === '/billing/invoices' && $method === 'GET') {
