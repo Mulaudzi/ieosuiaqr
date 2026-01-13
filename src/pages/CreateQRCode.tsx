@@ -639,7 +639,7 @@ export default function CreateQRCode() {
                     Customize Design
                   </h2>
                   <p className="text-muted-foreground mb-6">
-                    Choose colors for your QR code
+                    Choose colors and add your logo
                   </p>
 
                   <div className="space-y-6">
@@ -666,19 +666,26 @@ export default function CreateQRCode() {
                       </div>
                     </div>
 
-                    <div className="p-4 rounded-2xl bg-muted/50 border border-dashed border-border">
-                      <div className="flex items-center gap-3 mb-3">
-                        <Palette className="w-5 h-5 text-muted-foreground" />
-                        <span className="font-medium">Custom Colors</span>
-                        <span className="text-xs bg-warning/10 text-warning px-2 py-0.5 rounded-full">
-                          Pro
-                        </span>
+                    {/* Logo Uploader - Pro/Enterprise only */}
+                    <LogoUploader
+                      selectedLogo={selectedLogo}
+                      onSelectLogo={setSelectedLogo}
+                    />
+
+                    {!isPro && (
+                      <div className="p-4 rounded-2xl bg-muted/50 border border-dashed border-border">
+                        <div className="flex items-center gap-3 mb-3">
+                          <Palette className="w-5 h-5 text-muted-foreground" />
+                          <span className="font-medium">Custom Colors</span>
+                          <span className="text-xs bg-warning/10 text-warning px-2 py-0.5 rounded-full">
+                            Pro
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Upgrade to Pro to use custom colors and more customization options.
+                        </p>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Upgrade to Pro to use custom colors, add logos, and more
-                        customization options.
-                      </p>
-                    </div>
+                    )}
                   </div>
                 </motion.div>
               )}

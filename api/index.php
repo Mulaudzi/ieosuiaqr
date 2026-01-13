@@ -61,6 +61,7 @@ use App\Controllers\PaymentController;
 use App\Controllers\ContactController;
 use App\Controllers\BillingController;
 use App\Controllers\AnalyticsController;
+use App\Controllers\InventoryController;
 
 // Handle CORS
 Cors::handle();
@@ -206,6 +207,40 @@ try {
     }
     elseif ($uri === '/user/2fa/disable' && $method === 'POST') {
         AuthController::disable2FA();
+    }
+    elseif ($uri === '/user/2fa/verify' && $method === 'POST') {
+        AuthController::verify2FA();
+    }
+
+    // User logos
+    elseif ($uri === '/user/logos' && $method === 'GET') {
+        AuthController::getLogos();
+    }
+    elseif ($uri === '/user/logos' && $method === 'POST') {
+        AuthController::uploadLogo();
+    }
+
+    // Inventory
+    elseif ($uri === '/inventory' && $method === 'GET') {
+        InventoryController::list();
+    }
+    elseif ($uri === '/inventory' && $method === 'POST') {
+        InventoryController::create();
+    }
+    elseif ($uri === '/inventory/scan' && $method === 'POST') {
+        InventoryController::logScan();
+    }
+    elseif ($uri === '/inventory/limits' && $method === 'GET') {
+        InventoryController::getLimits();
+    }
+    elseif (preg_match('#^/inventory/(\d+)$#', $uri, $matches) && $method === 'GET') {
+        InventoryController::show((int)$matches[1]);
+    }
+    elseif (preg_match('#^/inventory/(\d+)$#', $uri, $matches) && $method === 'PUT') {
+        InventoryController::update((int)$matches[1]);
+    }
+    elseif (preg_match('#^/inventory/(\d+)$#', $uri, $matches) && $method === 'DELETE') {
+        InventoryController::delete((int)$matches[1]);
     }
 
     // 404 Not Found
