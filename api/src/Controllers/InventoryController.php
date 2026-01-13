@@ -447,12 +447,12 @@ class InventoryController
         $limit = min(100, max(1, (int)($_GET['per_page'] ?? 20)));
         $offset = ($page - 1) * $limit;
 
-        $where = ["user_id = ?"];
+        $where = ["i.user_id = ?"];
         $params = [$user['id']];
 
         // Search
         if (!empty($_GET['search'])) {
-            $where[] = "(name LIKE ? OR category LIKE ?)";
+            $where[] = "(i.name LIKE ? OR i.category LIKE ?)";
             $searchTerm = '%' . $_GET['search'] . '%';
             $params[] = $searchTerm;
             $params[] = $searchTerm;
@@ -460,20 +460,20 @@ class InventoryController
 
         // Category filter
         if (!empty($_GET['category'])) {
-            $where[] = "category = ?";
+            $where[] = "i.category = ?";
             $params[] = $_GET['category'];
         }
 
         // Status filter
         if (!empty($_GET['status'])) {
-            $where[] = "status = ?";
+            $where[] = "i.status = ?";
             $params[] = $_GET['status'];
         }
 
         $whereClause = implode(' AND ', $where);
 
-        // Get total
-        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM inventory_items WHERE {$whereClause}");
+        // Get total (use table alias for consistency)
+        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM inventory_items i WHERE {$whereClause}");
         $stmt->execute($params);
         $total = (int)$stmt->fetch()['total'];
 
