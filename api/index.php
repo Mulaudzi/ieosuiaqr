@@ -130,6 +130,25 @@ try {
     elseif ($uri === '/admin/auth/passwords' && $method === 'PUT') {
         AdminAuthController::updatePasswords();
     }
+    // Admin management routes
+    elseif ($uri === '/admin/users' && $method === 'GET') {
+        AdminAuthController::listAdmins();
+    }
+    elseif (preg_match('#^/admin/users/(\d+)$#', $uri, $matches) && $method === 'GET') {
+        AdminAuthController::getAdmin((int)$matches[1]);
+    }
+    elseif (preg_match('#^/admin/users/(\d+)$#', $uri, $matches) && $method === 'PUT') {
+        AdminAuthController::updateAdmin((int)$matches[1]);
+    }
+    elseif (preg_match('#^/admin/users/(\d+)/toggle$#', $uri, $matches) && $method === 'POST') {
+        AdminAuthController::toggleAdminStatus((int)$matches[1]);
+    }
+    elseif (preg_match('#^/admin/users/(\d+)/unlock$#', $uri, $matches) && $method === 'POST') {
+        AdminAuthController::unlockAdmin((int)$matches[1]);
+    }
+    elseif (preg_match('#^/admin/users/(\d+)$#', $uri, $matches) && $method === 'DELETE') {
+        AdminAuthController::deleteAdmin((int)$matches[1]);
+    }
 
     // User profile (auth required)
     elseif ($uri === '/user/profile' && $method === 'GET') {

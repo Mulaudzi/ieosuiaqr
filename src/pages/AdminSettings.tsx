@@ -21,6 +21,7 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
+  Users,
 } from "lucide-react";
 
 interface AdminSettings {
@@ -214,6 +215,12 @@ export default function AdminSettings() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/admin/users">
+                <Users className="w-4 h-4 mr-2" />
+                Manage Admins
+              </Link>
+            </Button>
             <Button variant="outline" size="sm" asChild>
               <Link to="/admin/emails">
                 <ArrowLeft className="w-4 h-4 mr-2" />

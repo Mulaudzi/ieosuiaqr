@@ -43,6 +43,7 @@ import AdminSettings from "./pages/AdminSettings";
 import AdminStats from "./pages/AdminStats";
 import AdminQA from "./pages/AdminQA";
 import AdminCreate from "./pages/AdminCreate";
+import AdminUsers from "./pages/AdminUsers";
 
 const queryClient = new QueryClient();
 
@@ -88,6 +89,7 @@ const App = () => (
             <Route path="/admin/stats" element={<AdminStats />} />
             <Route path="/admin/qa" element={<AdminQA />} />
             <Route path="/admin/create" element={<AdminCreate />} />
+            <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <CookieConsent />
