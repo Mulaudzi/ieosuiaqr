@@ -62,6 +62,7 @@ use App\Controllers\ContactController;
 use App\Controllers\BillingController;
 use App\Controllers\AnalyticsController;
 use App\Controllers\InventoryController;
+use App\Controllers\AdminController;
 
 // Handle CORS
 Cors::handle();
@@ -269,6 +270,24 @@ try {
     }
     elseif (preg_match('#^/inventory/(\d+)$#', $uri, $matches) && $method === 'DELETE') {
         InventoryController::delete((int)$matches[1]);
+    }
+
+    // Admin routes
+    elseif ($uri === '/admin/login' && $method === 'POST') {
+        AdminController::validateStep();
+    }
+    elseif ($uri === '/admin/verify' && $method === 'GET') {
+        AdminController::verifyAccess();
+    }
+    elseif ($uri === '/admin/emails' && $method === 'GET') {
+        AdminController::getEmailLogs();
+    }
+    elseif (preg_match('#^/admin/emails/(\d+)$#', $uri, $matches) && $method === 'GET') {
+        $_GET['id'] = $matches[1];
+        AdminController::getEmailLog();
+    }
+    elseif ($uri === '/admin/logout' && $method === 'POST') {
+        AdminController::logout();
     }
 
     // 404 Not Found

@@ -35,6 +35,8 @@ import Documentation from "./pages/Documentation";
 import Careers from "./pages/Careers";
 import Solutions from "./pages/Solutions";
 import SolutionDetail from "./pages/SolutionDetail";
+import AdminLogin from "./pages/AdminLogin";
+import AdminEmails from "./pages/AdminEmails";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -75,6 +77,8 @@ const App = () => (
             <Route path="/careers" element={<Careers />} />
             <Route path="/solutions" element={<Solutions />} />
             <Route path="/solutions/:solutionId" element={<SolutionDetail />} />
+            <Route path="/admin" element={<AdminLogin />} />
+            <Route path="/admin/emails" element={<AdminEmails />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <CookieConsent />
