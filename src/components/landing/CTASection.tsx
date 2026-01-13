@@ -33,18 +33,17 @@ export function CTASection() {
           </motion.div>
 
           <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold mb-6">
-            Ready to Create Your First{" "}
-            <span className="gradient-text">QR Code?</span>
+            Start Tracking Your First Items{" "}
+            <span className="gradient-text">Free</span>
           </h2>
           <p className="text-lg sm:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-            Join thousands of businesses using IEOSUIA to create powerful,
-            trackable QR codes. No credit card required.
+            Join thousands of businesses, churches, and schools using IEOSUIA to create smart QR codes and track inventory. No hardware or credit card required.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button variant="hero" size="xl" asChild>
               <Link to="/signup">
-                Get Started Free
+                Create QR Now
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Link>
             </Button>

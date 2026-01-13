@@ -4,18 +4,26 @@ import {
   Utensils,
   Building2,
   Ticket,
-  HeartPulse,
+  Package,
   GraduationCap,
 } from "lucide-react";
 
 const useCases = [
+  {
+    icon: Package,
+    title: "Inventory & Asset Tracking",
+    description:
+      "Track equipment, products, and assets with smart QR codes. Perfect for churches, schools, warehouses, and events.",
+    examples: ["Church equipment", "School books", "Shop stock", "Event check-in"],
+    color: "primary",
+  },
   {
     icon: Store,
     title: "Retail & E-commerce",
     description:
       "Link to product pages, promotions, and loyalty programs. Track customer engagement.",
     examples: ["Product packaging", "In-store displays", "Receipt marketing"],
-    color: "primary",
+    color: "accent",
   },
   {
     icon: Utensils,
@@ -23,7 +31,7 @@ const useCases = [
     description:
       "Digital menus, contactless ordering, and customer feedback collection.",
     examples: ["Table menus", "Takeaway orders", "Review collection"],
-    color: "accent",
+    color: "success",
   },
   {
     icon: Building2,
@@ -31,7 +39,7 @@ const useCases = [
     description:
       "Virtual tours, property details, and agent contact information.",
     examples: ["Property signs", "Brochures", "Open house materials"],
-    color: "success",
+    color: "warning",
   },
   {
     icon: Ticket,
@@ -39,14 +47,6 @@ const useCases = [
     description:
       "Ticketing, event schedules, and exclusive content access.",
     examples: ["Event tickets", "Venue navigation", "VIP experiences"],
-    color: "warning",
-  },
-  {
-    icon: HeartPulse,
-    title: "Healthcare",
-    description:
-      "Patient portals, appointment booking, and medical information.",
-    examples: ["Patient check-in", "Prescription info", "Health resources"],
     color: "primary",
   },
   {

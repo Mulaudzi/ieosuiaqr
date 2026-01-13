@@ -7,7 +7,7 @@ import {
   Shield,
   Users,
   Globe,
-  Smartphone,
+  Package,
 } from "lucide-react";
 
 const features = [
@@ -19,17 +19,17 @@ const features = [
     color: "primary",
   },
   {
+    icon: Package,
+    title: "Smart Inventory QR",
+    description:
+      "Assign QRs to items, track scans/movement, and update status in real-time. Perfect for asset management.",
+    color: "accent",
+  },
+  {
     icon: BarChart3,
     title: "Advanced Analytics",
     description:
       "Track scans, locations, devices, and more with real-time dashboards and reports.",
-    color: "accent",
-  },
-  {
-    icon: Palette,
-    title: "Custom Branding",
-    description:
-      "Add your logo, choose colors, and customize patterns to match your brand identity.",
     color: "success",
   },
   {
@@ -61,10 +61,10 @@ const features = [
     color: "success",
   },
   {
-    icon: Smartphone,
-    title: "Mobile Optimized",
+    icon: Palette,
+    title: "Custom Branding",
     description:
-      "Generate and manage QR codes on any device with our responsive platform.",
+      "Add your logo, choose colors, and customize patterns to match your brand identity.",
     color: "warning",
   },
 ];

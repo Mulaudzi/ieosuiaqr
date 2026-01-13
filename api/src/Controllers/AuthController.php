@@ -355,25 +355,36 @@ class AuthController
         $validator->required('email')->email('email')->validate();
 
         $pdo = Database::getInstance();
+        
+        // Set timezone to UTC for consistent token expiry handling
+        $pdo->exec("SET time_zone = '+00:00'");
+        
         $stmt = $pdo->prepare("SELECT id, email, name FROM users WHERE email = ?");
         $stmt->execute([strtolower(trim($data['email']))]);
         $user = $stmt->fetch();
 
         // Always return success to prevent email enumeration
         if ($user) {
+            // Generate secure token
             $resetToken = bin2hex(random_bytes(32));
-            $stmt = $pdo->prepare("UPDATE users SET reset_token = ?, reset_token_expires = DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE id = ?");
-            $stmt->execute([$resetToken, $user['id']]);
+            
+            // Store token (plain - for simplicity) with 1 hour expiry using UTC
+            $stmt = $pdo->prepare("UPDATE users SET reset_token = ?, reset_token_expires = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 HOUR), updated_at = NOW() WHERE id = ?");
+            $result = $stmt->execute([$resetToken, $user['id']]);
+            
+            if (!$result || $stmt->rowCount() === 0) {
+                error_log("Failed to store reset token for user: " . $user['email']);
+            } else {
+                // Send password reset email
+                $emailSent = MailService::sendPasswordResetEmail(
+                    $user['email'],
+                    $user['name'],
+                    $resetToken
+                );
 
-            // Send password reset email
-            $emailSent = MailService::sendPasswordResetEmail(
-                $user['email'],
-                $user['name'],
-                $resetToken
-            );
-
-            if (!$emailSent) {
-                error_log("Failed to send password reset email to: " . $user['email']);
+                if (!$emailSent) {
+                    error_log("Failed to send password reset email to: " . $user['email']);
+                }
             }
         }
 
@@ -392,15 +403,34 @@ class AuthController
             ->validate();
 
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT id FROM users WHERE reset_token = ? AND reset_token_expires > NOW()");
+        
+        // Set timezone to UTC for consistent token expiry handling
+        $pdo->exec("SET time_zone = '+00:00'");
+        
+        // Check if token exists first
+        $stmt = $pdo->prepare("SELECT id, reset_token_expires FROM users WHERE reset_token = ?");
         $stmt->execute([$data['token']]);
         $user = $stmt->fetch();
 
         if (!$user) {
-            Response::error('Invalid or expired reset token', 400);
+            error_log("Reset password failed: Token not found in database");
+            Response::error('Invalid reset token. Please request a new password reset link.', 400);
+        }
+        
+        // Check expiry using UTC timestamp
+        $expiryTime = strtotime($user['reset_token_expires']);
+        $currentTime = time();
+        
+        if ($expiryTime < $currentTime) {
+            error_log("Reset password failed: Token expired. Expiry: " . $user['reset_token_expires'] . ", Current UTC: " . gmdate('Y-m-d H:i:s'));
+            // Clear expired token
+            $stmt = $pdo->prepare("UPDATE users SET reset_token = NULL, reset_token_expires = NULL WHERE id = ?");
+            $stmt->execute([$user['id']]);
+            Response::error('This reset link has expired. Please request a new password reset link.', 400);
         }
 
-        $stmt = $pdo->prepare("UPDATE users SET password = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?");
+        // Update password and clear token (single-use)
+        $stmt = $pdo->prepare("UPDATE users SET password = ?, reset_token = NULL, reset_token_expires = NULL, updated_at = NOW() WHERE id = ?");
         $stmt->execute([password_hash($data['password'], PASSWORD_BCRYPT), $user['id']]);
 
         Response::success(null, 'Password reset successfully. You can now login with your new password.');

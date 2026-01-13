@@ -26,6 +26,7 @@ import {
   RefreshCw,
   AlertCircle,
   FileSpreadsheet,
+  Package,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -46,6 +47,8 @@ import { QRViewModal } from "@/components/qr/QRViewModal";
 import { QREditModal } from "@/components/qr/QREditModal";
 import { QRDeleteConfirmModal } from "@/components/qr/QRDeleteConfirmModal";
 import { useQRDownload } from "@/hooks/useQRDownload";
+import { InventoryTab } from "@/components/inventory/InventoryTab";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const typeColors: Record<string, string> = {
   url: "bg-primary/10 text-primary",
@@ -60,6 +63,7 @@ const typeColors: Record<string, string> = {
 
 export default function Dashboard() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [activeTab, setActiveTab] = useState<"qr" | "inventory">("qr");
   const [searchQuery, setSearchQuery] = useState("");
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -193,13 +197,28 @@ export default function Dashboard() {
           </Link>
 
           <nav className="space-y-1">
-            <Link
-              to="/dashboard"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 text-primary font-medium"
+            <button
+              onClick={() => setActiveTab("qr")}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
+                activeTab === "qr"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
             >
               <QrCode className="w-5 h-5" />
               My QR Codes
-            </Link>
+            </button>
+            <button
+              onClick={() => setActiveTab("inventory")}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
+                activeTab === "inventory"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              <Package className="w-5 h-5" />
+              Inventory
+            </button>
             <Link
               to="/dashboard/analytics"
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-muted transition-colors"
@@ -274,29 +293,57 @@ export default function Dashboard() {
         <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border">
           <div className="flex items-center justify-between px-6 py-4">
             <div>
-              <h1 className="font-display text-2xl font-bold">My QR Codes</h1>
+              <h1 className="font-display text-2xl font-bold">
+                {activeTab === "qr" ? "My QR Codes" : "Inventory Tracking"}
+              </h1>
               <p className="text-sm text-muted-foreground">
-                Manage and track all your QR codes
+                {activeTab === "qr" 
+                  ? "Manage and track all your QR codes" 
+                  : "Track products, assets, and equipment with smart QR codes"}
               </p>
             </div>
             <div className="flex items-center gap-3">
-              {plan === "enterprise" && (
-                <Button variant="outline" onClick={() => setShowBulkImport(true)}>
-                  <FileSpreadsheet className="w-5 h-5 mr-2" />
-                  Bulk Import
-                </Button>
+              {activeTab === "qr" && (
+                <>
+                  {plan === "enterprise" && (
+                    <Button variant="outline" onClick={() => setShowBulkImport(true)}>
+                      <FileSpreadsheet className="w-5 h-5 mr-2" />
+                      Bulk Import
+                    </Button>
+                  )}
+                  <Button variant="hero" asChild>
+                    <Link to="/dashboard/create">
+                      <Plus className="w-5 h-5 mr-2" />
+                      Create QR Code
+                    </Link>
+                  </Button>
+                </>
               )}
-              <Button variant="hero" asChild>
-                <Link to="/dashboard/create">
-                  <Plus className="w-5 h-5 mr-2" />
-                  Create QR Code
-                </Link>
-              </Button>
             </div>
+          </div>
+          
+          {/* Mobile Tab Switcher */}
+          <div className="lg:hidden px-6 pb-4">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "qr" | "inventory")}>
+              <TabsList className="w-full">
+                <TabsTrigger value="qr" className="flex-1">
+                  <QrCode className="w-4 h-4 mr-2" />
+                  QR Codes
+                </TabsTrigger>
+                <TabsTrigger value="inventory" className="flex-1">
+                  <Package className="w-4 h-4 mr-2" />
+                  Inventory
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
         </header>
 
         <div className="p-6">
+          {activeTab === "inventory" ? (
+            <InventoryTab />
+          ) : (
+            <>
           {/* Stats Grid */}
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {stats.map((stat, index) => (
@@ -631,6 +678,8 @@ export default function Dashboard() {
                 </tbody>
               </table>
             </div>
+          )}
+          </>
           )}
         </div>
       </main>
