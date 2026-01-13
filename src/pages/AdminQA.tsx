@@ -406,10 +406,10 @@ export default function AdminQA() {
     }
   };
 
-  const errorsOnly = results
+  const errorsOnly = results?.tests
     ? Object.entries(results.tests).flatMap(([sys, cats]) =>
-        Object.entries(cats).flatMap(([cat, tests]) =>
-          tests.filter(t => t.status !== "passed")
+        Object.entries(cats || {}).flatMap(([cat, tests]) =>
+          Array.isArray(tests) ? tests.filter(t => t.status !== "passed") : []
         )
       )
     : [];
@@ -747,9 +747,9 @@ export default function AdminQA() {
                     const Icon = config?.icon || Server;
                     const isExpanded = expandedSystems.includes(system);
                     
-                    const systemStats = Object.values(categories as TestCategory).flat();
-                    const passed = systemStats.filter(t => t.status === "passed").length;
-                    const issues = systemStats.filter(t => t.status !== "passed").length;
+                    const flatStats = Object.values(categories as TestCategory || {}).flatMap(arr => Array.isArray(arr) ? arr : []);
+                    const passed = flatStats.filter(t => t.status === "passed").length;
+                    const issues = flatStats.filter(t => t.status !== "passed").length;
 
                     return (
                       <Collapsible key={system} open={isExpanded}>
@@ -792,7 +792,7 @@ export default function AdminQA() {
                                   const catKey = `${system}-${category}`;
                                   const isCatExpanded = expandedCategories.includes(catKey);
                                   const CategoryIcon = componentIcons[category] || Cpu;
-                                  const catIssues = tests.filter(t => t.status !== "passed").length;
+                                  const catIssues = Array.isArray(tests) ? tests.filter(t => t.status !== "passed").length : 0;
 
                                   return (
                                     <Collapsible key={catKey} open={isCatExpanded}>
@@ -821,7 +821,7 @@ export default function AdminQA() {
                                       
                                       <CollapsibleContent>
                                         <div className="mt-2 space-y-2 pl-6">
-                                          {tests.map((test, idx) => {
+                                          {(Array.isArray(tests) ? tests : []).map((test, idx) => {
                                             const StatusIcon = statusConfig[test.status].icon;
                                             return (
                                               <motion.div

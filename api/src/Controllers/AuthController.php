@@ -253,9 +253,8 @@ class AuthController
         $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
         $maxSize = 5 * 1024 * 1024; // 5MB
 
-        // Validate file type
-        $finfo = new \finfo(FILEINFO_MIME_TYPE);
-        $mimeType = $finfo->file($file['tmp_name']);
+        // Validate file type with fallback for missing finfo extension
+        $mimeType = self::detectMimeType($file['tmp_name'], $file['name']);
 
         if (!in_array($mimeType, $allowedTypes)) {
             Response::error('Invalid file type. Allowed: JPG, PNG, GIF, WebP', 400);
@@ -936,9 +935,8 @@ class AuthController
         $file = $_FILES['logo'];
         $maxSize = 1 * 1024 * 1024; // 1MB
 
-        // Validate file type (PNG only)
-        $finfo = new \finfo(FILEINFO_MIME_TYPE);
-        $mimeType = $finfo->file($file['tmp_name']);
+        // Validate file type (PNG only) with fallback for missing finfo extension
+        $mimeType = self::detectMimeType($file['tmp_name'], $file['name']);
 
         if ($mimeType !== 'image/png') {
             Response::error('Only PNG files are allowed for logos', 400);
@@ -988,5 +986,64 @@ class AuthController
             'id' => $logoId,
             'logo_path' => $logoPath
         ], 'Logo uploaded successfully', 201);
+    }
+
+    /**
+     * Detect MIME type with fallback for missing finfo extension
+     * @param string $filePath Path to the file
+     * @param string $fileName Original filename for extension-based fallback
+     * @return string MIME type
+     */
+    private static function detectMimeType(string $filePath, string $fileName): string
+    {
+        // Try finfo extension first (most reliable)
+        if (extension_loaded('fileinfo') && class_exists('finfo')) {
+            try {
+                $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                $mimeType = $finfo->file($filePath);
+                if ($mimeType !== false) {
+                    return $mimeType;
+                }
+            } catch (\Exception $e) {
+                error_log("finfo detection failed: " . $e->getMessage());
+            }
+        }
+
+        // Fallback to mime_content_type function
+        if (function_exists('mime_content_type')) {
+            $mimeType = mime_content_type($filePath);
+            if ($mimeType !== false) {
+                return $mimeType;
+            }
+        }
+
+        // Fallback to extension-based detection
+        $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        $mimeMap = [
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'svg' => 'image/svg+xml',
+            'bmp' => 'image/bmp',
+            'ico' => 'image/x-icon',
+            'pdf' => 'application/pdf',
+            'csv' => 'text/csv',
+        ];
+
+        if (isset($mimeMap[$extension])) {
+            return $mimeMap[$extension];
+        }
+
+        // Last resort - check image getimagesize
+        $imageInfo = @getimagesize($filePath);
+        if ($imageInfo !== false && isset($imageInfo['mime'])) {
+            return $imageInfo['mime'];
+        }
+
+        // Cannot determine MIME type
+        error_log("Could not determine MIME type for file: {$fileName}");
+        return 'application/octet-stream';
     }
 }

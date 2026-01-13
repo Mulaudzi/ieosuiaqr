@@ -290,7 +290,14 @@ export default function Profile() {
                 <Calendar className="w-5 h-5 text-muted-foreground" />
                 <div>
                   <p className="text-muted-foreground text-xs">Member Since</p>
-                  <p className="font-medium">Recently Joined</p>
+                  <p className="font-medium">
+                    {user?.created_at 
+                      ? new Date(user.created_at).toLocaleDateString('en-US', { 
+                          month: 'long', 
+                          year: 'numeric' 
+                        })
+                      : "Recently Joined"}
+                  </p>
                 </div>
               </div>
             </div>
