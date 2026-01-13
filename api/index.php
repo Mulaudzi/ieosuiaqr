@@ -289,6 +289,29 @@ try {
     elseif ($uri === '/admin/logout' && $method === 'POST') {
         AdminController::logout();
     }
+    // Admin email management endpoints
+    elseif ($uri === '/admin/emails/read' && $method === 'POST') {
+        AdminController::markEmailRead();
+    }
+    elseif ($uri === '/admin/emails/replied' && $method === 'POST') {
+        AdminController::markEmailReplied();
+    }
+    elseif ($uri === '/admin/emails/priority' && $method === 'POST') {
+        AdminController::setEmailPriority();
+    }
+    elseif ($uri === '/admin/emails/archive' && $method === 'POST') {
+        AdminController::archiveEmail();
+    }
+    elseif ($uri === '/admin/emails/bulk' && $method === 'POST') {
+        AdminController::bulkMarkEmails();
+    }
+    elseif ($uri === '/admin/webhooks' && $method === 'GET') {
+        AdminController::getWebhookLogs();
+    }
+    // Email webhook endpoint (public)
+    elseif ($uri === '/webhooks/email' && $method === 'POST') {
+        AdminController::handleEmailWebhook();
+    }
 
     // 404 Not Found
     else {

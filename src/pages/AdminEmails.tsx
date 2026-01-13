@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -24,7 +26,16 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import {
   Shield,
@@ -35,14 +46,20 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  Send,
-  AlertCircle,
   CheckCircle,
   Clock,
   XCircle,
   MessageSquare,
-  Users,
-  TrendingUp,
+  MailOpen,
+  Reply,
+  Archive,
+  MoreVertical,
+  AlertCircle,
+  Flag,
+  Inbox,
+  Send,
+  CheckCheck,
+  MailWarning,
 } from "lucide-react";
 
 interface EmailLog {
@@ -62,6 +79,13 @@ interface EmailLog {
   origin_url: string | null;
   ip_address: string | null;
   created_at: string;
+  is_read: boolean;
+  read_at: string | null;
+  is_replied: boolean;
+  replied_at: string | null;
+  reply_notes: string | null;
+  priority: string;
+  is_archived: boolean;
 }
 
 interface Stats {
@@ -70,6 +94,9 @@ interface Stats {
   failed: number;
   bounced: number;
   contact_forms: number;
+  unread: number;
+  unreplied: number;
+  unread_contacts: number;
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -88,6 +115,13 @@ const typeConfig: Record<string, { label: string; color: string }> = {
   other: { label: "Other", color: "bg-muted text-muted-foreground" },
 };
 
+const priorityConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+  low: { label: "Low", color: "text-muted-foreground", icon: Flag },
+  normal: { label: "Normal", color: "text-foreground", icon: Flag },
+  high: { label: "High", color: "text-warning", icon: Flag },
+  urgent: { label: "Urgent", color: "text-destructive", icon: AlertCircle },
+};
+
 export default function AdminEmails() {
   const [emails, setEmails] = useState<EmailLog[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -95,9 +129,15 @@ export default function AdminEmails() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [readFilter, setReadFilter] = useState("");
+  const [repliedFilter, setRepliedFilter] = useState("");
+  const [archivedFilter, setArchivedFilter] = useState("false");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedEmail, setSelectedEmail] = useState<EmailLog | null>(null);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [replyNotes, setReplyNotes] = useState("");
+  const [activeTab, setActiveTab] = useState("inbox");
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -109,18 +149,16 @@ export default function AdminEmails() {
       return;
     }
     verifyAndFetch();
-  }, [page, statusFilter, typeFilter]);
+  }, [page, statusFilter, typeFilter, readFilter, repliedFilter, archivedFilter]);
 
   const verifyAndFetch = async () => {
     try {
-      // Verify access first
       const verifyRes = await fetch(`/api/admin/verify?admin_token=${adminToken}`);
       if (!verifyRes.ok) {
         localStorage.removeItem("admin_token");
         navigate("/admin");
         return;
       }
-      
       await fetchEmails();
     } catch {
       navigate("/admin");
@@ -136,17 +174,16 @@ export default function AdminEmails() {
         ...(statusFilter && { status: statusFilter }),
         ...(typeFilter && { type: typeFilter }),
         ...(search && { search }),
+        ...(readFilter && { read: readFilter }),
+        ...(repliedFilter && { replied: repliedFilter }),
+        archived: archivedFilter,
       });
 
       const response = await fetch(`/api/admin/emails?${params}`, {
-        headers: {
-          Authorization: `Admin ${adminToken}`,
-        },
+        headers: { Authorization: `Admin ${adminToken}` },
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch emails");
-      }
+      if (!response.ok) throw new Error("Failed to fetch emails");
 
       const data = await response.json();
       setEmails(data.data.logs);
@@ -173,15 +210,117 @@ export default function AdminEmails() {
     try {
       await fetch("/api/admin/logout", {
         method: "POST",
-        headers: {
-          Authorization: `Admin ${adminToken}`,
-        },
+        headers: { Authorization: `Admin ${adminToken}` },
       });
-    } catch {
-      // Ignore errors
-    }
+    } catch { /* ignore */ }
     localStorage.removeItem("admin_token");
     navigate("/admin");
+  };
+
+  const markAsRead = async (id: number, isRead: boolean) => {
+    try {
+      await fetch("/api/admin/emails/read", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Admin ${adminToken}`,
+        },
+        body: JSON.stringify({ id, is_read: isRead }),
+      });
+      toast({ title: isRead ? "Marked as read" : "Marked as unread" });
+      fetchEmails();
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "Failed to update status" });
+    }
+  };
+
+  const markAsReplied = async (id: number, isReplied: boolean, notes?: string) => {
+    try {
+      await fetch("/api/admin/emails/replied", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Admin ${adminToken}`,
+        },
+        body: JSON.stringify({ id, is_replied: isReplied, notes }),
+      });
+      toast({ title: isReplied ? "Marked as replied" : "Marked as not replied" });
+      setReplyNotes("");
+      fetchEmails();
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "Failed to update status" });
+    }
+  };
+
+  const setPriority = async (id: number, priority: string) => {
+    try {
+      await fetch("/api/admin/emails/priority", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Admin ${adminToken}`,
+        },
+        body: JSON.stringify({ id, priority }),
+      });
+      toast({ title: "Priority updated" });
+      fetchEmails();
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "Failed to update priority" });
+    }
+  };
+
+  const archiveEmail = async (id: number, isArchived: boolean) => {
+    try {
+      await fetch("/api/admin/emails/archive", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Admin ${adminToken}`,
+        },
+        body: JSON.stringify({ id, is_archived: isArchived }),
+      });
+      toast({ title: isArchived ? "Email archived" : "Email unarchived" });
+      fetchEmails();
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "Failed to archive" });
+    }
+  };
+
+  const handleBulkAction = async (action: string) => {
+    if (selectedIds.length === 0) {
+      toast({ title: "No emails selected" });
+      return;
+    }
+
+    try {
+      await fetch("/api/admin/emails/bulk", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Admin ${adminToken}`,
+        },
+        body: JSON.stringify({ ids: selectedIds, action }),
+      });
+      toast({ title: "Bulk action completed" });
+      setSelectedIds([]);
+      fetchEmails();
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "Failed to perform action" });
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === emails.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(emails.map((e) => e.id));
+    }
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
   };
 
   const formatDate = (dateStr: string) => {
@@ -189,6 +328,52 @@ export default function AdminEmails() {
       dateStyle: "medium",
       timeStyle: "short",
     });
+  };
+
+  const handleEmailClick = async (email: EmailLog) => {
+    setSelectedEmail(email);
+    if (!email.is_read) {
+      await markAsRead(email.id, true);
+    }
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setPage(1);
+    setSelectedIds([]);
+    
+    switch (tab) {
+      case "inbox":
+        setArchivedFilter("false");
+        setTypeFilter("contact");
+        setReadFilter("");
+        setRepliedFilter("");
+        break;
+      case "unread":
+        setArchivedFilter("false");
+        setTypeFilter("contact");
+        setReadFilter("false");
+        setRepliedFilter("");
+        break;
+      case "unreplied":
+        setArchivedFilter("false");
+        setTypeFilter("contact");
+        setReadFilter("");
+        setRepliedFilter("false");
+        break;
+      case "all":
+        setArchivedFilter("false");
+        setTypeFilter("");
+        setReadFilter("");
+        setRepliedFilter("");
+        break;
+      case "archived":
+        setArchivedFilter("true");
+        setTypeFilter("");
+        setReadFilter("");
+        setRepliedFilter("");
+        break;
+    }
   };
 
   return (
@@ -202,7 +387,7 @@ export default function AdminEmails() {
             </div>
             <div>
               <h1 className="font-bold text-lg">Admin Panel</h1>
-              <p className="text-xs text-muted-foreground">Email Logs & Analytics</p>
+              <p className="text-xs text-muted-foreground">Contact Emails & Logs</p>
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={handleLogout}>
@@ -215,34 +400,56 @@ export default function AdminEmails() {
       <main className="container mx-auto px-4 py-8">
         {/* Stats Cards */}
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="p-4 rounded-2xl bg-card border border-border"
             >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Mail className="w-5 h-5 text-primary" />
-                </div>
+              <div className="flex items-center gap-2 mb-2">
+                <Mail className="w-4 h-4 text-primary" />
               </div>
-              <p className="text-2xl font-bold">{stats.total}</p>
-              <p className="text-sm text-muted-foreground">Total Emails</p>
+              <p className="text-xl font-bold">{stats.total}</p>
+              <p className="text-xs text-muted-foreground">Total</p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+              className="p-4 rounded-2xl bg-card border border-border"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <MessageSquare className="w-4 h-4 text-accent" />
+              </div>
+              <p className="text-xl font-bold">{stats.contact_forms}</p>
+              <p className="text-xs text-muted-foreground">Contacts</p>
             </motion.div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="p-4 rounded-2xl bg-card border border-border"
+              className="p-4 rounded-2xl bg-warning/5 border border-warning/20"
             >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
-                  <CheckCircle className="w-5 h-5 text-success" />
-                </div>
+              <div className="flex items-center gap-2 mb-2">
+                <MailWarning className="w-4 h-4 text-warning" />
               </div>
-              <p className="text-2xl font-bold">{stats.sent}</p>
-              <p className="text-sm text-muted-foreground">Sent</p>
+              <p className="text-xl font-bold text-warning">{stats.unread_contacts || 0}</p>
+              <p className="text-xs text-muted-foreground">Unread</p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="p-4 rounded-2xl bg-destructive/5 border border-destructive/20"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Reply className="w-4 h-4 text-destructive" />
+              </div>
+              <p className="text-xl font-bold text-destructive">{stats.unreplied || 0}</p>
+              <p className="text-xs text-muted-foreground">Unreplied</p>
             </motion.div>
 
             <motion.div
@@ -251,13 +458,24 @@ export default function AdminEmails() {
               transition={{ delay: 0.2 }}
               className="p-4 rounded-2xl bg-card border border-border"
             >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
-                  <XCircle className="w-5 h-5 text-destructive" />
-                </div>
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="w-4 h-4 text-success" />
               </div>
-              <p className="text-2xl font-bold">{stats.failed}</p>
-              <p className="text-sm text-muted-foreground">Failed</p>
+              <p className="text-xl font-bold">{stats.sent}</p>
+              <p className="text-xs text-muted-foreground">Sent</p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              className="p-4 rounded-2xl bg-card border border-border"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <XCircle className="w-4 h-4 text-destructive" />
+              </div>
+              <p className="text-xl font-bold">{stats.failed}</p>
+              <p className="text-xs text-muted-foreground">Failed</p>
             </motion.div>
 
             <motion.div
@@ -266,34 +484,61 @@ export default function AdminEmails() {
               transition={{ delay: 0.3 }}
               className="p-4 rounded-2xl bg-card border border-border"
             >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center">
-                  <AlertCircle className="w-5 h-5 text-warning" />
-                </div>
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="w-4 h-4 text-warning" />
               </div>
-              <p className="text-2xl font-bold">{stats.bounced}</p>
-              <p className="text-sm text-muted-foreground">Bounced</p>
+              <p className="text-xl font-bold">{stats.bounced}</p>
+              <p className="text-xs text-muted-foreground">Bounced</p>
             </motion.div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
+              transition={{ delay: 0.35 }}
               className="p-4 rounded-2xl bg-card border border-border"
             >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
-                  <MessageSquare className="w-5 h-5 text-accent" />
-                </div>
+              <div className="flex items-center gap-2 mb-2">
+                <MailOpen className="w-4 h-4 text-muted-foreground" />
               </div>
-              <p className="text-2xl font-bold">{stats.contact_forms}</p>
-              <p className="text-sm text-muted-foreground">Contact Forms</p>
+              <p className="text-xl font-bold">{(stats.total || 0) - (stats.unread || 0)}</p>
+              <p className="text-xs text-muted-foreground">Read</p>
             </motion.div>
           </div>
         )}
 
-        {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="mb-6">
+          <TabsList className="bg-card border border-border">
+            <TabsTrigger value="inbox" className="gap-2">
+              <Inbox className="w-4 h-4" />
+              Inbox
+              {stats && stats.unread_contacts > 0 && (
+                <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">
+                  {stats.unread_contacts}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="unread" className="gap-2">
+              <MailWarning className="w-4 h-4" />
+              Unread
+            </TabsTrigger>
+            <TabsTrigger value="unreplied" className="gap-2">
+              <Reply className="w-4 h-4" />
+              Needs Reply
+            </TabsTrigger>
+            <TabsTrigger value="all" className="gap-2">
+              <Mail className="w-4 h-4" />
+              All Emails
+            </TabsTrigger>
+            <TabsTrigger value="archived" className="gap-2">
+              <Archive className="w-4 h-4" />
+              Archived
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {/* Filters & Bulk Actions */}
+        <div className="flex flex-col lg:flex-row gap-4 mb-6">
           <form onSubmit={handleSearch} className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
@@ -305,11 +550,11 @@ export default function AdminEmails() {
           </form>
 
           <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="All Statuses" />
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent className="bg-card">
-              <SelectItem value="">All Statuses</SelectItem>
+              <SelectItem value="">All Status</SelectItem>
               <SelectItem value="sent">Sent</SelectItem>
               <SelectItem value="failed">Failed</SelectItem>
               <SelectItem value="bounced">Bounced</SelectItem>
@@ -317,19 +562,18 @@ export default function AdminEmails() {
             </SelectContent>
           </Select>
 
-          <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="All Types" />
-            </SelectTrigger>
-            <SelectContent className="bg-card">
-              <SelectItem value="">All Types</SelectItem>
-              <SelectItem value="contact">Contact Form</SelectItem>
-              <SelectItem value="verification">Verification</SelectItem>
-              <SelectItem value="password_reset">Password Reset</SelectItem>
-              <SelectItem value="welcome">Welcome</SelectItem>
-              <SelectItem value="notification">Notification</SelectItem>
-            </SelectContent>
-          </Select>
+          {selectedIds.length > 0 && (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => handleBulkAction("mark_read")}>
+                <MailOpen className="w-4 h-4 mr-1" />
+                Mark Read
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => handleBulkAction("archive")}>
+                <Archive className="w-4 h-4 mr-1" />
+                Archive
+              </Button>
+            </div>
+          )}
 
           <Button variant="outline" onClick={fetchEmails} disabled={isLoading}>
             <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
@@ -342,11 +586,17 @@ export default function AdminEmails() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={selectedIds.length === emails.length && emails.length > 0}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </TableHead>
+                <TableHead className="w-12"></TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>From / Subject</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>Recipient</TableHead>
-                <TableHead>Subject</TableHead>
-                <TableHead>Sender</TableHead>
+                <TableHead>Priority</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -354,24 +604,46 @@ export default function AdminEmails() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={8} className="text-center py-8">
                     <RefreshCw className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
                   </TableCell>
                 </TableRow>
               ) : emails.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No email logs found.
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    No emails found.
                   </TableCell>
                 </TableRow>
               ) : (
                 emails.map((email) => {
                   const status = statusConfig[email.status] || statusConfig.pending;
                   const type = typeConfig[email.email_type] || typeConfig.other;
+                  const priority = priorityConfig[email.priority] || priorityConfig.normal;
                   const StatusIcon = status.icon;
+                  const isUnread = !email.is_read;
 
                   return (
-                    <TableRow key={email.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedEmail(email)}>
+                    <TableRow
+                      key={email.id}
+                      className={`cursor-pointer hover:bg-muted/50 ${isUnread ? "bg-primary/5 font-medium" : ""}`}
+                      onClick={() => handleEmailClick(email)}
+                    >
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedIds.includes(email.id)}
+                          onCheckedChange={() => toggleSelect(email.id)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1" title={isUnread ? "Unread" : email.is_replied ? "Replied" : ""}>
+                          {isUnread && (
+                            <div className="w-2 h-2 rounded-full bg-primary" />
+                          )}
+                          {email.is_replied && (
+                            <CheckCheck className="w-4 h-4 text-success" />
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className={status.color}>
                           <StatusIcon className="w-3 h-3 mr-1" />
@@ -379,29 +651,79 @@ export default function AdminEmails() {
                         </Badge>
                       </TableCell>
                       <TableCell>
+                        <div className="max-w-[300px]">
+                          {email.sender_name ? (
+                            <>
+                              <div className={`text-sm truncate ${isUnread ? "font-semibold" : ""}`}>
+                                {email.sender_name}
+                                {email.sender_company && (
+                                  <span className="text-muted-foreground font-normal"> • {email.sender_company}</span>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground truncate">{email.subject}</div>
+                            </>
+                          ) : (
+                            <>
+                              <div className={`text-sm truncate ${isUnread ? "font-semibold" : ""}`}>{email.recipient_email}</div>
+                              <div className="text-xs text-muted-foreground truncate">{email.subject}</div>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <Badge variant="secondary" className={type.color}>
                           {type.label}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-medium">{email.recipient_email}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">{email.subject}</TableCell>
                       <TableCell>
-                        {email.sender_name ? (
-                          <div>
-                            <div className="font-medium text-sm">{email.sender_name}</div>
-                            <div className="text-xs text-muted-foreground">{email.sender_email}</div>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">System</span>
-                        )}
+                        <span className={priority.color}>
+                          {email.priority !== "normal" && (
+                            <Flag className={`w-4 h-4 inline mr-1 ${email.priority === "urgent" ? "fill-current" : ""}`} />
+                          )}
+                          {priority.label}
+                        </span>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                         {formatDate(email.created_at)}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setSelectedEmail(email); }}>
-                          <Eye className="w-4 h-4" />
-                        </Button>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-card">
+                            <DropdownMenuItem onClick={() => handleEmailClick(email)}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => markAsRead(email.id, !email.is_read)}>
+                              <MailOpen className="w-4 h-4 mr-2" />
+                              {email.is_read ? "Mark Unread" : "Mark Read"}
+                            </DropdownMenuItem>
+                            {email.email_type === "contact" && (
+                              <DropdownMenuItem onClick={() => markAsReplied(email.id, !email.is_replied)}>
+                                <Reply className="w-4 h-4 mr-2" />
+                                {email.is_replied ? "Mark Unreplied" : "Mark Replied"}
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setPriority(email.id, "high")}>
+                              <Flag className="w-4 h-4 mr-2 text-warning" />
+                              High Priority
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setPriority(email.id, "urgent")}>
+                              <AlertCircle className="w-4 h-4 mr-2 text-destructive" />
+                              Urgent
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => archiveEmail(email.id, !email.is_archived)}>
+                              <Archive className="w-4 h-4 mr-2" />
+                              {email.is_archived ? "Unarchive" : "Archive"}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   );
@@ -445,72 +767,65 @@ export default function AdminEmails() {
       <Dialog open={!!selectedEmail} onOpenChange={() => setSelectedEmail(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Email Details</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5" />
+              Email Details
+            </DialogTitle>
           </DialogHeader>
           {selectedEmail && (
             <div className="space-y-6">
-              {/* Status & Type */}
-              <div className="flex gap-2">
+              {/* Status Badges */}
+              <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary" className={statusConfig[selectedEmail.status]?.color}>
                   {statusConfig[selectedEmail.status]?.label || selectedEmail.status}
                 </Badge>
                 <Badge variant="secondary" className={typeConfig[selectedEmail.email_type]?.color}>
                   {typeConfig[selectedEmail.email_type]?.label || selectedEmail.email_type}
                 </Badge>
-              </div>
-
-              {/* Details Grid */}
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground mb-1">Recipient</p>
-                  <p className="font-medium">{selectedEmail.recipient_email}</p>
-                </div>
-                {selectedEmail.cc_email && (
-                  <div>
-                    <p className="text-muted-foreground mb-1">CC</p>
-                    <p className="font-medium">{selectedEmail.cc_email}</p>
-                  </div>
+                {selectedEmail.is_read && (
+                  <Badge variant="outline" className="gap-1">
+                    <MailOpen className="w-3 h-3" />
+                    Read
+                  </Badge>
                 )}
-                {selectedEmail.reply_to_email && (
-                  <div>
-                    <p className="text-muted-foreground mb-1">Reply To</p>
-                    <p className="font-medium">{selectedEmail.reply_to_email}</p>
-                  </div>
+                {selectedEmail.is_replied && (
+                  <Badge variant="outline" className="gap-1 text-success border-success/30">
+                    <CheckCheck className="w-3 h-3" />
+                    Replied
+                  </Badge>
                 )}
-                <div>
-                  <p className="text-muted-foreground mb-1">Date</p>
-                  <p className="font-medium">{formatDate(selectedEmail.created_at)}</p>
-                </div>
+                {selectedEmail.priority !== "normal" && (
+                  <Badge variant="outline" className={`gap-1 ${priorityConfig[selectedEmail.priority]?.color}`}>
+                    <Flag className="w-3 h-3" />
+                    {priorityConfig[selectedEmail.priority]?.label}
+                  </Badge>
+                )}
               </div>
 
-              {/* Subject */}
-              <div>
-                <p className="text-muted-foreground mb-1 text-sm">Subject</p>
-                <p className="font-medium">{selectedEmail.subject}</p>
-              </div>
-
-              {/* Sender Info (for contact forms) */}
+              {/* Sender Info */}
               {selectedEmail.sender_name && (
-                <div className="p-4 rounded-xl bg-muted/50">
-                  <p className="text-sm font-medium mb-3">Sender Information</p>
+                <div className="p-4 rounded-xl bg-muted/50 space-y-3">
+                  <p className="text-sm font-medium">Contact Information</p>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <p className="text-muted-foreground">Name</p>
+                      <p className="text-muted-foreground text-xs">Name</p>
                       <p className="font-medium">{selectedEmail.sender_name}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Email</p>
-                      <p className="font-medium">{selectedEmail.sender_email}</p>
+                      <p className="text-muted-foreground text-xs">Email</p>
+                      <a href={`mailto:${selectedEmail.sender_email}`} className="font-medium text-primary hover:underline">
+                        {selectedEmail.sender_email}
+                      </a>
                     </div>
                     {selectedEmail.sender_company && (
                       <div>
-                        <p className="text-muted-foreground">Company</p>
+                        <p className="text-muted-foreground text-xs">Company</p>
                         <p className="font-medium">{selectedEmail.sender_company}</p>
                       </div>
                     )}
                     {selectedEmail.inquiry_purpose && (
                       <div>
-                        <p className="text-muted-foreground">Purpose</p>
+                        <p className="text-muted-foreground text-xs">Inquiry Type</p>
                         <p className="font-medium">{selectedEmail.inquiry_purpose}</p>
                       </div>
                     )}
@@ -518,27 +833,85 @@ export default function AdminEmails() {
                 </div>
               )}
 
-              {/* Message Preview */}
+              {/* Subject */}
+              <div>
+                <p className="text-muted-foreground mb-1 text-xs">Subject</p>
+                <p className="font-medium">{selectedEmail.subject}</p>
+              </div>
+
+              {/* Message */}
               {selectedEmail.body_preview && (
                 <div>
-                  <p className="text-muted-foreground mb-2 text-sm">Message Preview</p>
-                  <div className="p-4 rounded-xl bg-muted/50 text-sm whitespace-pre-wrap">
+                  <p className="text-muted-foreground mb-2 text-xs">Message</p>
+                  <div className="p-4 rounded-xl bg-muted/50 text-sm whitespace-pre-wrap leading-relaxed">
                     {selectedEmail.body_preview}
                   </div>
+                </div>
+              )}
+
+              {/* Reply Notes */}
+              {selectedEmail.is_replied && selectedEmail.reply_notes && (
+                <div className="p-4 rounded-xl bg-success/10 border border-success/20">
+                  <p className="text-sm font-medium text-success mb-2">Reply Notes</p>
+                  <p className="text-sm">{selectedEmail.reply_notes}</p>
+                  {selectedEmail.replied_at && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Replied on {formatDate(selectedEmail.replied_at)}
+                    </p>
+                  )}
                 </div>
               )}
 
               {/* Error Message */}
               {selectedEmail.error_message && (
                 <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20">
-                  <p className="text-sm font-medium text-destructive mb-1">Error Message</p>
+                  <p className="text-sm font-medium text-destructive mb-1">Error</p>
                   <p className="text-sm text-destructive/80">{selectedEmail.error_message}</p>
                 </div>
               )}
 
+              {/* Mark as Replied Form */}
+              {selectedEmail.email_type === "contact" && !selectedEmail.is_replied && (
+                <div className="p-4 rounded-xl border border-border space-y-3">
+                  <p className="text-sm font-medium">Mark as Replied</p>
+                  <Textarea
+                    placeholder="Add notes about your reply (optional)..."
+                    value={replyNotes}
+                    onChange={(e) => setReplyNotes(e.target.value)}
+                    rows={3}
+                  />
+                  <Button onClick={() => markAsReplied(selectedEmail.id, true, replyNotes)} className="w-full">
+                    <CheckCheck className="w-4 h-4 mr-2" />
+                    Mark as Replied
+                  </Button>
+                </div>
+              )}
+
+              {/* Quick Actions */}
+              <div className="flex flex-wrap gap-2 pt-4 border-t border-border">
+                {selectedEmail.sender_email && (
+                  <Button asChild variant="default" size="sm">
+                    <a href={`mailto:${selectedEmail.sender_email}?subject=Re: ${selectedEmail.inquiry_purpose || "Your inquiry"}`}>
+                      <Reply className="w-4 h-4 mr-2" />
+                      Reply via Email
+                    </a>
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => archiveEmail(selectedEmail.id, !selectedEmail.is_archived)}
+                >
+                  <Archive className="w-4 h-4 mr-2" />
+                  {selectedEmail.is_archived ? "Unarchive" : "Archive"}
+                </Button>
+              </div>
+
               {/* Metadata */}
               <div className="text-xs text-muted-foreground space-y-1 pt-4 border-t border-border">
-                {selectedEmail.ip_address && <p>IP Address: {selectedEmail.ip_address}</p>}
+                <p>Date: {formatDate(selectedEmail.created_at)}</p>
+                {selectedEmail.read_at && <p>Read: {formatDate(selectedEmail.read_at)}</p>}
+                {selectedEmail.ip_address && <p>IP: {selectedEmail.ip_address}</p>}
                 {selectedEmail.origin_url && <p>Origin: {selectedEmail.origin_url}</p>}
               </div>
             </div>
