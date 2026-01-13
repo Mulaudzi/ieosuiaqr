@@ -20,6 +20,7 @@ import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import Inventory from "./pages/Inventory";
+import InventoryAnalytics from "./pages/InventoryAnalytics";
 import Scan from "./pages/Scan";
 import ItemHistory from "./pages/ItemHistory";
 import BillingSuccess from "./pages/BillingSuccess";
@@ -55,6 +56,7 @@ const App = () => (
             <Route path="/dashboard/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/dashboard/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/dashboard/inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
+            <Route path="/dashboard/inventory/analytics" element={<ProtectedRoute><InventoryAnalytics /></ProtectedRoute>} />
             <Route path="/scan/:id" element={<Scan />} />
             <Route path="/scan/:id/history" element={<ItemHistory />} />
             <Route path="/billing/success" element={<ProtectedRoute><BillingSuccess /></ProtectedRoute>} />

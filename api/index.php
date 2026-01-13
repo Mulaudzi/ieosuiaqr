@@ -233,6 +233,9 @@ try {
     elseif ($uri === '/inventory/limits' && $method === 'GET') {
         InventoryController::getLimits();
     }
+    elseif ($uri === '/inventory/analytics' && $method === 'GET') {
+        InventoryController::getAnalytics();
+    }
     // Public inventory endpoints (for scan page)
     elseif (preg_match('#^/inventory/qr/(\d+)$#', $uri, $matches) && $method === 'GET') {
         InventoryController::getByQrCode((int)$matches[1]);
