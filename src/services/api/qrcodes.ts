@@ -35,10 +35,10 @@ export const qrCodeApi = {
 
   /**
    * Create a new QR code
-   * POST /api/v1/qr/create
+   * POST /api/qr
    */
   create: async (data: CreateQRCodeRequest): Promise<ApiResponse<QRCode>> => {
-    return post("/qr/create", data);
+    return post("/qr", data);
   },
 
   /**
@@ -59,20 +59,20 @@ export const qrCodeApi = {
 
   /**
    * Bulk create QR codes (Enterprise only)
-   * POST /api/v1/qr/bulk-create
+   * POST /api/qr/bulk
    */
   bulkCreate: async (data: BulkCreateQRCodeRequest): Promise<ApiResponse<{ created: number; failed: number; qr_codes: QRCode[] }>> => {
-    return post("/qr/bulk-create", data);
+    return post("/qr/bulk", data);
   },
 
   /**
    * Bulk create from CSV file (Enterprise only)
-   * POST /api/v1/qr/bulk-import
+   * POST /api/qr/bulk
    */
   bulkImportCSV: async (file: File): Promise<ApiResponse<{ created: number; failed: number; errors: string[] }>> => {
     const formData = new FormData();
     formData.append("file", file);
-    return uploadFile("/qr/bulk-import", formData);
+    return uploadFile("/qr/bulk", formData);
   },
 
   /**
