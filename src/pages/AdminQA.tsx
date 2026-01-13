@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { AdminBreadcrumb } from "@/components/admin/AdminBreadcrumb";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -458,6 +459,7 @@ export default function AdminQA() {
       </header>
 
       <main className="container mx-auto px-4 py-6 space-y-6">
+        <AdminBreadcrumb />
         {/* Controls */}
         <Card>
           <CardHeader>

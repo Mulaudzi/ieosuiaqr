@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { AdminBreadcrumb } from "@/components/admin/AdminBreadcrumb";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,14 +94,7 @@ export default function AdminCreate() {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-xl mx-auto">
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate("/admin/settings")}
-          className="mb-6"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Admin Settings
-        </Button>
+        <AdminBreadcrumb />
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}

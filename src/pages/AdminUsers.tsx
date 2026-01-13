@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { AdminBreadcrumb } from "@/components/admin/AdminBreadcrumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -239,21 +240,17 @@ export default function AdminUsers() {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto p-6">
+        <AdminBreadcrumb />
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/admin/settings")}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="font-display text-2xl font-bold flex items-center gap-2">
-                <Users className="w-6 h-6 text-primary" />
-                Admin Users
-              </h1>
-              <p className="text-muted-foreground text-sm">
-                Manage administrator accounts and permissions
-              </p>
-            </div>
+          <div>
+            <h1 className="font-display text-2xl font-bold flex items-center gap-2">
+              <Users className="w-6 h-6 text-primary" />
+              Admin Users
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              Manage administrator accounts and permissions
+            </p>
           </div>
           <Button onClick={() => navigate("/admin/create")}>
             <UserPlus className="w-4 h-4 mr-2" />
