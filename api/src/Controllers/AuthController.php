@@ -312,6 +312,72 @@ class AuthController
         ], 'Avatar uploaded successfully');
     }
 
+    /**
+     * Get user notification preferences
+     */
+    public static function getNotificationPreferences(): void
+    {
+        $user = Auth::check();
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("
+            SELECT email_notifications, scan_alerts, weekly_report, marketing_emails 
+            FROM users WHERE id = ?
+        ");
+        $stmt->execute([$user['id']]);
+        $prefs = $stmt->fetch();
+
+        Response::success([
+            'email_notifications' => (bool)($prefs['email_notifications'] ?? true),
+            'scan_alerts' => (bool)($prefs['scan_alerts'] ?? true),
+            'weekly_report' => (bool)($prefs['weekly_report'] ?? false),
+            'marketing_emails' => (bool)($prefs['marketing_emails'] ?? false),
+        ]);
+    }
+
+    /**
+     * Update user notification preferences
+     */
+    public static function updateNotificationPreferences(): void
+    {
+        $user = Auth::check();
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        $pdo = Database::getInstance();
+        
+        $updates = [];
+        $params = [];
+
+        if (isset($data['email_notifications'])) {
+            $updates[] = "email_notifications = ?";
+            $params[] = $data['email_notifications'] ? 1 : 0;
+        }
+        if (isset($data['scan_alerts'])) {
+            $updates[] = "scan_alerts = ?";
+            $params[] = $data['scan_alerts'] ? 1 : 0;
+        }
+        if (isset($data['weekly_report'])) {
+            $updates[] = "weekly_report = ?";
+            $params[] = $data['weekly_report'] ? 1 : 0;
+        }
+        if (isset($data['marketing_emails'])) {
+            $updates[] = "marketing_emails = ?";
+            $params[] = $data['marketing_emails'] ? 1 : 0;
+        }
+
+        if (empty($updates)) {
+            Response::success(null, 'No preferences to update');
+            return;
+        }
+
+        $params[] = $user['id'];
+        $sql = "UPDATE users SET " . implode(', ', $updates) . ", updated_at = NOW() WHERE id = ?";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+
+        Response::success(null, 'Notification preferences updated');
+    }
+
     public static function verifyEmail(): void
     {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];

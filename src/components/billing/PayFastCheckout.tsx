@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   CreditCard, 
@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useUserPlan, UserPlan } from "@/hooks/useUserPlan";
 import { useToast } from "@/hooks/use-toast";
+import { billingApi } from "@/services/api/billing";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface PayFastCheckoutProps {
   selectedPlan: UserPlan;
@@ -41,11 +43,20 @@ export function PayFastCheckout({
   onBack, 
   onSuccess 
 }: PayFastCheckoutProps) {
+  const { user } = useAuth();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const { updatePlan } = useUserPlan();
   const { toast } = useToast();
+
+  // Pre-fill with user data
+  useEffect(() => {
+    if (user) {
+      setEmail(user.email || "");
+      setName(user.name || "");
+    }
+  }, [user]);
 
   if (selectedPlan === "free") return null;
 
@@ -73,63 +84,37 @@ export function PayFastCheckout({
 
     setIsProcessing(true);
 
-    // Simulate PayFast redirect
-    // In production, this would call your backend to generate a PayFast payment URL
+    // Map plan names to IDs (backend uses numeric IDs)
+    const planIdMap: Record<string, number> = { free: 1, pro: 2, enterprise: 3 };
+    const planId = planIdMap[selectedPlan] || 2;
+
     try {
-      // Mock API call to generate PayFast URL
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // For demo purposes, we'll simulate a successful payment
-      // In production, PayFast would redirect back to your callback URL
-      
-      // Simulate PayFast sandbox form submission
-      const payfastData = {
-        merchant_id: "10000100", // PayFast sandbox merchant ID
-        merchant_key: "46f0cd694581a", // PayFast sandbox merchant key
-        return_url: `${window.location.origin}/dashboard/settings?payment=success`,
-        cancel_url: `${window.location.origin}/dashboard/settings?payment=cancelled`,
-        notify_url: `${window.location.origin}/api/v1/webhooks/payfast`,
-        name_first: name.split(" ")[0],
-        name_last: name.split(" ").slice(1).join(" ") || "",
-        email_address: email,
-        amount: price.toFixed(2),
-        item_name: `IEOSUIA QR ${plan.name} Plan - ${isAnnual ? "Annual" : "Monthly"}`,
-        subscription_type: "1", // Subscription
-        billing_date: new Date().toISOString().split("T")[0],
-        recurring_amount: price.toFixed(2),
-        frequency: isAnnual ? "6" : "3", // 6 = Yearly, 3 = Monthly
-        cycles: "0", // 0 = indefinite
-      };
-
-      console.log("PayFast payment data:", payfastData);
-
-      // In production, redirect to PayFast:
-      // const form = document.createElement('form');
-      // form.method = 'POST';
-      // form.action = 'https://sandbox.payfast.co.za/eng/process';
-      // Object.entries(payfastData).forEach(([key, value]) => {
-      //   const input = document.createElement('input');
-      //   input.type = 'hidden';
-      //   input.name = key;
-      //   input.value = value;
-      //   form.appendChild(input);
-      // });
-      // document.body.appendChild(form);
-      // form.submit();
-
-      // For demo: Simulate successful payment
-      updatePlan(selectedPlan);
-      
-      toast({
-        title: "Payment Successful!",
-        description: `You've been upgraded to the ${plan.name} plan.`,
+      // Call the real checkout API
+      const response = await billingApi.checkout({
+        plan_id: planId,
+        billing_cycle: isAnnual ? "annual" : "monthly",
       });
 
-      onSuccess();
-    } catch (error) {
+      if (response.success && response.data?.payment_url) {
+        // Redirect to PayFast payment page
+        window.location.href = response.data.payment_url;
+        return;
+      }
+
+      // If no redirect URL, the plan might have been applied directly (e.g., trial or free upgrade)
+      if (response.success) {
+        updatePlan(selectedPlan);
+        toast({
+          title: "Success!",
+          description: `You've been upgraded to the ${plan.name} plan.`,
+        });
+        onSuccess();
+      }
+    } catch (error: unknown) {
+      const apiError = error as { message?: string };
       toast({
         title: "Payment Failed",
-        description: "Something went wrong. Please try again.",
+        description: apiError.message || "Something went wrong. Please try again.",
         variant: "destructive",
       });
     } finally {
