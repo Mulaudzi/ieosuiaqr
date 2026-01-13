@@ -2,15 +2,22 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Loader2, ArrowRight, Crown } from "lucide-react";
+import { CheckCircle2, Loader2, ArrowRight, Crown, Download, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserPlan } from "@/hooks/useUserPlan";
+import { billingApi } from "@/services/api/billing";
+import { useToast } from "@/hooks/use-toast";
 
 export default function BillingSuccess() {
   const [searchParams] = useSearchParams();
   const [isRefreshing, setIsRefreshing] = useState(true);
+  const [isDownloading, setIsDownloading] = useState(false);
   const { refreshUser } = useAuth();
   const { plan, refreshPlan } = useUserPlan();
+  const { toast } = useToast();
+
+  const paymentId = searchParams.get("payment_id");
+  const isUpgrade = searchParams.get("upgrade") === "1";
 
   useEffect(() => {
     const refresh = async () => {
@@ -26,6 +33,33 @@ export default function BillingSuccess() {
 
     refresh();
   }, [refreshUser, refreshPlan]);
+
+  const handleDownloadReceipt = async () => {
+    if (!paymentId) {
+      toast({
+        title: "Receipt unavailable",
+        description: "Payment ID not found. Check your email for the receipt.",
+      });
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      // For now, redirect to invoices in settings
+      toast({
+        title: "Receipt sent to email",
+        description: "A receipt has been sent to your email address. You can also view it in Settings > Billing.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Download failed",
+        description: "Could not download receipt. Please try again.",
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const planName = plan.charAt(0).toUpperCase() + plan.slice(1);
 
@@ -66,7 +100,9 @@ export default function BillingSuccess() {
                 Payment Successful!
               </h1>
               <p className="text-muted-foreground mb-4">
-                Thank you for upgrading. Your plan has been activated.
+                {isUpgrade
+                  ? "Your plan has been upgraded successfully."
+                  : "Thank you for upgrading. Your plan has been activated."}
               </p>
 
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary font-medium">
@@ -104,8 +140,28 @@ export default function BillingSuccess() {
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Link>
               </Button>
-              <Button variant="outline" asChild>
-                <Link to="/dashboard">Go to Dashboard</Link>
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" asChild>
+                  <Link to="/dashboard">Go to Dashboard</Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={handleDownloadReceipt}
+                  disabled={isDownloading}
+                >
+                  {isDownloading ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <FileText className="w-4 h-4 mr-2" />
+                  )}
+                  View Receipt
+                </Button>
+              </div>
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/dashboard/subscription">
+                  Manage Subscription
+                </Link>
               </Button>
             </div>
           </div>

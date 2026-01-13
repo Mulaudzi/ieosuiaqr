@@ -452,8 +452,15 @@ try {
     elseif ($uri === '/admin/qa/errors' && $method === 'POST') {
         QAController::getErrorReport();
     }
+    // Admin subscription metrics
+    elseif ($uri === '/admin/subscriptions/metrics' && $method === 'GET') {
+        AdminController::getSubscriptionMetrics();
+    }
+    // Payment receipt download
+    elseif (preg_match('#^/payments/(\d+)/receipt$#', $uri, $matches) && $method === 'GET') {
+        PaymentController::downloadReceipt((int)$matches[1]);
+    }
 
-    // User QA routes (uses regular user auth instead of admin auth)
     elseif ($uri === '/qa/dashboard' && $method === 'GET') {
         QAController::getDashboardUser();
     }

@@ -143,9 +143,20 @@ export const billingApi = {
   },
 
   /**
-   * Get single invoice details
-   * GET /api/billing/invoices/:id
+   * Download payment receipt
+   * GET /api/payments/:id/receipt
    */
+  downloadReceipt: async (paymentId: number): Promise<ApiResponse<{
+    payment_id: string;
+    receipt_html: string;
+    amount: number;
+    date: string;
+    description: string;
+    user_name: string;
+    user_email: string;
+  }>> => {
+    return get(`/payments/${paymentId}/receipt`);
+  },
   getInvoice: async (id: string): Promise<ApiResponse<Invoice>> => {
     return get(`/billing/invoices/${id}`);
   },
@@ -154,7 +165,7 @@ export const billingApi = {
    * Download invoice receipt PDF
    * GET /api/billing/invoices/:id/receipt
    */
-  downloadReceipt: async (id: string): Promise<ApiResponse<{ download_url: string; filename: string }>> => {
+  downloadInvoiceReceipt: async (id: string): Promise<ApiResponse<{ download_url: string; filename: string }>> => {
     return get(`/billing/invoices/${id}/receipt`);
   },
 
