@@ -3,6 +3,36 @@ import { ApiResponse, PaginatedResponse } from "./types";
 
 export type InventoryStatus = "in_stock" | "out" | "maintenance" | "checked_out";
 
+export interface InventoryAnalytics {
+  summary: {
+    total_items: number;
+    total_scans: number;
+    items_with_qr: number;
+    items_without_qr: number;
+  };
+  status_distribution: Array<{ status: string; count: number; label: string }>;
+  by_category: Array<{ category: string; count: number }>;
+  scan_trend: Array<{ date: string; scans: number }>;
+  status_changes: Array<{ date: string; new_status: string; changes: number }>;
+  top_items: Array<{
+    id: string;
+    name: string;
+    category: string;
+    status: InventoryStatus;
+    scan_count: number;
+    last_scan: string | null;
+  }>;
+  recent_changes: Array<{
+    id: string;
+    item_name: string;
+    old_status: string | null;
+    new_status: string;
+    new_location: string | null;
+    changed_by_name: string | null;
+    changed_at: string;
+  }>;
+}
+
 export interface InventoryItem {
   id: string;
   user_id: string;
@@ -96,6 +126,14 @@ export const inventoryApi = {
    */
   getLimits: async (): Promise<ApiResponse<{ max_items: number; current_count: number; can_edit: boolean }>> => {
     return get("/inventory/limits");
+  },
+
+  /**
+   * Get inventory analytics dashboard data
+   * GET /api/inventory/analytics
+   */
+  getAnalytics: async (period?: string): Promise<ApiResponse<InventoryAnalytics>> => {
+    return get("/inventory/analytics", { period });
   },
 
   /**

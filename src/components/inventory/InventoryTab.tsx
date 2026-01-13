@@ -53,6 +53,7 @@ import {
   FileSpreadsheet,
   History,
   Sparkles,
+  BarChart3,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
@@ -210,6 +211,14 @@ export function InventoryTab() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Analytics Button */}
+          <Button variant="outline" asChild>
+            <Link to="/dashboard/inventory/analytics">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Analytics
+            </Link>
+          </Button>
+          
           {/* Create QR + Item Button */}
           <Button 
             variant="outline"

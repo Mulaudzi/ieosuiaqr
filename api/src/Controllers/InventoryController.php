@@ -17,6 +17,147 @@ class InventoryController
         'Enterprise' => ['max_items' => PHP_INT_MAX, 'can_edit' => true],
     ];
 
+    /**
+     * Get inventory analytics dashboard data
+     */
+    public static function getAnalytics(): void
+    {
+        $user = Auth::check();
+        $pdo = Database::getInstance();
+        $period = $_GET['period'] ?? '30d';
+        
+        $interval = match($period) {
+            '7d' => '7 DAY',
+            '30d' => '30 DAY',
+            '90d' => '90 DAY',
+            default => '30 DAY'
+        };
+
+        // Total items and counts by status
+        $stmt = $pdo->prepare("
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'in_stock' THEN 1 ELSE 0 END) as in_stock,
+                SUM(CASE WHEN status = 'out' THEN 1 ELSE 0 END) as out,
+                SUM(CASE WHEN status = 'maintenance' THEN 1 ELSE 0 END) as maintenance,
+                SUM(CASE WHEN status = 'checked_out' THEN 1 ELSE 0 END) as checked_out
+            FROM inventory_items 
+            WHERE user_id = ?
+        ");
+        $stmt->execute([$user['id']]);
+        $statusCounts = $stmt->fetch();
+
+        // Items by category
+        $stmt = $pdo->prepare("
+            SELECT category, COUNT(*) as count
+            FROM inventory_items 
+            WHERE user_id = ?
+            GROUP BY category
+            ORDER BY count DESC
+            LIMIT 10
+        ");
+        $stmt->execute([$user['id']]);
+        $byCategory = $stmt->fetchAll();
+
+        // Scan frequency (scans per day for linked QR codes)
+        $stmt = $pdo->prepare("
+            SELECT DATE(sl.timestamp) as date, COUNT(*) as scans
+            FROM scan_logs sl
+            JOIN qr_codes qr ON sl.qr_id = qr.id
+            JOIN inventory_items i ON i.qr_id = qr.id
+            WHERE i.user_id = ? AND sl.timestamp >= DATE_SUB(NOW(), INTERVAL {$interval})
+            GROUP BY DATE(sl.timestamp)
+            ORDER BY date
+        ");
+        $stmt->execute([$user['id']]);
+        $scansByDate = $stmt->fetchAll();
+
+        // Total scans in period
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as total
+            FROM scan_logs sl
+            JOIN qr_codes qr ON sl.qr_id = qr.id
+            JOIN inventory_items i ON i.qr_id = qr.id
+            WHERE i.user_id = ? AND sl.timestamp >= DATE_SUB(NOW(), INTERVAL {$interval})
+        ");
+        $stmt->execute([$user['id']]);
+        $totalScans = (int)$stmt->fetch()['total'];
+
+        // Status changes over time (movement trends)
+        $stmt = $pdo->prepare("
+            SELECT DATE(changed_at) as date, 
+                   new_status,
+                   COUNT(*) as changes
+            FROM inventory_status_history h
+            JOIN inventory_items i ON h.item_id = i.id
+            WHERE i.user_id = ? AND h.changed_at >= DATE_SUB(NOW(), INTERVAL {$interval})
+            GROUP BY DATE(changed_at), new_status
+            ORDER BY date
+        ");
+        $stmt->execute([$user['id']]);
+        $statusChanges = $stmt->fetchAll();
+
+        // Most active items (by scan count)
+        $stmt = $pdo->prepare("
+            SELECT i.id, i.name, i.category, i.status, 
+                   COUNT(sl.id) as scan_count,
+                   MAX(sl.timestamp) as last_scan
+            FROM inventory_items i
+            LEFT JOIN qr_codes qr ON i.qr_id = qr.id
+            LEFT JOIN scan_logs sl ON sl.qr_id = qr.id AND sl.timestamp >= DATE_SUB(NOW(), INTERVAL {$interval})
+            WHERE i.user_id = ?
+            GROUP BY i.id, i.name, i.category, i.status
+            ORDER BY scan_count DESC
+            LIMIT 10
+        ");
+        $stmt->execute([$user['id']]);
+        $topItems = $stmt->fetchAll();
+
+        // Recent status changes
+        $stmt = $pdo->prepare("
+            SELECT h.id, i.name as item_name, h.old_status, h.new_status, 
+                   h.new_location, h.changed_by_name, h.changed_at
+            FROM inventory_status_history h
+            JOIN inventory_items i ON h.item_id = i.id
+            WHERE i.user_id = ?
+            ORDER BY h.changed_at DESC
+            LIMIT 10
+        ");
+        $stmt->execute([$user['id']]);
+        $recentChanges = $stmt->fetchAll();
+
+        // Items with QR vs without
+        $stmt = $pdo->prepare("
+            SELECT 
+                SUM(CASE WHEN qr_id IS NOT NULL THEN 1 ELSE 0 END) as with_qr,
+                SUM(CASE WHEN qr_id IS NULL THEN 1 ELSE 0 END) as without_qr
+            FROM inventory_items 
+            WHERE user_id = ?
+        ");
+        $stmt->execute([$user['id']]);
+        $qrCoverage = $stmt->fetch();
+
+        Response::success([
+            'summary' => [
+                'total_items' => (int)($statusCounts['total'] ?? 0),
+                'total_scans' => $totalScans,
+                'items_with_qr' => (int)($qrCoverage['with_qr'] ?? 0),
+                'items_without_qr' => (int)($qrCoverage['without_qr'] ?? 0),
+            ],
+            'status_distribution' => [
+                ['status' => 'in_stock', 'count' => (int)($statusCounts['in_stock'] ?? 0), 'label' => 'In Stock'],
+                ['status' => 'out', 'count' => (int)($statusCounts['out'] ?? 0), 'label' => 'Out'],
+                ['status' => 'maintenance', 'count' => (int)($statusCounts['maintenance'] ?? 0), 'label' => 'Maintenance'],
+                ['status' => 'checked_out', 'count' => (int)($statusCounts['checked_out'] ?? 0), 'label' => 'Checked Out'],
+            ],
+            'by_category' => $byCategory,
+            'scan_trend' => $scansByDate,
+            'status_changes' => $statusChanges,
+            'top_items' => $topItems,
+            'recent_changes' => $recentChanges,
+        ]);
+    }
+
     public static function list(): void
     {
         $user = Auth::check();
