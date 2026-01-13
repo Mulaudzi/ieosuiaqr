@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -142,7 +142,11 @@ const systemConfig = {
   cross_system: { label: "Cross-System", icon: Link2, color: "text-orange-500" },
 };
 
+// Allowed email for QA access
+const QA_ALLOWED_EMAIL = "vendaboy.lm@gmail.com";
+
 export default function QA() {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [isRunning, setIsRunning] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
@@ -170,9 +174,23 @@ export default function QA() {
 
   const userToken = localStorage.getItem("auth_token");
 
+  // Protect route - only allow specific email
   useEffect(() => {
-    fetchDashboard();
-  }, []);
+    if (user && user.email !== QA_ALLOWED_EMAIL) {
+      toast({
+        variant: "destructive",
+        title: "Access Denied",
+        description: "You don't have permission to access this page.",
+      });
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, navigate, toast]);
+
+  useEffect(() => {
+    if (user?.email === QA_ALLOWED_EMAIL) {
+      fetchDashboard();
+    }
+  }, [user]);
 
   const fetchDashboard = async () => {
     setIsLoading(true);
