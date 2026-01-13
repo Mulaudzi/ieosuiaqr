@@ -182,6 +182,9 @@ try {
     elseif ($uri === '/user/notifications' && $method === 'PUT') {
         AuthController::updateNotificationPreferences();
     }
+    elseif ($uri === '/user/delete' && $method === 'POST') {
+        AuthController::deleteAccount();
+    }
     // QR codes
     elseif ($uri === '/qr' && $method === 'POST') {
         QrController::create();

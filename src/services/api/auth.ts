@@ -162,6 +162,15 @@ export const authApi = {
   }): Promise<ApiResponse<null>> => {
     return put("/user/notifications", prefs);
   },
+
+  /**
+   * Delete user account
+   * POST /api/user/delete
+   * Requires password confirmation
+   */
+  deleteAccount: async (password: string): Promise<ApiResponse<null>> => {
+    return post("/user/delete", { password });
+  },
 };
 
 // Helper functions for auth state management
