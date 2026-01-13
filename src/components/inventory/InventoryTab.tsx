@@ -54,6 +54,8 @@ import {
   History,
   Sparkles,
   BarChart3,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
@@ -96,6 +98,11 @@ export function InventoryTab() {
   const [selectedItems, setSelectedItems] = useState<InventoryItem[]>([]);
   const [showUpsell, setShowUpsell] = useState(false);
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [perPage] = useState(20);
+  
   const { toast } = useToast();
   const { plan, isPro, isEnterprise } = useUserPlan();
 
@@ -109,22 +116,32 @@ export function InventoryTab() {
   const canEdit = isPro || isEnterprise;
   const maxItems = getMaxItems();
 
+  const totalPages = Math.ceil(totalItems / perPage);
+
   const fetchItems = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await inventoryApi.list({
+        page: currentPage,
+        per_page: perPage,
         search: searchQuery || undefined,
         category: categoryFilter || undefined,
         status: statusFilter as InventoryStatus || undefined,
       });
       if (response.data) {
         setItems(response.data);
+        setTotalItems(response.meta?.total || response.data.length);
       }
     } catch (error) {
       console.error("Failed to fetch inventory:", error);
     } finally {
       setIsLoading(false);
     }
+  }, [searchQuery, categoryFilter, statusFilter, currentPage, perPage]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
   }, [searchQuery, categoryFilter, statusFilter]);
 
   useEffect(() => {
@@ -358,99 +375,160 @@ export function InventoryTab() {
           </Button>
         </div>
       ) : (
-        <div className="space-y-3">
-          {items.map((item, index) => {
-            const status = statusConfig[item.status] || statusConfig.in_stock;
-            const StatusIcon = status.icon;
-            
-            return (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="p-4 rounded-xl bg-card border border-border hover:border-primary/30 transition-colors"
-              >
-                <div className="flex items-start gap-4">
-                  {/* QR Preview */}
-                  <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                    {item.qr_id ? (
-                      <QrCode className="w-8 h-8 text-primary" />
-                    ) : (
-                      <Package className="w-8 h-8 text-muted-foreground" />
-                    )}
-                  </div>
-
-                  {/* Details */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4 className="font-semibold truncate">{item.name}</h4>
-                      <Badge variant="outline" className={status.color}>
-                        <StatusIcon className="w-3 h-3 mr-1" />
-                        {status.label}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-2">{item.category}</p>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      {item.location && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3" />
-                          {item.location}
-                        </span>
-                      )}
-                      {item.last_scan_date && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          Last scan: {new Date(item.last_scan_date).toLocaleDateString()}
-                        </span>
+        <>
+          <div className="space-y-3">
+            {items.map((item, index) => {
+              const status = statusConfig[item.status] || statusConfig.in_stock;
+              const StatusIcon = status.icon;
+              
+              return (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="p-4 rounded-xl bg-card border border-border hover:border-primary/30 transition-colors"
+                >
+                  <div className="flex items-start gap-4">
+                    {/* QR Preview */}
+                    <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                      {item.qr_id ? (
+                        <QrCode className="w-8 h-8 text-primary" />
+                      ) : (
+                        <Package className="w-8 h-8 text-muted-foreground" />
                       )}
                     </div>
-                  </div>
 
-                  {/* Actions */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setSelectedItem(item);
-                          setShowScanHistory(true);
-                        }}
-                      >
-                        <History className="w-4 h-4 mr-2" />
-                        Scan History
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          if (!canEdit) {
-                            setShowUpsell(true);
-                          } else {
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-semibold truncate">{item.name}</h4>
+                        <Badge variant="outline" className={status.color}>
+                          <StatusIcon className="w-3 h-3 mr-1" />
+                          {status.label}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2">{item.category}</p>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        {item.location && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {item.location}
+                          </span>
+                        )}
+                        {item.last_scan_date && (
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            Last scan: {new Date(item.last_scan_date).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => {
                             setSelectedItem(item);
-                            setShowEditDialog(true);
-                          }
-                        }}
+                            setShowScanHistory(true);
+                          }}
+                        >
+                          <History className="w-4 h-4 mr-2" />
+                          Scan History
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            if (!canEdit) {
+                              setShowUpsell(true);
+                            } else {
+                              setSelectedItem(item);
+                              setShowEditDialog(true);
+                            }
+                          }}
+                        >
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => handleDelete(item.id)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4 border-t border-border">
+              <p className="text-sm text-muted-foreground">
+                Showing {((currentPage - 1) * perPage) + 1}-{Math.min(currentPage * perPage, totalItems)} of {totalItems} items
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1 || isLoading}
+                >
+                  <ChevronLeft className="w-4 h-4 mr-1" />
+                  Previous
+                </Button>
+                
+                {/* Page Numbers */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum: number;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "ghost"}
+                        size="sm"
+                        className="w-8 h-8 p-0"
+                        onClick={() => setCurrentPage(pageNum)}
+                        disabled={isLoading}
                       >
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => handleDelete(item.id)}
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
                 </div>
-              </motion.div>
-            );
-          })}
-        </div>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages || isLoading}
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Edit Dialog */}
