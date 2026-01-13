@@ -2,9 +2,10 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Check, X, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, X, Sparkles, ChevronDown, ChevronUp, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 const plans = [
   {
@@ -78,6 +79,41 @@ const plans = [
       { category: "Security & Compliance", items: ["SSO integration", "Role-based access", "Audit logs", "Data encryption", "GDPR & POPIA compliance tools"] },
       { category: "Support", items: ["24/7 priority support", "Dedicated account manager", "Custom onboarding", "SLA guarantees", "Phone support"] },
     ],
+  },
+];
+
+const pricingFaqs = [
+  {
+    question: "Can I try before I buy?",
+    answer: "Yes! All paid plans come with a free trial. You can also start with our Free plan which includes 5 QR codes and basic features - no credit card required."
+  },
+  {
+    question: "What payment methods do you accept?",
+    answer: "We accept payments through PayFast, which supports credit/debit cards, instant EFT, and various South African payment methods. All prices are in South African Rand (ZAR) and include VAT."
+  },
+  {
+    question: "Can I change plans at any time?",
+    answer: "Absolutely! You can upgrade or downgrade your plan at any time. When upgrading, you'll be charged the prorated difference. When downgrading, changes take effect at your next billing cycle."
+  },
+  {
+    question: "What happens to my QR codes if I downgrade?",
+    answer: "Your existing QR codes remain active. However, if you exceed the new plan's limits, you won't be able to create new ones until you're within the limits or upgrade again."
+  },
+  {
+    question: "Is there a discount for annual billing?",
+    answer: "Yes! When you choose annual billing, you save 20% compared to monthly billing. This applies to both Pro and Enterprise plans."
+  },
+  {
+    question: "Do you offer refunds?",
+    answer: "We offer a 14-day money-back guarantee on all paid plans. If you're not satisfied, contact us within 14 days of purchase for a full refund."
+  },
+  {
+    question: "Can I cancel my subscription?",
+    answer: "Yes, you can cancel anytime from your account settings. Your access continues until the end of your current billing period. We don't believe in lock-in contracts."
+  },
+  {
+    question: "Do you offer discounts for NGOs or educational institutions?",
+    answer: "Yes! We offer special pricing for registered non-profits, NGOs, churches, and educational institutions. Contact us at hello@ieosuia.com for details."
   },
 ];
 
@@ -286,6 +322,45 @@ export function PricingSection() {
           <Button variant="outline" size="lg" asChild>
             <Link to="/contact">Contact Sales</Link>
           </Button>
+        </motion.div>
+
+        {/* Pricing FAQ */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="mt-24 max-w-3xl mx-auto"
+        >
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+              <HelpCircle className="w-4 h-4" />
+              Pricing FAQ
+            </div>
+            <h3 className="font-display text-2xl sm:text-3xl font-bold mb-4">
+              Common Questions About Pricing
+            </h3>
+            <p className="text-muted-foreground">
+              Got questions? We've got answers.
+            </p>
+          </div>
+
+          <Accordion type="single" collapsible className="space-y-4">
+            {pricingFaqs.map((faq, index) => (
+              <AccordionItem 
+                key={index} 
+                value={`faq-${index}`}
+                className="bg-card border border-border rounded-lg px-6"
+              >
+                <AccordionTrigger className="text-left hover:no-underline">
+                  <span className="text-foreground font-medium">{faq.question}</span>
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground">
+                  {faq.answer}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         </motion.div>
       </div>
     </section>

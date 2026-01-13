@@ -30,6 +30,7 @@ class ContactController
         $email = filter_var(trim($data['email']), FILTER_SANITIZE_EMAIL);
         $company = isset($data['company']) ? htmlspecialchars(strip_tags(trim($data['company']))) : '';
         $message = htmlspecialchars(strip_tags(trim($data['message'])));
+        $source = isset($data['source']) ? htmlspecialchars(strip_tags(trim($data['source']))) : 'IEOSUIA QR';
 
         // Validate lengths
         if (strlen($name) > 100) {
@@ -40,18 +41,19 @@ class ContactController
         }
 
         // Try to send email
-        $adminEmail = $_ENV['ADMIN_EMAIL'] ?? 'support@ieosuia.com';
-        $subject = "Contact Form: Message from $name";
+        $adminEmail = $_ENV['ADMIN_EMAIL'] ?? 'hello@ieosuia.com';
+        $subject = "[$source] Contact Form: Message from $name";
         
         $body = "
         <h2>New Contact Form Submission</h2>
+        <p><strong>Source:</strong> $source</p>
         <p><strong>Name:</strong> $name</p>
         <p><strong>Email:</strong> $email</p>
         " . ($company ? "<p><strong>Company:</strong> $company</p>" : "") . "
         <p><strong>Message:</strong></p>
         <p>" . nl2br($message) . "</p>
         <hr>
-        <p><small>Sent from IEOSUIA QR Contact Form</small></p>
+        <p><small>Sent from $source Contact Form</small></p>
         ";
 
         try {
