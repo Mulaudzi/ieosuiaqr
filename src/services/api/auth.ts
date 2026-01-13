@@ -136,6 +136,32 @@ export const authApi = {
   googleSignIn: async (idToken: string): Promise<ApiResponse<{ user: User; tokens: AuthTokens }>> => {
     return post("/auth/google/signin", { id_token: idToken });
   },
+
+  /**
+   * Get notification preferences
+   * GET /api/user/notifications
+   */
+  getNotificationPreferences: async (): Promise<ApiResponse<{
+    email_notifications: boolean;
+    scan_alerts: boolean;
+    weekly_report: boolean;
+    marketing_emails: boolean;
+  }>> => {
+    return get("/user/notifications");
+  },
+
+  /**
+   * Update notification preferences
+   * PUT /api/user/notifications
+   */
+  updateNotificationPreferences: async (prefs: {
+    email_notifications?: boolean;
+    scan_alerts?: boolean;
+    weekly_report?: boolean;
+    marketing_emails?: boolean;
+  }): Promise<ApiResponse<null>> => {
+    return put("/user/notifications", prefs);
+  },
 };
 
 // Helper functions for auth state management

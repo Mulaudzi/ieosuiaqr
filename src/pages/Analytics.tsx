@@ -51,88 +51,43 @@ import { AlertCircle, RefreshCw } from "lucide-react";
 import { DateRangePicker } from "@/components/analytics/DateRangePicker";
 import { useUserPlan } from "@/hooks/useUserPlan";
 
-// Fallback data for when API fails
-const scanTrendData = [
-  { date: "Jan 1", scans: 120 },
-  { date: "Jan 2", scans: 180 },
-  { date: "Jan 3", scans: 150 },
-  { date: "Jan 4", scans: 220 },
-  { date: "Jan 5", scans: 280 },
-  { date: "Jan 6", scans: 250 },
-  { date: "Jan 7", scans: 310 },
-  { date: "Jan 8", scans: 290 },
-  { date: "Jan 9", scans: 340 },
-  { date: "Jan 10", scans: 380 },
-  { date: "Jan 11", scans: 420 },
-  { date: "Jan 12", scans: 390 },
-  { date: "Jan 13", scans: 450 },
-  { date: "Jan 14", scans: 480 },
-];
+// Stats type definition
+type StatItem = {
+  label: string;
+  value: string;
+  change: string;
+  trend: "up" | "down";
+  icon: React.ElementType;
+};
 
-const deviceData = [
-  { name: "Mobile", value: 68, color: "hsl(175, 80%, 40%)" },
-  { name: "Desktop", value: 24, color: "hsl(260, 70%, 60%)" },
-  { name: "Tablet", value: 8, color: "hsl(145, 65%, 42%)" },
-];
-
-const topQRCodes = [
-  { name: "Website Homepage", scans: 1247, change: 12.5 },
-  { name: "Product Catalog", scans: 532, change: -3.2 },
-  { name: "Contact vCard", scans: 89, change: 8.7 },
-  { name: "Guest WiFi", scans: 234, change: 15.3 },
-];
-
-const countryData = [
-  { country: "United States", scans: 856, percentage: 41 },
-  { country: "United Kingdom", scans: 412, percentage: 20 },
-  { country: "Germany", scans: 289, percentage: 14 },
-  { country: "Canada", scans: 198, percentage: 9 },
-  { country: "Australia", scans: 156, percentage: 7 },
-  { country: "Other", scans: 191, percentage: 9 },
-];
-
-const hourlyData = [
-  { hour: "00", scans: 12 },
-  { hour: "02", scans: 8 },
-  { hour: "04", scans: 5 },
-  { hour: "06", scans: 15 },
-  { hour: "08", scans: 45 },
-  { hour: "10", scans: 78 },
-  { hour: "12", scans: 92 },
-  { hour: "14", scans: 85 },
-  { hour: "16", scans: 72 },
-  { hour: "18", scans: 58 },
-  { hour: "20", scans: 42 },
-  { hour: "22", scans: 25 },
-];
-
-const stats = [
+// Empty state data for when API has no data
+const emptyStats: StatItem[] = [
   {
     label: "Total Scans",
-    value: "2,102",
-    change: "+12.5%",
+    value: "0",
+    change: "",
     trend: "up",
     icon: TrendingUp,
   },
   {
-    label: "Unique Visitors",
-    value: "1,847",
-    change: "+8.3%",
+    label: "Unique Scans",
+    value: "0",
+    change: "",
     trend: "up",
     icon: Users,
   },
   {
-    label: "Countries",
-    value: "23",
-    change: "+2",
+    label: "Top Device",
+    value: "N/A",
+    change: "",
     trend: "up",
     icon: Globe,
   },
   {
     label: "Avg. Daily Scans",
-    value: "150",
-    change: "-2.1%",
-    trend: "down",
+    value: "0",
+    change: "",
+    trend: "up",
     icon: BarChart3,
   },
 ];
@@ -147,13 +102,20 @@ export default function Analytics() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [analyticsData, setAnalyticsData] = useState({
-    scanTrend: scanTrendData,
-    devices: deviceData,
-    topQRCodes: topQRCodes,
-    countries: countryData,
-    hourly: hourlyData,
-    stats: stats,
+  const [analyticsData, setAnalyticsData] = useState<{
+    scanTrend: Array<{ date: string; scans: number }>;
+    devices: Array<{ name: string; value: number; color: string }>;
+    topQRCodes: Array<{ name: string; scans: number; change: number }>;
+    countries: Array<{ country: string; scans: number; percentage: number }>;
+    hourly: Array<{ hour: string; scans: number }>;
+    stats: StatItem[];
+  }>({
+    scanTrend: [],
+    devices: [],
+    topQRCodes: [],
+    countries: [],
+    hourly: [],
+    stats: emptyStats,
   });
   const { isPro } = useUserPlan();
   const { toast } = useToast();

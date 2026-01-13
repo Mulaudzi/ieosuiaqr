@@ -176,7 +176,12 @@ try {
     elseif ($uri === '/user/avatar' && $method === 'POST') {
         AuthController::uploadAvatar();
     }
-
+    elseif ($uri === '/user/notifications' && $method === 'GET') {
+        AuthController::getNotificationPreferences();
+    }
+    elseif ($uri === '/user/notifications' && $method === 'PUT') {
+        AuthController::updateNotificationPreferences();
+    }
     // QR codes
     elseif ($uri === '/qr' && $method === 'POST') {
         QrController::create();

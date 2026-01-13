@@ -267,37 +267,51 @@ export default function Settings() {
   const handleNotificationsSave = async () => {
     setIsSavingNotifications(true);
     try {
-      // Store notifications in localStorage for now (could be API in future)
-      localStorage.setItem("notification_preferences", JSON.stringify({
-        emailNotifications,
-        scanAlerts,
-        weeklyReport,
-        marketingEmails,
-      }));
+      // Save to backend API
+      await authApi.updateNotificationPreferences({
+        email_notifications: emailNotifications,
+        scan_alerts: scanAlerts,
+        weekly_report: weeklyReport,
+        marketing_emails: marketingEmails,
+      });
+      
       toast({
         title: "Preferences saved",
         description: "Your notification preferences have been updated.",
+      });
+    } catch (error: unknown) {
+      const apiError = error as { message?: string };
+      toast({
+        variant: "destructive",
+        title: "Failed to save",
+        description: apiError.message || "Could not update notification preferences.",
       });
     } finally {
       setIsSavingNotifications(false);
     }
   };
 
-  // Load notification preferences from localStorage
+  // Load notification preferences from API
   useEffect(() => {
-    const savedPrefs = localStorage.getItem("notification_preferences");
-    if (savedPrefs) {
+    const loadNotificationPrefs = async () => {
       try {
-        const prefs = JSON.parse(savedPrefs);
-        setEmailNotifications(prefs.emailNotifications ?? true);
-        setScanAlerts(prefs.scanAlerts ?? true);
-        setWeeklyReport(prefs.weeklyReport ?? false);
-        setMarketingEmails(prefs.marketingEmails ?? false);
+        const response = await authApi.getNotificationPreferences();
+        if (response.success && response.data) {
+          setEmailNotifications(response.data.email_notifications ?? true);
+          setScanAlerts(response.data.scan_alerts ?? true);
+          setWeeklyReport(response.data.weekly_report ?? false);
+          setMarketingEmails(response.data.marketing_emails ?? false);
+        }
       } catch {
-        // Use defaults
+        // Use defaults if API fails - could be that endpoint doesn't exist yet
+        console.log("Using default notification preferences");
       }
+    };
+    
+    if (user) {
+      loadNotificationPrefs();
     }
-  }, []);
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-background">
