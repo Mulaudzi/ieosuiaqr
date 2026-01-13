@@ -158,6 +158,286 @@ class InventoryController
         ]);
     }
 
+    /**
+     * Export inventory analytics as CSV
+     */
+    public static function exportAnalyticsCsv(): void
+    {
+        $user = Auth::check();
+        Auth::requirePlan(['Pro', 'Enterprise']);
+        
+        $pdo = Database::getInstance();
+        $period = $_GET['period'] ?? '30d';
+        
+        $interval = match($period) {
+            '7d' => '7 DAY',
+            '30d' => '30 DAY',
+            '90d' => '90 DAY',
+            default => '30 DAY'
+        };
+
+        // Get all items with scan data
+        $stmt = $pdo->prepare("
+            SELECT 
+                i.name, i.category, i.status, i.location,
+                i.created_at, i.last_scan_date,
+                COUNT(sl.id) as scan_count
+            FROM inventory_items i
+            LEFT JOIN qr_codes qr ON i.qr_id = qr.id
+            LEFT JOIN scan_logs sl ON sl.qr_id = qr.id AND sl.timestamp >= DATE_SUB(NOW(), INTERVAL {$interval})
+            WHERE i.user_id = ?
+            GROUP BY i.id, i.name, i.category, i.status, i.location, i.created_at, i.last_scan_date
+            ORDER BY scan_count DESC
+        ");
+        $stmt->execute([$user['id']]);
+        $items = $stmt->fetchAll();
+
+        // Generate CSV
+        $csv = "Name,Category,Status,Location,Created,Last Scan,Scans ({$period})\n";
+        
+        foreach ($items as $item) {
+            $csv .= implode(',', [
+                '"' . str_replace('"', '""', $item['name'] ?? '') . '"',
+                '"' . str_replace('"', '""', $item['category'] ?? '') . '"',
+                $item['status'],
+                '"' . str_replace('"', '""', $item['location'] ?? '') . '"',
+                $item['created_at'] ?? '',
+                $item['last_scan_date'] ?? 'Never',
+                (int)$item['scan_count']
+            ]) . "\n";
+        }
+
+        header('Content-Type: text/csv');
+        header('Content-Disposition: attachment; filename="inventory-report-' . date('Y-m-d') . '.csv"');
+        echo $csv;
+        exit;
+    }
+
+    /**
+     * Get alerts for current user
+     */
+    public static function getAlerts(): void
+    {
+        $user = Auth::check();
+        $pdo = Database::getInstance();
+
+        // Get unread alerts
+        $stmt = $pdo->prepare("
+            SELECT a.*, i.name as item_name
+            FROM inventory_alerts a
+            LEFT JOIN inventory_items i ON a.item_id = i.id
+            WHERE a.user_id = ?
+            ORDER BY a.created_at DESC
+            LIMIT 50
+        ");
+        $stmt->execute([$user['id']]);
+        $alerts = $stmt->fetchAll();
+
+        // Count unread
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM inventory_alerts WHERE user_id = ? AND is_read = 0");
+        $stmt->execute([$user['id']]);
+        $unreadCount = (int)$stmt->fetch()['count'];
+
+        Response::success([
+            'alerts' => $alerts,
+            'unread_count' => $unreadCount
+        ]);
+    }
+
+    /**
+     * Mark alerts as read
+     */
+    public static function markAlertsRead(): void
+    {
+        $user = Auth::check();
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $pdo = Database::getInstance();
+
+        if (!empty($data['alert_ids'])) {
+            $placeholders = implode(',', array_fill(0, count($data['alert_ids']), '?'));
+            $params = array_merge($data['alert_ids'], [$user['id']]);
+            $stmt = $pdo->prepare("UPDATE inventory_alerts SET is_read = 1 WHERE id IN ({$placeholders}) AND user_id = ?");
+            $stmt->execute($params);
+        } else {
+            // Mark all as read
+            $stmt = $pdo->prepare("UPDATE inventory_alerts SET is_read = 1 WHERE user_id = ?");
+            $stmt->execute([$user['id']]);
+        }
+
+        Response::success(null, 'Alerts marked as read');
+    }
+
+    /**
+     * Create maintenance reminder
+     */
+    public static function setMaintenanceReminder(): void
+    {
+        $user = Auth::check();
+        Auth::requirePlan(['Pro', 'Enterprise']);
+        
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $pdo = Database::getInstance();
+
+        if (empty($data['item_id']) || empty($data['due_date'])) {
+            Response::error('Item ID and due date are required', 400);
+        }
+
+        // Verify ownership
+        $stmt = $pdo->prepare("SELECT id, name FROM inventory_items WHERE id = ? AND user_id = ?");
+        $stmt->execute([$data['item_id'], $user['id']]);
+        $item = $stmt->fetch();
+
+        if (!$item) {
+            Response::error('Item not found', 404);
+        }
+
+        // Update item maintenance date
+        $stmt = $pdo->prepare("UPDATE inventory_items SET maintenance_due_date = ? WHERE id = ?");
+        $stmt->execute([$data['due_date'], $data['item_id']]);
+
+        // Create alert
+        $stmt = $pdo->prepare("
+            INSERT INTO inventory_alerts (user_id, item_id, alert_type, title, message, priority, due_date, created_at)
+            VALUES (?, ?, 'maintenance_due', ?, ?, ?, ?, NOW())
+        ");
+        $stmt->execute([
+            $user['id'],
+            $data['item_id'],
+            "Maintenance due: {$item['name']}",
+            $data['message'] ?? "Scheduled maintenance for {$item['name']}",
+            $data['priority'] ?? 'medium',
+            $data['due_date']
+        ]);
+
+        Response::success(null, 'Maintenance reminder set');
+    }
+
+    /**
+     * Check and create low-activity alerts (called by cron or manually)
+     */
+    public static function checkLowActivityAlerts(): void
+    {
+        $user = Auth::check();
+        Auth::requirePlan(['Pro', 'Enterprise']);
+        
+        $pdo = Database::getInstance();
+
+        // Find items with no scans in alert_low_activity_days
+        $stmt = $pdo->prepare("
+            SELECT i.id, i.name, i.alert_low_activity_days,
+                   DATEDIFF(NOW(), COALESCE(i.last_scan_date, i.created_at)) as days_inactive
+            FROM inventory_items i
+            WHERE i.user_id = ? 
+              AND i.qr_id IS NOT NULL
+              AND DATEDIFF(NOW(), COALESCE(i.last_scan_date, i.created_at)) >= i.alert_low_activity_days
+              AND i.id NOT IN (
+                  SELECT item_id FROM inventory_alerts 
+                  WHERE alert_type = 'low_activity' 
+                    AND user_id = ? 
+                    AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                    AND item_id IS NOT NULL
+              )
+        ");
+        $stmt->execute([$user['id'], $user['id']]);
+        $inactiveItems = $stmt->fetchAll();
+
+        $alertsCreated = 0;
+        foreach ($inactiveItems as $item) {
+            $stmt = $pdo->prepare("
+                INSERT INTO inventory_alerts (user_id, item_id, alert_type, title, message, priority, created_at)
+                VALUES (?, ?, 'low_activity', ?, ?, 'low', NOW())
+            ");
+            $stmt->execute([
+                $user['id'],
+                $item['id'],
+                "Low activity: {$item['name']}",
+                "No scans for {$item['days_inactive']} days"
+            ]);
+            $alertsCreated++;
+        }
+
+        // Check maintenance due items
+        $stmt = $pdo->prepare("
+            SELECT i.id, i.name, i.maintenance_due_date
+            FROM inventory_items i
+            WHERE i.user_id = ? 
+              AND i.maintenance_due_date IS NOT NULL
+              AND i.maintenance_due_date <= DATE_ADD(NOW(), INTERVAL 3 DAY)
+              AND i.id NOT IN (
+                  SELECT item_id FROM inventory_alerts 
+                  WHERE alert_type = 'maintenance_due' 
+                    AND user_id = ? 
+                    AND created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)
+                    AND item_id IS NOT NULL
+              )
+        ");
+        $stmt->execute([$user['id'], $user['id']]);
+        $maintenanceItems = $stmt->fetchAll();
+
+        foreach ($maintenanceItems as $item) {
+            $daysUntil = (strtotime($item['maintenance_due_date']) - time()) / 86400;
+            $priority = $daysUntil <= 0 ? 'high' : ($daysUntil <= 1 ? 'medium' : 'low');
+            
+            $stmt = $pdo->prepare("
+                INSERT INTO inventory_alerts (user_id, item_id, alert_type, title, message, priority, due_date, created_at)
+                VALUES (?, ?, 'maintenance_due', ?, ?, ?, ?, NOW())
+            ");
+            $stmt->execute([
+                $user['id'],
+                $item['id'],
+                "Maintenance " . ($daysUntil <= 0 ? 'overdue' : 'due soon') . ": {$item['name']}",
+                $daysUntil <= 0 ? "Maintenance is overdue!" : "Maintenance due in " . ceil($daysUntil) . " day(s)",
+                $priority,
+                $item['maintenance_due_date']
+            ]);
+            $alertsCreated++;
+        }
+
+        // Send email notifications for high priority alerts
+        $stmt = $pdo->prepare("
+            SELECT a.*, i.name as item_name, u.email, u.name as user_name,
+                   u.notify_low_activity, u.notify_maintenance
+            FROM inventory_alerts a
+            JOIN users u ON a.user_id = u.id
+            LEFT JOIN inventory_items i ON a.item_id = i.id
+            WHERE a.user_id = ? AND a.is_emailed = 0 AND a.priority IN ('high', 'medium')
+        ");
+        $stmt->execute([$user['id']]);
+        $pendingAlerts = $stmt->fetchAll();
+
+        foreach ($pendingAlerts as $alert) {
+            $shouldEmail = false;
+            if ($alert['alert_type'] === 'low_activity' && $alert['notify_low_activity']) {
+                $shouldEmail = true;
+            }
+            if ($alert['alert_type'] === 'maintenance_due' && $alert['notify_maintenance']) {
+                $shouldEmail = true;
+            }
+
+            if ($shouldEmail) {
+                try {
+                    MailService::sendAlertEmail(
+                        $alert['email'],
+                        $alert['user_name'],
+                        $alert['title'],
+                        $alert['message'],
+                        $alert['priority']
+                    );
+                    
+                    $stmt = $pdo->prepare("UPDATE inventory_alerts SET is_emailed = 1 WHERE id = ?");
+                    $stmt->execute([$alert['id']]);
+                } catch (\Exception $e) {
+                    error_log("Failed to send alert email: " . $e->getMessage());
+                }
+            }
+        }
+
+        Response::success([
+            'alerts_created' => $alertsCreated,
+            'emails_sent' => count($pendingAlerts)
+        ]);
+    }
+
     public static function list(): void
     {
         $user = Auth::check();
