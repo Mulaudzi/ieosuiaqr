@@ -52,7 +52,7 @@ const plans = [
       { category: "Inventory", items: ["Full edit access", "100 items with QR linking", "Status change history", "Print QR labels", "CSV export"] },
       { category: "Analytics", items: ["Scan frequency charts", "Status distribution", "Top items by activity", "30-day trend reports", "CSV/PDF export"] },
       { category: "Alerts & Notifications", items: ["Email status change alerts", "Maintenance reminders", "Low activity warnings"] },
-      { category: "Support", items: ["Email support", "48-hour response time", "Video tutorials"] },
+      { category: "Support", items: ["Email support", "48-hour response time"] },
     ],
   },
   {

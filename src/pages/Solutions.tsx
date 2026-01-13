@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 
 const solutions = [
   {
+    id: "inventory-asset-tracking",
     icon: Package,
     title: "Inventory & Asset Tracking",
     description:
@@ -39,6 +40,7 @@ const solutions = [
     color: "primary",
   },
   {
+    id: "retail-ecommerce",
     icon: Store,
     title: "Retail & E-commerce",
     description:
@@ -53,6 +55,7 @@ const solutions = [
     color: "accent",
   },
   {
+    id: "restaurants-cafes",
     icon: Utensils,
     title: "Restaurants & Cafes",
     description:
@@ -67,6 +70,7 @@ const solutions = [
     color: "success",
   },
   {
+    id: "real-estate",
     icon: Building2,
     title: "Real Estate",
     description:
@@ -81,6 +85,7 @@ const solutions = [
     color: "warning",
   },
   {
+    id: "events-entertainment",
     icon: Ticket,
     title: "Events & Entertainment",
     description:
@@ -95,6 +100,7 @@ const solutions = [
     color: "primary",
   },
   {
+    id: "education",
     icon: GraduationCap,
     title: "Education",
     description:
@@ -109,6 +115,7 @@ const solutions = [
     color: "accent",
   },
   {
+    id: "churches-religious",
     icon: Church,
     title: "Churches & Religious Organizations",
     description:
@@ -123,6 +130,7 @@ const solutions = [
     color: "success",
   },
   {
+    id: "healthcare-medical",
     icon: Stethoscope,
     title: "Healthcare & Medical",
     description:
@@ -137,6 +145,7 @@ const solutions = [
     color: "warning",
   },
   {
+    id: "logistics-warehousing",
     icon: Truck,
     title: "Logistics & Warehousing",
     description:
@@ -151,6 +160,7 @@ const solutions = [
     color: "primary",
   },
   {
+    id: "manufacturing",
     icon: Factory,
     title: "Manufacturing",
     description:
@@ -165,6 +175,7 @@ const solutions = [
     color: "accent",
   },
   {
+    id: "hospitality-tourism",
     icon: Hotel,
     title: "Hospitality & Tourism",
     description:
@@ -179,6 +190,7 @@ const solutions = [
     color: "success",
   },
   {
+    id: "maintenance-repairs",
     icon: Wrench,
     title: "Maintenance & Repairs",
     description:
@@ -193,6 +205,7 @@ const solutions = [
     color: "warning",
   },
   {
+    id: "non-profits-ngos",
     icon: Users,
     title: "Non-Profits & NGOs",
     description:
@@ -207,6 +220,7 @@ const solutions = [
     color: "primary",
   },
   {
+    id: "fitness-gyms",
     icon: Dumbbell,
     title: "Fitness & Gyms",
     description:
@@ -221,6 +235,7 @@ const solutions = [
     color: "accent",
   },
   {
+    id: "professional-services",
     icon: Briefcase,
     title: "Professional Services",
     description:
@@ -298,17 +313,18 @@ export default function Solutions() {
                   viewport={{ once: true }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
                 >
-                  <div className="h-full p-8 rounded-3xl bg-card border border-border hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5">
+                <Link to={`/solutions/${solution.id}`} className="block h-full">
+                  <div className="h-full p-8 rounded-3xl bg-card border border-border hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 group">
                     <div className="flex items-start gap-6">
                       <div
                         className={`w-16 h-16 rounded-2xl ${
                           colorClasses[solution.color as keyof typeof colorClasses]
-                        } border flex items-center justify-center flex-shrink-0`}
+                        } border flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}
                       >
                         <solution.icon className="w-8 h-8" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-display text-2xl font-bold mb-3">
+                        <h3 className="font-display text-2xl font-bold mb-3 group-hover:text-primary transition-colors">
                           {solution.title}
                         </h3>
                         <p className="text-muted-foreground mb-4">
@@ -326,7 +342,7 @@ export default function Solutions() {
                         </div>
                         
                         {/* Examples */}
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2 mb-4">
                           {solution.examples.map((example) => (
                             <span
                               key={example}
@@ -336,9 +352,16 @@ export default function Solutions() {
                             </span>
                           ))}
                         </div>
+
+                        {/* Learn More Link */}
+                        <div className="flex items-center gap-2 text-primary font-medium text-sm group-hover:gap-3 transition-all">
+                          Learn More
+                          <ArrowRight className="w-4 h-4" />
+                        </div>
                       </div>
                     </div>
                   </div>
+                </Link>
                 </motion.div>
               ))}
             </div>
