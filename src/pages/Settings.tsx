@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { PlanSelector } from "@/components/billing/PlanSelector";
 import { PayFastCheckout } from "@/components/billing/PayFastCheckout";
 import { InvoiceHistory } from "@/components/billing/InvoiceHistory";
+import { PaymentHistory } from "@/components/billing/PaymentHistory";
 import { useUserPlan, UserPlan } from "@/hooks/useUserPlan";
 import { authApi } from "@/services/api/auth";
 import { useAuth } from "@/contexts/AuthContext";
@@ -619,6 +620,9 @@ export default function Settings() {
 
                     {/* Invoice History */}
                     <InvoiceHistory />
+
+                    {/* Payment History */}
+                    <PaymentHistory />
 
                     {/* Danger Zone */}
                     <div className="p-6 rounded-2xl bg-destructive/5 border border-destructive/20">

@@ -72,6 +72,25 @@ export const billingApi = {
   },
 
   /**
+   * Get payment history (all payment attempts)
+   * GET /api/v1/billing/payments
+   */
+  getPaymentHistory: async (params?: {
+    page?: number;
+    per_page?: number;
+  }): Promise<ApiResponse<Array<{
+    id: string;
+    payment_id: string;
+    amount_zar: number;
+    status: "succeeded" | "failed" | "pending" | "refunded";
+    payment_method: string;
+    description: string;
+    created_at: string;
+  }>>> => {
+    return get("/billing/payments", params);
+  },
+
+  /**
    * Get single invoice details
    * GET /api/v1/billing/invoice/:id
    */

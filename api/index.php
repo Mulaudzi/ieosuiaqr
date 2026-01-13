@@ -245,6 +245,9 @@ try {
     elseif (preg_match('#^/billing/invoices/(\d+)/receipt$#', $uri, $matches) && $method === 'GET') {
         BillingController::downloadReceipt((int)$matches[1]);
     }
+    elseif ($uri === '/billing/payments' && $method === 'GET') {
+        BillingController::getPayments();
+    }
 
     // Analytics
     elseif ($uri === '/analytics/dashboard' && $method === 'GET') {
@@ -252,6 +255,24 @@ try {
     }
     elseif ($uri === '/analytics/export' && $method === 'GET') {
         AnalyticsController::exportCsv();
+    }
+    elseif ($uri === '/analytics/summary' && $method === 'GET') {
+        AnalyticsController::getSummary();
+    }
+    elseif ($uri === '/analytics/top-qr-codes' && $method === 'GET') {
+        AnalyticsController::getTopQRCodes();
+    }
+    elseif ($uri === '/analytics/devices' && $method === 'GET') {
+        AnalyticsController::getDeviceBreakdown();
+    }
+    elseif ($uri === '/analytics/daily' && $method === 'GET') {
+        AnalyticsController::getDailyTrend();
+    }
+    elseif ($uri === '/analytics/hourly' && $method === 'GET') {
+        AnalyticsController::getHourlyDistribution();
+    }
+    elseif ($uri === '/reports/export' && $method === 'POST') {
+        AnalyticsController::exportReport();
     }
 
     // Contact form

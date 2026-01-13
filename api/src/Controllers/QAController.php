@@ -7,8 +7,8 @@ use App\Helpers\Response;
 
 class QAController
 {
-    // Systems to test
-    private const SYSTEMS = ['sms', 'qr', 'invoicing', 'shared', 'all'];
+    // Systems to test (SMS removed - not implemented)
+    private const SYSTEMS = ['qr', 'invoicing', 'shared', 'all'];
     
     // User modes for testing
     private const USER_MODES = ['admin', 'normal', 'readonly'];
@@ -30,11 +30,7 @@ class QAController
             'invoices' => ['id', 'user_id', 'invoice_number', 'amount_zar', 'status'],
             'email_logs' => ['id', 'recipient_email', 'subject', 'status'],
         ],
-        'sms' => [
-            // SMS tables - may not exist yet
-            'sms_credits' => ['id', 'user_id', 'credits', 'created_at'],
-            'sms_logs' => ['id', 'user_id', 'recipient', 'message', 'status'],
-        ],
+        // SMS removed - not implemented
     ];
 
     // Required API endpoints per system
@@ -60,11 +56,7 @@ class QAController
             ['method' => 'GET', 'uri' => '/billing/invoices/{id}/receipt', 'description' => 'Download receipt'],
             ['method' => 'POST', 'uri' => '/payments/checkout', 'description' => 'Initiate payment'],
         ],
-        'sms' => [
-            ['method' => 'POST', 'uri' => '/sms/send', 'description' => 'Send SMS'],
-            ['method' => 'GET', 'uri' => '/sms/credits', 'description' => 'Check credits'],
-            ['method' => 'GET', 'uri' => '/sms/logs', 'description' => 'SMS history'],
-        ],
+        // SMS removed - not implemented
     ];
 
     // Required pages per system
@@ -87,11 +79,7 @@ class QAController
             ['path' => '/billing/success', 'name' => 'Payment Success'],
             ['path' => '/billing/error', 'name' => 'Payment Error'],
         ],
-        'sms' => [
-            ['path' => '/sms', 'name' => 'SMS Dashboard'],
-            ['path' => '/sms/send', 'name' => 'Send SMS'],
-            ['path' => '/sms/history', 'name' => 'SMS History'],
-        ],
+        // SMS removed - not implemented
     ];
 
     /**
@@ -157,9 +145,9 @@ class QAController
         
         $startTime = microtime(true);
         
-        // Run tests based on system selection
+        // Run tests based on system selection (SMS removed)
         $systemsToTest = $system === 'all' 
-            ? ['shared', 'qr', 'invoicing', 'sms']
+            ? ['shared', 'qr', 'invoicing']
             : [$system];
         
         foreach ($systemsToTest as $sys) {
@@ -177,10 +165,13 @@ class QAController
             $results['tests']['cross_system'] = self::testCrossSystem();
         }
         
-        // Calculate summary
+        // Calculate summary (with type checking to prevent errors)
         foreach ($results['tests'] as $sysTests) {
+            if (!is_array($sysTests)) continue;
             foreach ($sysTests as $category) {
+                if (!is_array($category)) continue;
                 foreach ($category as $test) {
+                    if (!is_array($test) || !isset($test['status'])) continue;
                     $results['summary']['total_tests']++;
                     switch ($test['status']) {
                         case 'passed': $results['summary']['passed']++; break;
@@ -1468,9 +1459,9 @@ class QAController
         
         $startTime = microtime(true);
         
-        // Run tests based on system selection
+        // Run tests based on system selection (SMS removed)
         $systemsToTest = $system === 'all' 
-            ? ['shared', 'qr', 'invoicing', 'sms']
+            ? ['shared', 'qr', 'invoicing']
             : [$system];
         
         foreach ($systemsToTest as $sys) {
@@ -1488,10 +1479,13 @@ class QAController
             $results['tests']['cross_system'] = self::testCrossSystem();
         }
         
-        // Calculate summary
+        // Calculate summary (with type checking to prevent errors)
         foreach ($results['tests'] as $sysTests) {
+            if (!is_array($sysTests)) continue;
             foreach ($sysTests as $category) {
+                if (!is_array($category)) continue;
                 foreach ($category as $test) {
+                    if (!is_array($test) || !isset($test['status'])) continue;
                     $results['summary']['total_tests']++;
                     switch ($test['status']) {
                         case 'passed': $results['summary']['passed']++; break;
