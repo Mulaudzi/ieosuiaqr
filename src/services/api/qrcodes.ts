@@ -8,11 +8,11 @@ import {
   UpdateQRCodeRequest,
 } from "./types";
 
-// QR Code endpoints
+// QR Code endpoints - ready for Laravel backend
 export const qrCodeApi = {
   /**
    * Get all QR codes for current user (paginated)
-   * GET /api/qr
+   * GET /api/v1/qr
    */
   list: async (params?: {
     page?: number;
@@ -27,7 +27,7 @@ export const qrCodeApi = {
 
   /**
    * Get single QR code by ID
-   * GET /api/qr/:id
+   * GET /api/v1/qr/:id
    */
   get: async (id: string): Promise<ApiResponse<QRCode>> => {
     return get(`/qr/${id}`);
@@ -35,15 +35,15 @@ export const qrCodeApi = {
 
   /**
    * Create a new QR code
-   * POST /api/qr
+   * POST /api/v1/qr/create
    */
   create: async (data: CreateQRCodeRequest): Promise<ApiResponse<QRCode>> => {
-    return post("/qr", data);
+    return post("/qr/create", data);
   },
 
   /**
    * Update an existing QR code
-   * PUT /api/qr/:id
+   * PUT /api/v1/qr/:id
    */
   update: async (id: string, data: UpdateQRCodeRequest): Promise<ApiResponse<QRCode>> => {
     return put(`/qr/${id}`, data);
@@ -51,7 +51,7 @@ export const qrCodeApi = {
 
   /**
    * Delete a QR code
-   * DELETE /api/qr/:id
+   * DELETE /api/v1/qr/:id
    */
   delete: async (id: string): Promise<ApiResponse<null>> => {
     return del(`/qr/${id}`);
@@ -59,25 +59,25 @@ export const qrCodeApi = {
 
   /**
    * Bulk create QR codes (Enterprise only)
-   * POST /api/qr/bulk
+   * POST /api/v1/qr/bulk-create
    */
   bulkCreate: async (data: BulkCreateQRCodeRequest): Promise<ApiResponse<{ created: number; failed: number; qr_codes: QRCode[] }>> => {
-    return post("/qr/bulk", data);
+    return post("/qr/bulk-create", data);
   },
 
   /**
    * Bulk create from CSV file (Enterprise only)
-   * POST /api/qr/bulk
+   * POST /api/v1/qr/bulk-import
    */
   bulkImportCSV: async (file: File): Promise<ApiResponse<{ created: number; failed: number; errors: string[] }>> => {
     const formData = new FormData();
     formData.append("file", file);
-    return uploadFile("/qr/bulk", formData);
+    return uploadFile("/qr/bulk-import", formData);
   },
 
   /**
    * Download QR code image
-   * GET /api/qr/:id/download
+   * GET /api/v1/qr/:id/download
    */
   download: async (id: string, format: "png" | "svg" | "pdf" = "png"): Promise<Blob> => {
     const response = await get<Blob>(`/qr/${id}/download?format=${format}`);
@@ -86,7 +86,7 @@ export const qrCodeApi = {
 
   /**
    * Get QR code statistics
-   * GET /api/qr/:id/stats
+   * GET /api/v1/qr/:id/stats
    */
   getStats: async (id: string): Promise<ApiResponse<{
     total_scans: number;
@@ -100,7 +100,7 @@ export const qrCodeApi = {
 
   /**
    * Regenerate QR code image (with new customization)
-   * POST /api/qr/:id/regenerate
+   * POST /api/v1/qr/:id/regenerate
    */
   regenerate: async (id: string): Promise<ApiResponse<{ image_url: string }>> => {
     return post(`/qr/${id}/regenerate`);
