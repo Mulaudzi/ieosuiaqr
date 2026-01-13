@@ -308,6 +308,222 @@ class AdminAuthController
     }
 
     /**
+     * List all admin users
+     */
+    public static function listAdmins(): void
+    {
+        self::validateAdminSession();
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("
+            SELECT id, email, name, is_active, last_login_at, failed_attempts, locked_until, created_at, updated_at
+            FROM admin_users
+            ORDER BY created_at DESC
+        ");
+        $stmt->execute();
+        $admins = $stmt->fetchAll();
+
+        Response::success(['admins' => $admins]);
+    }
+
+    /**
+     * Get single admin user
+     */
+    public static function getAdmin(int $id): void
+    {
+        self::validateAdminSession();
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("
+            SELECT id, email, name, is_active, last_login_at, failed_attempts, locked_until, created_at, updated_at
+            FROM admin_users WHERE id = ?
+        ");
+        $stmt->execute([$id]);
+        $admin = $stmt->fetch();
+
+        if (!$admin) {
+            Response::error('Admin not found', 404);
+        }
+
+        Response::success($admin);
+    }
+
+    /**
+     * Update an admin user (name, email, active status)
+     */
+    public static function updateAdmin(int $id): void
+    {
+        $currentAdmin = self::validateAdminSession();
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        $pdo = Database::getInstance();
+
+        // Check admin exists
+        $stmt = $pdo->prepare("SELECT * FROM admin_users WHERE id = ?");
+        $stmt->execute([$id]);
+        $admin = $stmt->fetch();
+
+        if (!$admin) {
+            Response::error('Admin not found', 404);
+        }
+
+        $updates = [];
+        $params = [];
+
+        if (isset($data['name']) && !empty(trim($data['name']))) {
+            $updates[] = "name = ?";
+            $params[] = trim($data['name']);
+        }
+
+        if (isset($data['email'])) {
+            $validator = new Validator(['email' => $data['email']]);
+            $validator->email('email')->validate();
+            
+            // Check email not taken by another admin
+            $stmt = $pdo->prepare("SELECT id FROM admin_users WHERE email = ? AND id != ?");
+            $stmt->execute([strtolower(trim($data['email'])), $id]);
+            if ($stmt->fetch()) {
+                Response::error('Email already in use by another admin', 409);
+            }
+            
+            $updates[] = "email = ?";
+            $params[] = strtolower(trim($data['email']));
+        }
+
+        if (isset($data['is_active'])) {
+            // Prevent deactivating yourself
+            if ($id === $currentAdmin['id'] && !$data['is_active']) {
+                Response::error('Cannot deactivate your own account', 400);
+            }
+            $updates[] = "is_active = ?";
+            $params[] = $data['is_active'] ? 1 : 0;
+        }
+
+        // Update passwords if provided
+        if (!empty($data['password1'])) {
+            if (strlen($data['password1']) < 8) {
+                Response::error('Password 1 must be at least 8 characters', 400);
+            }
+            $updates[] = "password = ?";
+            $params[] = password_hash($data['password1'], PASSWORD_BCRYPT);
+        }
+
+        if (!empty($data['password2'])) {
+            if (strlen($data['password2']) < 6) {
+                Response::error('Password 2 must be at least 6 characters', 400);
+            }
+            $updates[] = "password_step2 = ?";
+            $params[] = password_hash($data['password2'], PASSWORD_BCRYPT);
+        }
+
+        if (!empty($data['password3'])) {
+            if (strlen($data['password3']) < 6) {
+                Response::error('Password 3 must be at least 6 characters', 400);
+            }
+            $updates[] = "password_step3 = ?";
+            $params[] = password_hash($data['password3'], PASSWORD_BCRYPT);
+        }
+
+        if (empty($updates)) {
+            Response::error('No valid fields to update', 400);
+        }
+
+        $params[] = $id;
+        $sql = "UPDATE admin_users SET " . implode(', ', $updates) . ", updated_at = NOW() WHERE id = ?";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+
+        // Fetch updated admin
+        $stmt = $pdo->prepare("
+            SELECT id, email, name, is_active, last_login_at, failed_attempts, locked_until, created_at, updated_at
+            FROM admin_users WHERE id = ?
+        ");
+        $stmt->execute([$id]);
+        $updatedAdmin = $stmt->fetch();
+
+        Response::success($updatedAdmin, 'Admin updated successfully');
+    }
+
+    /**
+     * Toggle admin active status
+     */
+    public static function toggleAdminStatus(int $id): void
+    {
+        $currentAdmin = self::validateAdminSession();
+
+        if ($id === $currentAdmin['id']) {
+            Response::error('Cannot change your own active status', 400);
+        }
+
+        $pdo = Database::getInstance();
+
+        $stmt = $pdo->prepare("SELECT is_active FROM admin_users WHERE id = ?");
+        $stmt->execute([$id]);
+        $admin = $stmt->fetch();
+
+        if (!$admin) {
+            Response::error('Admin not found', 404);
+        }
+
+        $newStatus = !$admin['is_active'];
+        $stmt = $pdo->prepare("UPDATE admin_users SET is_active = ?, updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$newStatus ? 1 : 0, $id]);
+
+        Response::success([
+            'id' => $id,
+            'is_active' => $newStatus
+        ], $newStatus ? 'Admin activated' : 'Admin deactivated');
+    }
+
+    /**
+     * Reset admin failed attempts and unlock
+     */
+    public static function unlockAdmin(int $id): void
+    {
+        self::validateAdminSession();
+
+        $pdo = Database::getInstance();
+
+        $stmt = $pdo->prepare("SELECT id FROM admin_users WHERE id = ?");
+        $stmt->execute([$id]);
+        
+        if (!$stmt->fetch()) {
+            Response::error('Admin not found', 404);
+        }
+
+        $stmt = $pdo->prepare("UPDATE admin_users SET failed_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$id]);
+
+        Response::success(null, 'Admin account unlocked');
+    }
+
+    /**
+     * Delete an admin user permanently
+     */
+    public static function deleteAdmin(int $id): void
+    {
+        $currentAdmin = self::validateAdminSession();
+
+        if ($id === $currentAdmin['id']) {
+            Response::error('Cannot delete your own account', 400);
+        }
+
+        $pdo = Database::getInstance();
+
+        $stmt = $pdo->prepare("SELECT id FROM admin_users WHERE id = ?");
+        $stmt->execute([$id]);
+        
+        if (!$stmt->fetch()) {
+            Response::error('Admin not found', 404);
+        }
+
+        $stmt = $pdo->prepare("DELETE FROM admin_users WHERE id = ?");
+        $stmt->execute([$id]);
+
+        Response::success(null, 'Admin deleted permanently');
+    }
+
+    /**
      * Validate admin session from Authorization header
      */
     public static function validateAdminSession(): array
