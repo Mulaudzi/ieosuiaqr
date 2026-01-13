@@ -19,7 +19,6 @@ class QAController
             'users' => ['id', 'email', 'password', 'name', 'plan', 'email_verified_at'],
             'plans' => ['id', 'name', 'price_monthly_zar', 'features'],
             'subscriptions' => ['id', 'user_id', 'plan_id', 'status'],
-            'api_keys' => ['id', 'user_id', 'key_hash', 'name'],
             'admin_settings' => ['setting_key', 'setting_value'],
         ],
         'qr' => [
