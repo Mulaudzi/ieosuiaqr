@@ -1046,4 +1046,98 @@ class AuthController
         error_log("Could not determine MIME type for file: {$fileName}");
         return 'application/octet-stream';
     }
+
+    /**
+     * Delete user account and all associated data
+     * POST /user/delete
+     */
+    public static function deleteAccount(): void
+    {
+        $user = Auth::check();
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        // Require password confirmation for security
+        if (empty($data['password'])) {
+            Response::error('Password confirmation is required to delete your account', 400);
+        }
+
+        $pdo = Database::getInstance();
+
+        // Verify password
+        $stmt = $pdo->prepare("SELECT password FROM users WHERE id = ?");
+        $stmt->execute([$user['id']]);
+        $userData = $stmt->fetch();
+
+        if (!$userData || !password_verify($data['password'], $userData['password'])) {
+            Response::error('Incorrect password', 401);
+        }
+
+        try {
+            Database::beginTransaction();
+
+            // Delete user's QR code scan logs first (foreign key constraint)
+            $stmt = $pdo->prepare("
+                DELETE sl FROM scan_logs sl
+                INNER JOIN qr_codes qr ON sl.qr_id = qr.id
+                WHERE qr.user_id = ?
+            ");
+            $stmt->execute([$user['id']]);
+
+            // Delete user's QR codes
+            $stmt = $pdo->prepare("DELETE FROM qr_codes WHERE user_id = ?");
+            $stmt->execute([$user['id']]);
+
+            // Delete inventory status history
+            $stmt = $pdo->prepare("
+                DELETE h FROM inventory_status_history h
+                INNER JOIN inventory_items i ON h.item_id = i.id
+                WHERE i.user_id = ?
+            ");
+            $stmt->execute([$user['id']]);
+
+            // Delete inventory alerts
+            $stmt = $pdo->prepare("DELETE FROM inventory_alerts WHERE user_id = ?");
+            $stmt->execute([$user['id']]);
+
+            // Delete inventory items
+            $stmt = $pdo->prepare("DELETE FROM inventory_items WHERE user_id = ?");
+            $stmt->execute([$user['id']]);
+
+            // Delete subscriptions
+            $stmt = $pdo->prepare("DELETE FROM subscriptions WHERE user_id = ?");
+            $stmt->execute([$user['id']]);
+
+            // Delete invoices
+            $stmt = $pdo->prepare("DELETE FROM invoices WHERE user_id = ?");
+            $stmt->execute([$user['id']]);
+
+            // Delete payments
+            $stmt = $pdo->prepare("DELETE FROM payments WHERE user_id = ?");
+            $stmt->execute([$user['id']]);
+
+            // Delete user's avatar file if exists
+            if (!empty($user['avatar_url']) && strpos($user['avatar_url'], '/uploads/avatars/') !== false) {
+                $avatarPath = __DIR__ . '/../../' . str_replace('/api/', '', parse_url($user['avatar_url'], PHP_URL_PATH));
+                if (file_exists($avatarPath)) {
+                    unlink($avatarPath);
+                }
+            }
+
+            // Finally delete the user
+            $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+            $stmt->execute([$user['id']]);
+
+            Database::commit();
+
+            // Log the account deletion
+            error_log("User account deleted: ID={$user['id']}, Email={$user['email']}");
+
+            Response::success(null, 'Your account has been permanently deleted.');
+
+        } catch (\Exception $e) {
+            Database::rollback();
+            error_log("Account deletion error for user {$user['id']}: " . $e->getMessage());
+            Response::error('Failed to delete account. Please contact support.', 500);
+        }
+    }
 }
