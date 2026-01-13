@@ -22,6 +22,7 @@ import {
   CheckCircle,
   Clock,
   Users,
+  FileText,
 } from "lucide-react";
 
 interface AdminSettings {
@@ -219,6 +220,12 @@ export default function AdminSettings() {
               <Link to="/admin/users">
                 <Users className="w-4 h-4 mr-2" />
                 Manage Admins
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/admin/audit">
+                <FileText className="w-4 h-4 mr-2" />
+                Audit Log
               </Link>
             </Button>
             <Button variant="outline" size="sm" asChild>

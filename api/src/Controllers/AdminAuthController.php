@@ -193,7 +193,7 @@ class AdminAuthController
     public static function createAdmin(): void
     {
         // Verify admin session
-        self::validateAdminSession();
+        $currentAdmin = self::validateAdminSession();
 
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
@@ -235,6 +235,17 @@ class AdminAuthController
         ]);
 
         $adminId = (int)$pdo->lastInsertId();
+
+        // Log the action
+        self::logAudit(
+            $currentAdmin['id'],
+            $currentAdmin['email'],
+            'admin_created',
+            'admin_management',
+            'admin',
+            $adminId,
+            trim($data['name'])
+        );
 
         Response::success([
             'id' => $adminId,
@@ -441,6 +452,18 @@ class AdminAuthController
         $stmt->execute([$id]);
         $updatedAdmin = $stmt->fetch();
 
+        // Log the action
+        self::logAudit(
+            $currentAdmin['id'],
+            $currentAdmin['email'],
+            'admin_updated',
+            'admin_management',
+            'admin',
+            $id,
+            $updatedAdmin['name'],
+            ['updated_fields' => array_keys($data)]
+        );
+
         Response::success($updatedAdmin, 'Admin updated successfully');
     }
 
@@ -469,6 +492,17 @@ class AdminAuthController
         $stmt = $pdo->prepare("UPDATE admin_users SET is_active = ?, updated_at = NOW() WHERE id = ?");
         $stmt->execute([$newStatus ? 1 : 0, $id]);
 
+        // Log the action
+        self::logAudit(
+            $currentAdmin['id'],
+            $currentAdmin['email'],
+            $newStatus ? 'admin_activated' : 'admin_deactivated',
+            'admin_management',
+            'admin',
+            $id,
+            null
+        );
+
         Response::success([
             'id' => $id,
             'is_active' => $newStatus
@@ -480,7 +514,7 @@ class AdminAuthController
      */
     public static function unlockAdmin(int $id): void
     {
-        self::validateAdminSession();
+        $currentAdmin = self::validateAdminSession();
 
         $pdo = Database::getInstance();
 
@@ -493,6 +527,17 @@ class AdminAuthController
 
         $stmt = $pdo->prepare("UPDATE admin_users SET failed_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = ?");
         $stmt->execute([$id]);
+
+        // Log the action
+        self::logAudit(
+            $currentAdmin['id'],
+            $currentAdmin['email'],
+            'admin_unlocked',
+            'admin_management',
+            'admin',
+            $id,
+            null
+        );
 
         Response::success(null, 'Admin account unlocked');
     }
@@ -519,6 +564,17 @@ class AdminAuthController
 
         $stmt = $pdo->prepare("DELETE FROM admin_users WHERE id = ?");
         $stmt->execute([$id]);
+
+        // Log the action
+        self::logAudit(
+            $currentAdmin['id'],
+            $currentAdmin['email'],
+            'admin_deleted',
+            'admin_management',
+            'admin',
+            $id,
+            null
+        );
 
         Response::success(null, 'Admin deleted permanently');
     }
@@ -668,6 +724,20 @@ class AdminAuthController
         $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['HTTP_X_REAL_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
         $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
         
+        // Log to audit table
+        $action = $success ? ($step === 3 ? 'login_success' : 'login_step_passed') : 'login_failed';
+        self::logAudit(
+            $adminId,
+            $email,
+            $action,
+            'auth',
+            null,
+            null,
+            null,
+            ['step' => $step],
+            $success ? 'success' : 'failure'
+        );
+        
         error_log(sprintf(
             "Admin Login Attempt: email=%s, admin_id=%s, step=%d, success=%s, ip=%s, ua=%s",
             $email,
@@ -677,5 +747,267 @@ class AdminAuthController
             $ip,
             substr($userAgent, 0, 100)
         ));
+    }
+
+    /**
+     * Log an admin action to the audit table
+     */
+    public static function logAudit(
+        ?int $adminId,
+        ?string $adminEmail,
+        string $action,
+        string $category,
+        ?string $targetType = null,
+        ?int $targetId = null,
+        ?string $targetName = null,
+        ?array $details = null,
+        string $status = 'success'
+    ): void {
+        try {
+            $pdo = Database::getInstance();
+            $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['HTTP_X_REAL_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? null;
+            $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
+
+            $stmt = $pdo->prepare("
+                INSERT INTO admin_audit_logs 
+                (admin_id, admin_email, action, category, target_type, target_id, target_name, details, ip_address, user_agent, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            
+            $stmt->execute([
+                $adminId,
+                $adminEmail,
+                $action,
+                $category,
+                $targetType,
+                $targetId,
+                $targetName,
+                $details ? json_encode($details) : null,
+                $ip,
+                $userAgent ? substr($userAgent, 0, 500) : null,
+                $status
+            ]);
+        } catch (\Exception $e) {
+            error_log("Failed to log audit: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get audit logs with pagination and filtering
+     */
+    public static function getAuditLogs(): void
+    {
+        $admin = self::validateAdminSession();
+
+        $pdo = Database::getInstance();
+        
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $limit = min(100, max(10, (int)($_GET['per_page'] ?? 50)));
+        $offset = ($page - 1) * $limit;
+
+        $where = [];
+        $params = [];
+
+        // Filter by category
+        if (!empty($_GET['category'])) {
+            $where[] = "category = ?";
+            $params[] = $_GET['category'];
+        }
+
+        // Filter by action
+        if (!empty($_GET['action'])) {
+            $where[] = "action = ?";
+            $params[] = $_GET['action'];
+        }
+
+        // Filter by admin
+        if (!empty($_GET['admin_id'])) {
+            $where[] = "admin_id = ?";
+            $params[] = (int)$_GET['admin_id'];
+        }
+
+        // Filter by status
+        if (!empty($_GET['status'])) {
+            $where[] = "status = ?";
+            $params[] = $_GET['status'];
+        }
+
+        // Filter by date range
+        if (!empty($_GET['from_date'])) {
+            $where[] = "created_at >= ?";
+            $params[] = $_GET['from_date'] . ' 00:00:00';
+        }
+        if (!empty($_GET['to_date'])) {
+            $where[] = "created_at <= ?";
+            $params[] = $_GET['to_date'] . ' 23:59:59';
+        }
+
+        $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        // Get total count
+        $countStmt = $pdo->prepare("SELECT COUNT(*) as total FROM admin_audit_logs {$whereClause}");
+        $countStmt->execute($params);
+        $total = (int)$countStmt->fetch()['total'];
+
+        // Get logs
+        $params[] = $limit;
+        $params[] = $offset;
+        $stmt = $pdo->prepare("
+            SELECT * FROM admin_audit_logs 
+            {$whereClause}
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        ");
+        $stmt->execute($params);
+        $logs = $stmt->fetchAll();
+
+        // Parse JSON details
+        foreach ($logs as &$log) {
+            if ($log['details']) {
+                $log['details'] = json_decode($log['details'], true);
+            }
+        }
+
+        Response::paginated($logs, $total, $page, $limit);
+    }
+
+    /**
+     * Get audit log statistics
+     */
+    public static function getAuditStats(): void
+    {
+        $admin = self::validateAdminSession();
+
+        $pdo = Database::getInstance();
+
+        // Get counts by category
+        $stmt = $pdo->prepare("
+            SELECT category, COUNT(*) as count 
+            FROM admin_audit_logs 
+            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            GROUP BY category
+        ");
+        $stmt->execute();
+        $byCategory = $stmt->fetchAll();
+
+        // Get counts by status
+        $stmt = $pdo->prepare("
+            SELECT status, COUNT(*) as count 
+            FROM admin_audit_logs 
+            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            GROUP BY status
+        ");
+        $stmt->execute();
+        $byStatus = $stmt->fetchAll();
+
+        // Get recent failed actions
+        $stmt = $pdo->prepare("
+            SELECT * FROM admin_audit_logs 
+            WHERE status = 'failure' 
+            ORDER BY created_at DESC 
+            LIMIT 10
+        ");
+        $stmt->execute();
+        $recentFailures = $stmt->fetchAll();
+
+        // Get activity by day (last 7 days)
+        $stmt = $pdo->prepare("
+            SELECT DATE(created_at) as date, COUNT(*) as count 
+            FROM admin_audit_logs 
+            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            GROUP BY DATE(created_at)
+            ORDER BY date ASC
+        ");
+        $stmt->execute();
+        $activityByDay = $stmt->fetchAll();
+
+        // Get top admins by activity
+        $stmt = $pdo->prepare("
+            SELECT admin_email, COUNT(*) as count 
+            FROM admin_audit_logs 
+            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) AND admin_email IS NOT NULL
+            GROUP BY admin_email
+            ORDER BY count DESC
+            LIMIT 5
+        ");
+        $stmt->execute();
+        $topAdmins = $stmt->fetchAll();
+
+        Response::success([
+            'by_category' => $byCategory,
+            'by_status' => $byStatus,
+            'recent_failures' => $recentFailures,
+            'activity_by_day' => $activityByDay,
+            'top_admins' => $topAdmins
+        ]);
+    }
+
+    /**
+     * Export audit logs as CSV
+     */
+    public static function exportAuditLogs(): void
+    {
+        $admin = self::validateAdminSession();
+
+        $pdo = Database::getInstance();
+
+        $where = [];
+        $params = [];
+
+        if (!empty($_GET['from_date'])) {
+            $where[] = "created_at >= ?";
+            $params[] = $_GET['from_date'] . ' 00:00:00';
+        }
+        if (!empty($_GET['to_date'])) {
+            $where[] = "created_at <= ?";
+            $params[] = $_GET['to_date'] . ' 23:59:59';
+        }
+
+        $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        $stmt = $pdo->prepare("
+            SELECT id, admin_email, action, category, target_type, target_name, status, ip_address, created_at
+            FROM admin_audit_logs 
+            {$whereClause}
+            ORDER BY created_at DESC
+            LIMIT 10000
+        ");
+        $stmt->execute($params);
+        $logs = $stmt->fetchAll();
+
+        // Log the export action
+        self::logAudit(
+            $admin['id'],
+            $admin['email'],
+            'audit_export',
+            'system',
+            null,
+            null,
+            null,
+            ['count' => count($logs)]
+        );
+
+        header('Content-Type: text/csv');
+        header('Content-Disposition: attachment; filename="admin_audit_logs_' . date('Y-m-d') . '.csv"');
+
+        $output = fopen('php://output', 'w');
+        fputcsv($output, ['ID', 'Admin Email', 'Action', 'Category', 'Target Type', 'Target Name', 'Status', 'IP Address', 'Timestamp']);
+
+        foreach ($logs as $log) {
+            fputcsv($output, [
+                $log['id'],
+                $log['admin_email'],
+                $log['action'],
+                $log['category'],
+                $log['target_type'],
+                $log['target_name'],
+                $log['status'],
+                $log['ip_address'],
+                $log['created_at']
+            ]);
+        }
+
+        fclose($output);
+        exit;
     }
 }

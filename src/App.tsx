@@ -44,6 +44,7 @@ import AdminStats from "./pages/AdminStats";
 import AdminQA from "./pages/AdminQA";
 import AdminCreate from "./pages/AdminCreate";
 import AdminUsers from "./pages/AdminUsers";
+import AdminAuditLog from "./pages/AdminAuditLog";
 
 const queryClient = new QueryClient();
 
@@ -90,6 +91,7 @@ const App = () => (
             <Route path="/admin/qa" element={<AdminQA />} />
             <Route path="/admin/create" element={<AdminCreate />} />
             <Route path="/admin/users" element={<AdminUsers />} />
+            <Route path="/admin/audit" element={<AdminAuditLog />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <CookieConsent />
