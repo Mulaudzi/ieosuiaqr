@@ -108,8 +108,10 @@ export interface Subscription {
 }
 
 export interface CheckoutRequest {
-  plan_id: number;
-  billing_cycle: "monthly" | "annual";
+  plan_id?: number;
+  plan?: string;
+  billing_cycle?: "monthly" | "annual";
+  frequency?: "monthly" | "annual";
 }
 
 export interface CheckoutResponse {
