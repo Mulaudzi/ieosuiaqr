@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ import { SocialLoginButtons, AuthDivider } from "@/components/auth/SocialLoginBu
 import { adminApi } from "@/services/api/admin";
 import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
 
-const ADMIN_EMAIL = "godtheson@ieosuia.com";
 const ADMIN_LAST_ACTIVITY_KEY = 'admin_last_activity';
 
 export default function Login() {
@@ -27,6 +26,7 @@ export default function Login() {
   
   // Admin multi-step login state
   const [isAdminLogin, setIsAdminLogin] = useState(false);
+  const [isCheckingAdmin, setIsCheckingAdmin] = useState(false);
   const [adminStep, setAdminStep] = useState(1);
   const [stepToken, setStepToken] = useState("");
   const [remainingAttempts, setRemainingAttempts] = useState(5);
@@ -40,19 +40,47 @@ export default function Login() {
   // Get the redirect destination from location state
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/dashboard";
 
-  // Detect admin email
-  useEffect(() => {
-    const isAdmin = email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase();
-    if (isAdmin && !isAdminLogin) {
-      setIsAdminLogin(true);
-      setAdminStep(1);
-      setStepToken("");
-    } else if (!isAdmin && isAdminLogin) {
+  // Check if email is an admin - debounced
+  const checkAdminEmail = useCallback(async (emailToCheck: string) => {
+    if (!emailToCheck || !emailToCheck.includes("@")) {
       setIsAdminLogin(false);
-      setAdminStep(1);
-      setStepToken("");
+      return;
     }
-  }, [email, isAdminLogin]);
+    
+    setIsCheckingAdmin(true);
+    try {
+      const response = await adminApi.checkAdminEmail(emailToCheck.trim().toLowerCase());
+      if (response.success && response.data?.is_admin) {
+        if (!isAdminLogin) {
+          setIsAdminLogin(true);
+          setAdminStep(1);
+          setStepToken("");
+        }
+      } else {
+        if (isAdminLogin) {
+          setIsAdminLogin(false);
+          setAdminStep(1);
+          setStepToken("");
+        }
+      }
+    } catch {
+      // Silently fail - treat as non-admin
+      if (isAdminLogin) {
+        setIsAdminLogin(false);
+      }
+    } finally {
+      setIsCheckingAdmin(false);
+    }
+  }, [isAdminLogin]);
+
+  // Debounce admin check
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      checkAdminEmail(email);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [email, checkAdminEmail]);
 
   const handleAdminLogin = async () => {
     setError(null);
@@ -98,7 +126,7 @@ export default function Login() {
             description: "Welcome to the admin panel. Session expires after 30 minutes of inactivity.",
           });
 
-          navigate("/admin/emails", { replace: true });
+          navigate("/admin/settings", { replace: true });
         }
       }
     } catch (err: unknown) {
