@@ -91,11 +91,15 @@ export default function AdminStats() {
   useEffect(() => {
     if (isChecking) return;
     
-    if (!isValidSession || !adminToken) {
+    // Only redirect if session check is complete and explicitly invalid
+    if (isValidSession === false || !adminToken) {
       navigate("/login", { state: { adminRedirect: true }, replace: true });
       return;
     }
-    fetchStats();
+    
+    if (isValidSession) {
+      fetchStats();
+    }
   }, [period, isChecking, isValidSession, adminToken]);
 
   const fetchStats = async () => {
