@@ -11,6 +11,7 @@ import {
   Crown,
   Package,
   ArrowLeft,
+  Shield,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -86,6 +87,13 @@ export default function Inventory() {
             >
               <BarChart3 className="w-5 h-5" />
               Analytics
+            </Link>
+            <Link
+              to="/dashboard/qa"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-muted transition-colors"
+            >
+              <Shield className="w-5 h-5" />
+              QA & Debug
             </Link>
             <Link
               to="/dashboard/settings"

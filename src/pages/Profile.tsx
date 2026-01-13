@@ -225,6 +225,13 @@ export default function Profile() {
               Analytics
             </Link>
             <Link
+              to="/dashboard/qa"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-muted transition-colors"
+            >
+              <Shield className="w-5 h-5" />
+              QA & Debug
+            </Link>
+            <Link
               to="/dashboard/profile"
               className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 text-primary font-medium"
             >

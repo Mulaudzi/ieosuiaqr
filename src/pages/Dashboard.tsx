@@ -27,6 +27,7 @@ import {
   AlertCircle,
   FileSpreadsheet,
   Package,
+  Shield,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -253,6 +254,13 @@ export default function Dashboard() {
             >
               <BarChart3 className="w-5 h-5" />
               Analytics
+            </Link>
+            <Link
+              to="/dashboard/qa"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-muted transition-colors"
+            >
+              <Shield className="w-5 h-5" />
+              QA & Debug
             </Link>
             <Link
               to="/dashboard/settings"

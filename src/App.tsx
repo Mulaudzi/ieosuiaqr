@@ -47,6 +47,7 @@ import AdminQA from "./pages/AdminQA";
 import AdminCreate from "./pages/AdminCreate";
 import AdminUsers from "./pages/AdminUsers";
 import AdminAuditLog from "./pages/AdminAuditLog";
+import QA from "./pages/QA";
 
 const queryClient = new QueryClient();
 
@@ -73,6 +74,7 @@ const App = () => (
             <Route path="/dashboard/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/dashboard/inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
             <Route path="/dashboard/inventory/analytics" element={<ProtectedRoute><InventoryAnalytics /></ProtectedRoute>} />
+            <Route path="/dashboard/qa" element={<ProtectedRoute><QA /></ProtectedRoute>} />
             <Route path="/scan/:id" element={<Scan />} />
             <Route path="/scan/:id/history" element={<ItemHistory />} />
             <Route path="/billing/success" element={<ProtectedRoute><BillingSuccess /></ProtectedRoute>} />
