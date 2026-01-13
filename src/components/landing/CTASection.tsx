@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles, Shield, Zap, Clock } from "lucide-react";
 
 export function CTASection() {
   return (
@@ -37,7 +37,7 @@ export function CTASection() {
             <span className="gradient-text">Free</span>
           </h2>
           <p className="text-lg sm:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-            Join thousands of businesses, churches, and schools using IEOSUIA to create smart QR codes and track inventory. No hardware or credit card required.
+            Join businesses, churches, and schools using IEOSUIA to create smart QR codes and track inventory. No hardware or credit card required.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -52,31 +52,28 @@ export function CTASection() {
             </Button>
           </div>
 
-          {/* Stats */}
+          {/* Value Props instead of fake stats */}
           <div className="mt-16 grid grid-cols-3 gap-8 max-w-2xl mx-auto">
-            <div>
-              <p className="font-display text-3xl sm:text-4xl font-bold gradient-text">
-                50K+
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Active Users
-              </p>
+            <div className="flex flex-col items-center">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                <Zap className="w-6 h-6 text-primary" />
+              </div>
+              <p className="text-sm font-medium text-foreground">Instant Setup</p>
+              <p className="text-xs text-muted-foreground mt-1">Ready in minutes</p>
             </div>
-            <div>
-              <p className="font-display text-3xl sm:text-4xl font-bold gradient-text">
-                10M+
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                QR Codes Created
-              </p>
+            <div className="flex flex-col items-center">
+              <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center mb-3">
+                <Shield className="w-6 h-6 text-accent" />
+              </div>
+              <p className="text-sm font-medium text-foreground">POPIA Compliant</p>
+              <p className="text-xs text-muted-foreground mt-1">Your data is safe</p>
             </div>
-            <div>
-              <p className="font-display text-3xl sm:text-4xl font-bold gradient-text">
-                99.9%
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Uptime SLA
-              </p>
+            <div className="flex flex-col items-center">
+              <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center mb-3">
+                <Clock className="w-6 h-6 text-success" />
+              </div>
+              <p className="text-sm font-medium text-foreground">SA Based Support</p>
+              <p className="text-xs text-muted-foreground mt-1">Local expertise</p>
             </div>
           </div>
         </motion.div>
