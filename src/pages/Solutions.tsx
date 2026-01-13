@@ -9,6 +9,15 @@ import {
   GraduationCap,
   ArrowRight,
   CheckCircle,
+  Church,
+  Truck,
+  Stethoscope,
+  Factory,
+  Hotel,
+  Wrench,
+  Users,
+  Dumbbell,
+  Briefcase,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -98,6 +107,132 @@ const solutions = [
       "Paperless submissions",
     ],
     color: "accent",
+  },
+  {
+    icon: Church,
+    title: "Churches & Religious Organizations",
+    description:
+      "Streamline church operations with QR codes for equipment tracking, event registration, and resource sharing.",
+    examples: ["Sound equipment", "Sermon notes", "Donation links", "Event registration"],
+    benefits: [
+      "Equipment accountability",
+      "Easy member engagement",
+      "Simplified check-ins",
+      "Resource distribution",
+    ],
+    color: "success",
+  },
+  {
+    icon: Stethoscope,
+    title: "Healthcare & Medical",
+    description:
+      "Patient information, appointment scheduling, and medical equipment tracking for clinics and hospitals.",
+    examples: ["Patient forms", "Equipment tracking", "Appointment links", "Medical records"],
+    benefits: [
+      "Paperless intake",
+      "Equipment maintenance logs",
+      "Quick patient access",
+      "Compliance tracking",
+    ],
+    color: "warning",
+  },
+  {
+    icon: Truck,
+    title: "Logistics & Warehousing",
+    description:
+      "Track shipments, manage warehouse inventory, and streamline supply chain operations.",
+    examples: ["Pallet tracking", "Shipment labels", "Warehouse bins", "Delivery confirmation"],
+    benefits: [
+      "Real-time tracking",
+      "Reduced errors",
+      "Faster picking",
+      "Complete audit trails",
+    ],
+    color: "primary",
+  },
+  {
+    icon: Factory,
+    title: "Manufacturing",
+    description:
+      "Production line tracking, quality control, and equipment maintenance for factories.",
+    examples: ["Work orders", "Quality checks", "Machine maintenance", "Parts tracking"],
+    benefits: [
+      "Production monitoring",
+      "Quality assurance",
+      "Maintenance alerts",
+      "Traceability",
+    ],
+    color: "accent",
+  },
+  {
+    icon: Hotel,
+    title: "Hospitality & Tourism",
+    description:
+      "Enhance guest experiences with digital concierge, room service, and local guides.",
+    examples: ["Room info", "Wi-Fi access", "Local attractions", "Feedback forms"],
+    benefits: [
+      "Contactless services",
+      "Guest engagement",
+      "Easy updates",
+      "Review collection",
+    ],
+    color: "success",
+  },
+  {
+    icon: Wrench,
+    title: "Maintenance & Repairs",
+    description:
+      "Track service history, schedule maintenance, and manage work orders for equipment and facilities.",
+    examples: ["Service logs", "Work orders", "Equipment manuals", "Spare parts"],
+    benefits: [
+      "Complete history",
+      "Preventive alerts",
+      "Quick access to manuals",
+      "Parts ordering",
+    ],
+    color: "warning",
+  },
+  {
+    icon: Users,
+    title: "Non-Profits & NGOs",
+    description:
+      "Donation links, volunteer coordination, and resource distribution for charitable organizations.",
+    examples: ["Donation QR", "Volunteer signup", "Event materials", "Impact reports"],
+    benefits: [
+      "Easy donations",
+      "Volunteer management",
+      "Resource tracking",
+      "Transparency",
+    ],
+    color: "primary",
+  },
+  {
+    icon: Dumbbell,
+    title: "Fitness & Gyms",
+    description:
+      "Equipment instructions, class schedules, and membership management for fitness centers.",
+    examples: ["Equipment guides", "Class schedules", "Membership cards", "Trainer contacts"],
+    benefits: [
+      "Self-service info",
+      "Easy scheduling",
+      "Member engagement",
+      "Equipment tracking",
+    ],
+    color: "accent",
+  },
+  {
+    icon: Briefcase,
+    title: "Professional Services",
+    description:
+      "Digital business cards, document sharing, and client engagement for consultants and agencies.",
+    examples: ["vCard sharing", "Portfolio links", "Meeting scheduling", "Document access"],
+    benefits: [
+      "Professional image",
+      "Easy contact sharing",
+      "Lead capture",
+      "Document distribution",
+    ],
+    color: "success",
   },
 ];
 

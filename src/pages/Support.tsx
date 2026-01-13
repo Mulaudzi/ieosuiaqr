@@ -264,7 +264,7 @@ const Support = () => {
         {/* Quick Actions */}
         <section className="py-12 border-b border-border">
           <div className="container mx-auto px-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -340,30 +340,6 @@ const Support = () => {
                 </Link>
               </motion.div>
 
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.4 }}
-              >
-                <a href="https://www.youtube.com/@JohannesMilke" target="_blank" rel="noopener noreferrer">
-                  <Card className="h-full hover:border-primary/50 transition-colors cursor-pointer">
-                    <CardHeader className="text-center">
-                      <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center mx-auto mb-3">
-                        <Zap className="h-6 w-6 text-accent" />
-                      </div>
-                      <CardTitle className="text-lg">Video Tutorials</CardTitle>
-                      <CardDescription>Watch on YouTube</CardDescription>
-                    </CardHeader>
-                    <CardContent className="text-center">
-                      <p className="text-muted-foreground text-sm">Step-by-step video guides</p>
-                      <div className="flex items-center justify-center gap-2 mt-3 text-sm text-muted-foreground">
-                        <CheckCircle2 className="h-4 w-4" />
-                        <span>Visual learning</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </a>
-              </motion.div>
             </div>
           </div>
         </section>

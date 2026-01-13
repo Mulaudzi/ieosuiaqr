@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import {
   Store,
   Utensils,
@@ -6,7 +7,9 @@ import {
   Ticket,
   Package,
   GraduationCap,
+  ArrowRight,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const useCases = [
   {
@@ -130,6 +133,22 @@ export function UseCasesSection() {
             </motion.div>
           ))}
         </div>
+
+        {/* View All Solutions Button */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="text-center mt-12"
+        >
+          <Link to="/solutions">
+            <Button size="lg" variant="outline" className="gap-2">
+              View All Solutions
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </Link>
+        </motion.div>
       </div>
     </section>
   );
