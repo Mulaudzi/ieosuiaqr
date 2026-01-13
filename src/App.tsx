@@ -42,6 +42,7 @@ import AdminEmails from "./pages/AdminEmails";
 import AdminSettings from "./pages/AdminSettings";
 import AdminStats from "./pages/AdminStats";
 import AdminQA from "./pages/AdminQA";
+import AdminCreate from "./pages/AdminCreate";
 
 const queryClient = new QueryClient();
 
@@ -86,6 +87,7 @@ const App = () => (
             <Route path="/admin/settings" element={<AdminSettings />} />
             <Route path="/admin/stats" element={<AdminStats />} />
             <Route path="/admin/qa" element={<AdminQA />} />
+            <Route path="/admin/create" element={<AdminCreate />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <CookieConsent />
