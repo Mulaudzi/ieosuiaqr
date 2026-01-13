@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { authApi } from "@/services/api/auth";
-import { QrCode, ArrowLeft, Eye, EyeOff, Lock, CheckCircle, AlertCircle } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Lock, CheckCircle, AlertCircle } from "lucide-react";
+import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -187,10 +188,7 @@ export default function ResetPassword() {
         {/* Header */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-              <QrCode className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="font-display font-bold text-xl">QRFlow</span>
+            <img src={ieosuiaLogo} alt="IEOSUIA QR" className="h-10 w-auto" />
           </Link>
           <h1 className="font-display text-3xl font-bold mb-2">Set New Password</h1>
           <p className="text-muted-foreground">
