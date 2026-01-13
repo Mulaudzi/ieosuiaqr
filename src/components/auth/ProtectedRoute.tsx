@@ -30,11 +30,6 @@ export function ProtectedRoute({
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (!requireAuth && isAuthenticated) {
-    // Redirect authenticated users away from auth pages
-    return <Navigate to="/dashboard" replace />;
-  }
-
   // Check email verification if required - check both email_verified boolean and email_verified_at
   const isEmailVerified = user?.email_verified || user?.email_verified_at;
   if (requireAuth && requireVerified && user && !isEmailVerified) {
@@ -45,6 +40,24 @@ export function ProtectedRoute({
 }
 
 // Wrapper for public-only routes (login, signup, etc.)
+// Redirects authenticated users to dashboard
 export function PublicRoute({ children }: { children: ReactNode }) {
-  return <ProtectedRoute requireAuth={false}>{children}</ProtectedRoute>;
+  const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    // Redirect to the page they came from, or dashboard
+    const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/dashboard";
+    return <Navigate to={from} replace />;
+  }
+
+  return <>{children}</>;
 }
