@@ -110,6 +110,9 @@ class ContactController
             $sent = MailService::sendWithCC($targetEmail, self::$ccEmail, $subject, $body, $email);
             
             if ($sent) {
+                // Send auto-reply confirmation to user
+                self::sendConfirmationEmail($email, $name, $purposeLabel, $message);
+                
                 // Log the contact submission
                 error_log("Contact form submission from: $email - $name - Purpose: $purpose - Routed to: $targetEmail");
                 Response::success(['message' => 'Message sent successfully']);
@@ -122,6 +125,117 @@ class ContactController
             error_log("Contact form error: " . $e->getMessage() . " - From: $email");
             // Still return success to user, log for manual processing
             Response::success(['message' => 'Message received, we will contact you soon']);
+        }
+    }
+
+    /**
+     * Send confirmation email to the user
+     */
+    private static function sendConfirmationEmail(string $userEmail, string $userName, string $purposeLabel, string $originalMessage): void
+    {
+        try {
+            $subject = "We received your message - IEOSUIA QR";
+            
+            $confirmationBody = "
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset='UTF-8'>
+                <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            </head>
+            <body style='margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif; background-color: #f4f4f5;'>
+                <table width='100%' cellpadding='0' cellspacing='0' style='background-color: #f4f4f5; padding: 40px 20px;'>
+                    <tr>
+                        <td align='center'>
+                            <table width='600' cellpadding='0' cellspacing='0' style='background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);'>
+                                <!-- Header -->
+                                <tr>
+                                    <td style='background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%); padding: 40px 40px 30px; text-align: center;'>
+                                        <h1 style='color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;'>Message Received!</h1>
+                                        <p style='color: rgba(255, 255, 255, 0.9); margin: 10px 0 0; font-size: 16px;'>Thank you for contacting IEOSUIA QR</p>
+                                    </td>
+                                </tr>
+                                
+                                <!-- Body -->
+                                <tr>
+                                    <td style='padding: 40px;'>
+                                        <p style='color: #18181b; font-size: 18px; margin: 0 0 20px; font-weight: 600;'>
+                                            Hi $userName,
+                                        </p>
+                                        <p style='color: #52525b; font-size: 16px; line-height: 1.6; margin: 0 0 20px;'>
+                                            We've received your message and want to thank you for reaching out to us. 
+                                            Our team will review your inquiry and get back to you as soon as possible.
+                                        </p>
+                                        
+                                        <!-- Info Box -->
+                                        <div style='background-color: #f4f4f5; border-radius: 12px; padding: 24px; margin: 24px 0;'>
+                                            <p style='color: #71717a; font-size: 14px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.5px;'>Inquiry Type</p>
+                                            <p style='color: #18181b; font-size: 16px; margin: 0 0 16px; font-weight: 500;'>$purposeLabel</p>
+                                            
+                                            <p style='color: #71717a; font-size: 14px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.5px;'>Your Message</p>
+                                            <p style='color: #52525b; font-size: 14px; margin: 0; line-height: 1.6; white-space: pre-wrap;'>" . nl2br(htmlspecialchars(substr($originalMessage, 0, 500))) . (strlen($originalMessage) > 500 ? '...' : '') . "</p>
+                                        </div>
+                                        
+                                        <!-- Response Time -->
+                                        <div style='background: linear-gradient(135deg, rgba(20, 184, 166, 0.1) 0%, rgba(13, 148, 136, 0.1) 100%); border-radius: 12px; padding: 20px; text-align: center; margin: 24px 0;'>
+                                            <p style='color: #0d9488; font-size: 14px; margin: 0; font-weight: 600;'>
+                                                ⏱️ Expected Response Time: Within 24 hours
+                                            </p>
+                                        </div>
+                                        
+                                        <p style='color: #52525b; font-size: 16px; line-height: 1.6; margin: 20px 0;'>
+                                            In the meantime, feel free to explore our platform or reach out via WhatsApp for immediate assistance.
+                                        </p>
+                                        
+                                        <!-- CTA Button -->
+                                        <div style='text-align: center; margin: 30px 0;'>
+                                            <a href='https://wa.me/27799282775' style='display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;'>
+                                                💬 Chat on WhatsApp
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                
+                                <!-- Footer -->
+                                <tr>
+                                    <td style='background-color: #f9fafb; padding: 30px 40px; border-top: 1px solid #e5e7eb;'>
+                                        <table width='100%'>
+                                            <tr>
+                                                <td style='text-align: center;'>
+                                                    <p style='color: #71717a; font-size: 14px; margin: 0 0 10px;'>
+                                                        <strong style='color: #18181b;'>IEOSUIA QR</strong>
+                                                    </p>
+                                                    <p style='color: #a1a1aa; font-size: 13px; margin: 0 0 5px;'>
+                                                        Create, manage, and track QR codes with powerful analytics
+                                                    </p>
+                                                    <p style='color: #a1a1aa; font-size: 13px; margin: 0;'>
+                                                        <a href='https://qr.ieosuia.com' style='color: #0d9488; text-decoration: none;'>qr.ieosuia.com</a> | 
+                                                        <a href='mailto:hello@ieosuia.com' style='color: #0d9488; text-decoration: none;'>hello@ieosuia.com</a>
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Disclaimer -->
+                            <p style='color: #a1a1aa; font-size: 12px; margin: 20px 0 0; text-align: center;'>
+                                This is an automated confirmation. Please do not reply to this email.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </body>
+            </html>
+            ";
+
+            MailService::send($userEmail, $subject, $confirmationBody);
+            error_log("Confirmation email sent to: $userEmail");
+            
+        } catch (\Exception $e) {
+            // Don't fail the main request if confirmation email fails
+            error_log("Failed to send confirmation email to $userEmail: " . $e->getMessage());
         }
     }
 }
