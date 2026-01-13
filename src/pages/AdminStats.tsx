@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useAdminSession } from "@/hooks/useAdminSession";
 import {
   LineChart,
   Line,
@@ -82,24 +83,29 @@ export default function AdminStats() {
   const [period, setPeriod] = useState("30");
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { isValidSession, isChecking, requireAdminSession, clearAdminSession } = useAdminSession();
 
   const adminToken = localStorage.getItem("admin_token");
 
   useEffect(() => {
-    if (!adminToken) {
-      navigate("/admin");
+    if (isChecking) return;
+    
+    if (!isValidSession || !adminToken) {
+      navigate("/login");
       return;
     }
     fetchStats();
-  }, [period]);
+  }, [period, isChecking, isValidSession]);
 
   const fetchStats = async () => {
+    if (!requireAdminSession()) return;
+    
     setIsLoading(true);
     try {
       const verifyRes = await fetch(`/api/admin/verify?admin_token=${adminToken}`);
       if (!verifyRes.ok) {
-        localStorage.removeItem("admin_token");
-        navigate("/admin");
+        clearAdminSession();
+        navigate("/login");
         return;
       }
 

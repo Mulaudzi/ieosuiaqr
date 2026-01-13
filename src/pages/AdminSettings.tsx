@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useAdminSession } from "@/hooks/useAdminSession";
 import {
   Shield,
   Mail,
@@ -38,23 +39,28 @@ export default function AdminSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { isValidSession, isChecking, requireAdminSession, clearAdminSession } = useAdminSession();
 
   const adminToken = localStorage.getItem("admin_token");
 
   useEffect(() => {
-    if (!adminToken) {
-      navigate("/admin");
+    if (isChecking) return;
+    
+    if (!isValidSession || !adminToken) {
+      navigate("/login");
       return;
     }
     fetchSettings();
-  }, []);
+  }, [isChecking, isValidSession]);
 
   const fetchSettings = async () => {
+    if (!requireAdminSession()) return;
+    
     try {
       const verifyRes = await fetch(`/api/admin/verify?admin_token=${adminToken}`);
       if (!verifyRes.ok) {
-        localStorage.removeItem("admin_token");
-        navigate("/admin");
+        clearAdminSession();
+        navigate("/login");
         return;
       }
 
