@@ -54,7 +54,13 @@ export default function Contact() {
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, company, message }),
+        body: JSON.stringify({ 
+          name, 
+          email, 
+          company, 
+          message,
+          source: "IEOSUIA QR - Contact Form" 
+        }),
       });
 
       if (response.ok) {

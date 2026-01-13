@@ -45,10 +45,13 @@ export function Header() {
                 <QrCode className="w-5 h-5 text-primary-foreground" />
               </div>
             </div>
-            <span className="font-display text-xl font-bold tracking-tight">
-              <span className="gradient-text">IEOSUIA</span>
-              <span className="text-foreground"> QR</span>
-            </span>
+            <div className="flex flex-col">
+              <span className="font-display text-xl font-bold tracking-tight leading-tight">
+                <span className="gradient-text">IEOSUIA</span>
+                <span className="text-foreground"> QR</span>
+              </span>
+              <span className="text-[9px] text-muted-foreground leading-tight hidden sm:block">Your Story, Beautifully Told</span>
+            </div>
           </Link>
 
           {/* Desktop Navigation */}
