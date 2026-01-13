@@ -254,6 +254,17 @@ try {
     elseif ($uri === '/cron/renewal-reminders' && $method === 'POST') {
         PaymentController::sendRenewalReminders();
     }
+    // Payment retry cron endpoints
+    elseif ($uri === '/cron/process-retries' && $method === 'POST') {
+        PaymentController::processPaymentRetries();
+    }
+    elseif ($uri === '/cron/process-grace-periods' && $method === 'POST') {
+        PaymentController::processExpiredGracePeriods();
+    }
+    // Retry status endpoint
+    elseif ($uri === '/billing/retry-status' && $method === 'GET') {
+        PaymentController::getRetryStatus();
+    }
 
     // Billing/Invoices
     elseif ($uri === '/billing/invoices' && $method === 'GET') {
