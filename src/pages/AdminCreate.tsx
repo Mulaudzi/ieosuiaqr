@@ -34,7 +34,10 @@ export default function AdminCreate() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        await adminApi.checkSession();
+        const result = await adminApi.checkSession();
+        if (!result.success) {
+          throw new Error("Invalid session");
+        }
         setIsLoading(false);
       } catch {
         toast({
@@ -42,7 +45,7 @@ export default function AdminCreate() {
           title: "Access Denied",
           description: "Please login as admin first."
         });
-        navigate("/login");
+        navigate("/login", { state: { adminRedirect: true }, replace: true });
       }
     };
     

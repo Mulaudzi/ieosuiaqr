@@ -173,11 +173,15 @@ export default function AdminQA() {
   useEffect(() => {
     if (isChecking) return;
     
-    if (!isValidSession || !adminToken) {
+    // Only redirect if session check is complete and explicitly invalid
+    if (isValidSession === false || !adminToken) {
       navigate("/login", { state: { adminRedirect: true }, replace: true });
       return;
     }
-    verifyAndFetch();
+    
+    if (isValidSession) {
+      verifyAndFetch();
+    }
   }, [isChecking, isValidSession, adminToken]);
 
   const verifyAndFetch = async () => {

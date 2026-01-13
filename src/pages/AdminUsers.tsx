@@ -75,7 +75,8 @@ export default function AdminUsers() {
   const { isValidSession, isChecking, clearAdminSession } = useAdminSession();
 
   useEffect(() => {
-    if (!isChecking && !isValidSession) {
+    // Only redirect if session check is complete and explicitly invalid
+    if (!isChecking && isValidSession === false) {
       navigate("/login", { state: { adminRedirect: true }, replace: true });
     }
   }, [isChecking, isValidSession, navigate]);
