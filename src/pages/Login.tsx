@@ -1,22 +1,17 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Progress } from "@/components/ui/progress";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, QrCode, Shield, Loader2 } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, QrCode, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useRecaptcha } from "@/hooks/useRecaptcha";
 import { SocialLoginButtons, AuthDivider } from "@/components/auth/SocialLoginButtons";
-import { adminApi } from "@/services/api/admin";
 import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
-
-const ADMIN_LAST_ACTIVITY_KEY = 'admin_last_activity';
-const MAX_ATTEMPTS = 5;
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -25,17 +20,6 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // Admin batch login state
-  const [isAdminLogin, setIsAdminLogin] = useState(false);
-  const [isCheckingAdmin, setIsCheckingAdmin] = useState(false);
-  const [password1, setPassword1] = useState("");
-  const [password2, setPassword2] = useState("");
-  const [password3, setPassword3] = useState("");
-  const [showPasswords, setShowPasswords] = useState(false);
-  const [remainingAttempts, setRemainingAttempts] = useState(MAX_ATTEMPTS);
-  const [isLocked, setIsLocked] = useState(false);
-  const [lockedMinutes, setLockedMinutes] = useState(0);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -46,91 +30,21 @@ export default function Login() {
   // Get the redirect destination from location state
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/dashboard";
 
-  // Check if email is an admin - debounced
-  const checkAdminEmail = useCallback(async (emailToCheck: string) => {
-    if (!emailToCheck || !emailToCheck.includes("@")) {
-      setIsAdminLogin(false);
-      return;
-    }
-    
-    setIsCheckingAdmin(true);
-    try {
-      const response = await adminApi.checkAdminEmail(emailToCheck.trim().toLowerCase());
-      if (response.success && response.data?.is_admin) {
-        if (!isAdminLogin) {
-          setIsAdminLogin(true);
-          // Reset password fields when switching to admin
-          setPassword1("");
-          setPassword2("");
-          setPassword3("");
-        }
-      } else {
-        if (isAdminLogin) {
-          setIsAdminLogin(false);
-        }
-      }
-    } catch {
-      // Silently fail - treat as non-admin
-      if (isAdminLogin) {
-        setIsAdminLogin(false);
-      }
-    } finally {
-      setIsCheckingAdmin(false);
-    }
-  }, [isAdminLogin]);
-
-  // Debounce admin check
+  // Keyboard shortcut: Ctrl+Shift+A (Windows) or Cmd+Shift+A (Mac) to go to admin login
   useEffect(() => {
-    const timer = setTimeout(() => {
-      checkAdminEmail(email);
-    }, 500);
-    
-    return () => clearTimeout(timer);
-  }, [email, checkAdminEmail]);
-
-  const handleAdminLogin = async () => {
-    setError(null);
-    
-    try {
-      const response = await adminApi.batchLogin(email, password1, password2, password3);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modifierKey = isMac ? e.metaKey : e.ctrlKey;
       
-      if (response.success && response.data) {
-        // Store admin token and activity timestamp
-        localStorage.setItem("admin_token", response.data.admin_token);
-        localStorage.setItem(ADMIN_LAST_ACTIVITY_KEY, Date.now().toString());
-        
-        toast({
-          title: "Admin Access Granted",
-          description: "Welcome to the admin panel. Session expires after 30 minutes of inactivity.",
-        });
-
-        navigate("/admin", { replace: true });
+      if (modifierKey && e.shiftKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        navigate('/admin/login');
       }
-    } catch (err: unknown) {
-      const apiError = err as { 
-        message?: string; 
-        status?: number;
-        remaining_attempts?: number;
-        locked?: boolean;
-        locked_minutes?: number;
-      };
-      
-      if (apiError.locked) {
-        setIsLocked(true);
-        setLockedMinutes(apiError.locked_minutes || 15);
-        setRemainingAttempts(0);
-        setError(`Account locked. Try again in ${apiError.locked_minutes || 15} minutes.`);
-      } else {
-        setRemainingAttempts(apiError.remaining_attempts ?? remainingAttempts - 1);
-        setError("Authentication failed");
-      }
-      
-      // Clear password fields on failure
-      setPassword1("");
-      setPassword2("");
-      setPassword3("");
-    }
-  };
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,45 +52,36 @@ export default function Login() {
     setError(null);
 
     try {
-      if (isAdminLogin) {
-        await handleAdminLogin();
-      } else {
-        // Regular user login
-        const captchaToken = await executeRecaptcha('login');
-        
-        await login(email, password, captchaToken);
-        
-        toast({
-          title: "Welcome back!",
-          description: "You've been successfully logged in.",
-        });
+      const captchaToken = await executeRecaptcha('login');
+      
+      await login(email, password, captchaToken);
+      
+      toast({
+        title: "Welcome back!",
+        description: "You've been successfully logged in.",
+      });
 
-        navigate(from, { replace: true });
-      }
+      navigate(from, { replace: true });
     } catch (err: unknown) {
-      if (!isAdminLogin) {
-        const apiError = err as { message?: string; status?: number };
-        
-        if (apiError.message?.includes("401") || apiError.message?.includes("Invalid")) {
-          setError("Invalid email or password. Please try again.");
-        } else if (apiError.message?.includes("429")) {
-          setError("Too many login attempts. Please wait a few minutes and try again.");
-        } else {
-          setError(apiError.message || "Login failed. Please try again.");
-        }
-        
-        toast({
-          title: "Login failed",
-          description: apiError.message || "Please check your credentials and try again.",
-          variant: "destructive",
-        });
+      const apiError = err as { message?: string; status?: number };
+      
+      if (apiError.message?.includes("401") || apiError.message?.includes("Invalid")) {
+        setError("Invalid email or password. Please try again.");
+      } else if (apiError.message?.includes("429")) {
+        setError("Too many login attempts. Please wait a few minutes and try again.");
+      } else {
+        setError(apiError.message || "Login failed. Please try again.");
       }
+      
+      toast({
+        title: "Login failed",
+        description: apiError.message || "Please check your credentials and try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
   };
-
-  const attemptsPercent = (remainingAttempts / MAX_ATTEMPTS) * 100;
 
   return (
     <div className="min-h-screen flex">
@@ -193,74 +98,22 @@ export default function Login() {
             <img src={ieosuiaLogo} alt="IEOSUIA QR" className="h-10 w-auto" />
           </Link>
 
-          {isAdminLogin ? (
-            <>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-primary" />
-                </div>
-                <h1 className="font-display text-3xl font-bold">Admin Access</h1>
-              </div>
-              <p className="text-muted-foreground mb-6">
-                Enter all three authentication passwords
-              </p>
-              
-              {/* Rate Limit Indicator */}
-              {remainingAttempts < MAX_ATTEMPTS && (
-                <div className="mb-6 p-4 rounded-xl bg-muted/50 space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Remaining attempts</span>
-                    <span className={`font-medium ${remainingAttempts <= 2 ? "text-destructive" : "text-foreground"}`}>
-                      {remainingAttempts} / {MAX_ATTEMPTS}
-                    </span>
-                  </div>
-                  <Progress 
-                    value={attemptsPercent} 
-                    className={`h-2 ${remainingAttempts <= 2 ? "[&>div]:bg-destructive" : ""}`}
-                  />
-                  {remainingAttempts <= 2 && (
-                    <p className="text-xs text-destructive">
-                      Warning: Account will be locked after {remainingAttempts} more failed attempt{remainingAttempts !== 1 ? 's' : ''}.
-                    </p>
-                  )}
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <h1 className="font-display text-3xl font-bold mb-2">Welcome back</h1>
-              <p className="text-muted-foreground mb-8">
-                Sign in to your account to continue
-              </p>
-            </>
-          )}
-
-          {/* Locked Account Warning */}
-          {isLocked && (
-            <Alert variant="destructive" className="mb-6">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Account temporarily locked due to too many failed attempts. 
-                Please try again in {lockedMinutes} minutes.
-              </AlertDescription>
-            </Alert>
-          )}
+          <h1 className="font-display text-3xl font-bold mb-2">Welcome back</h1>
+          <p className="text-muted-foreground mb-8">
+            Sign in to your account to continue
+          </p>
 
           {/* Error Alert */}
-          {error && !isLocked && (
+          {error && (
             <Alert variant="destructive" className="mb-6">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
-          {/* Social Login - Only show for regular users */}
-          {!isAdminLogin && (
-            <>
-              <SocialLoginButtons isLoading={isLoading} mode="login" />
-              <AuthDivider />
-            </>
-          )}
+          {/* Social Login */}
+          <SocialLoginButtons isLoading={isLoading} mode="login" />
+          <AuthDivider />
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -277,149 +130,73 @@ export default function Login() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10"
                   required
-                  disabled={isLoading || isLocked}
+                  disabled={isLoading}
                 />
-                {isCheckingAdmin && (
-                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
-                )}
               </div>
             </div>
 
-            {/* Admin - All 3 password fields */}
-            {isAdminLogin ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Lock className="w-4 h-4" />
-                    Authentication Passwords
-                  </Label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowPasswords(!showPasswords)}
-                    className="h-8 px-2"
-                  >
-                    {showPasswords ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    <span className="ml-1 text-xs">{showPasswords ? "Hide" : "Show"}</span>
-                  </Button>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="password1" className="text-sm">Password 1</Label>
-                    <Input
-                      id="password1"
-                      type={showPasswords ? "text" : "password"}
-                      placeholder="Enter password 1"
-                      value={password1}
-                      onChange={(e) => setPassword1(e.target.value)}
-                      required
-                      disabled={isLoading || isLocked}
-                      autoComplete="off"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="password2" className="text-sm">Password 2</Label>
-                    <Input
-                      id="password2"
-                      type={showPasswords ? "text" : "password"}
-                      placeholder="Enter password 2"
-                      value={password2}
-                      onChange={(e) => setPassword2(e.target.value)}
-                      required
-                      disabled={isLoading || isLocked}
-                      autoComplete="off"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="password3" className="text-sm">Password 3</Label>
-                    <Input
-                      id="password3"
-                      type={showPasswords ? "text" : "password"}
-                      placeholder="Enter password 3"
-                      value={password3}
-                      onChange={(e) => setPassword3(e.target.value)}
-                      required
-                      disabled={isLoading || isLocked}
-                      autoComplete="off"
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* Regular user - Single password field */
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 pr-10"
-                    required
-                    disabled={isLoading}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Only show remember me and forgot password for regular users */}
-            {!isAdminLogin && (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="remember"
-                    checked={rememberMe}
-                    onCheckedChange={(checked) =>
-                      setRememberMe(checked as boolean)
-                    }
-                  />
-                  <Label htmlFor="remember" className="text-sm cursor-pointer">
-                    Remember me
-                  </Label>
-                </div>
-                <Link
-                  to="/forgot-password"
-                  className="text-sm text-primary hover:underline"
+            {/* Password */}
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10 pr-10"
+                  required
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  Forgot password?
-                </Link>
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
               </div>
-            )}
+            </div>
+
+            {/* Remember me & Forgot password */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="remember"
+                  checked={rememberMe}
+                  onCheckedChange={(checked) =>
+                    setRememberMe(checked as boolean)
+                  }
+                />
+                <Label htmlFor="remember" className="text-sm cursor-pointer">
+                  Remember me
+                </Label>
+              </div>
+              <Link
+                to="/forgot-password"
+                className="text-sm text-primary hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
 
             <Button
               type="submit"
-              variant={isAdminLogin ? "default" : "hero"}
+              variant="hero"
               size="lg"
               className="w-full"
-              disabled={isLoading || isLocked}
+              disabled={isLoading}
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  {isAdminLogin ? "Authenticating..." : "Signing in..."}
-                </span>
-              ) : isAdminLogin ? (
-                <span className="flex items-center gap-2">
-                  <Shield className="w-5 h-5" />
-                  Access Admin Panel
+                  Signing in...
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
@@ -430,21 +207,12 @@ export default function Login() {
             </Button>
           </form>
 
-          {!isAdminLogin && (
-            <p className="mt-8 text-center text-sm text-muted-foreground">
-              Don't have an account?{" "}
-              <Link to="/signup" className="text-primary hover:underline font-medium">
-                Create account
-              </Link>
-            </p>
-          )}
-
-          {isAdminLogin && (
-            <p className="mt-8 text-center text-xs text-muted-foreground">
-              This area is restricted to authorized personnel only.
-              All access attempts are logged.
-            </p>
-          )}
+          <p className="mt-8 text-center text-sm text-muted-foreground">
+            Don't have an account?{" "}
+            <Link to="/signup" className="text-primary hover:underline font-medium">
+              Create account
+            </Link>
+          </p>
         </motion.div>
       </div>
 
@@ -463,20 +231,11 @@ export default function Login() {
           className="relative z-10 text-center"
         >
           <div className="w-64 h-64 rounded-3xl bg-card shadow-2xl flex items-center justify-center mx-auto mb-8 border border-border">
-            {isAdminLogin ? (
-              <Shield className="w-32 h-32 text-primary" />
-            ) : (
-              <QrCode className="w-32 h-32 text-primary" />
-            )}
+            <QrCode className="w-32 h-32 text-primary" />
           </div>
-          <h2 className="font-display text-2xl font-bold mb-2">
-            {isAdminLogin ? "Secure Admin Access" : "Scan. Track. Grow."}
-          </h2>
+          <h2 className="font-display text-2xl font-bold mb-2">Scan. Track. Grow.</h2>
           <p className="text-muted-foreground max-w-sm">
-            {isAdminLogin 
-              ? "Enter all three passwords to verify your identity. Failed attempts are logged and may result in account lockout."
-              : "Create powerful QR codes with advanced analytics to understand your audience."
-            }
+            Create powerful QR codes with advanced analytics to understand your audience.
           </p>
         </motion.div>
       </div>

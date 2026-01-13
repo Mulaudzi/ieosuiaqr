@@ -93,7 +93,7 @@ export default function AdminStats() {
     
     // Only redirect if session check is complete and explicitly invalid
     if (isValidSession === false || !adminToken) {
-      navigate("/login", { state: { adminRedirect: true }, replace: true });
+      navigate("/admin/login", { replace: true });
       return;
     }
     
@@ -110,7 +110,7 @@ export default function AdminStats() {
       const verifyRes = await fetch(`/api/admin/verify?admin_token=${adminToken}`);
       if (!verifyRes.ok) {
         clearAdminSession();
-        navigate("/login", { state: { adminRedirect: true }, replace: true });
+        navigate("/admin/login", { replace: true });
         return;
       }
 
