@@ -45,9 +45,9 @@ export function Header() {
           </Link>
 
           {/* Desktop Navigation */}
-          {isLandingPage && (
-            <div className="hidden lg:flex items-center gap-8">
-              {navLinks.map((link) => (
+          <div className="hidden lg:flex items-center gap-8">
+            {navLinks.map((link) => (
+              link.href.startsWith('/#') ? (
                 <a
                   key={link.name}
                   href={link.href}
@@ -55,9 +55,17 @@ export function Header() {
                 >
                   {link.name}
                 </a>
-              ))}
-            </div>
-          )}
+              ) : (
+                <Link
+                  key={link.name}
+                  to={link.href}
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {link.name}
+                </Link>
+              )
+            ))}
+          </div>
 
           {/* Auth Buttons / User Menu */}
           <div className="hidden lg:flex items-center gap-3">
@@ -104,8 +112,8 @@ export function Header() {
             className="lg:hidden bg-background border-b border-border"
           >
             <div className="container mx-auto px-4 py-4 space-y-4">
-              {isLandingPage &&
-                navLinks.map((link) => (
+              {navLinks.map((link) => (
+                link.href.startsWith('/#') ? (
                   <a
                     key={link.name}
                     href={link.href}
@@ -114,7 +122,17 @@ export function Header() {
                   >
                     {link.name}
                   </a>
-                ))}
+                ) : (
+                  <Link
+                    key={link.name}
+                    to={link.href}
+                    className="block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors py-2"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {link.name}
+                  </Link>
+                )
+              ))}
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
                 {isAuthenticated ? (
                   <>
