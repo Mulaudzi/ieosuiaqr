@@ -33,7 +33,10 @@ export function Footer() {
           {/* Brand Column */}
           <div className="col-span-2">
             <Link to="/" className="flex items-center gap-2 mb-4">
-              <img src={ieosuiaLogo} alt="IEOSUIA QR" className="h-10 w-auto" />
+              <div className="relative">
+                <img src={ieosuiaLogo} alt="IEOSUIA QR" className="h-10 w-auto" />
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/20 blur-xl -z-10" />
+              </div>
             </Link>
             <p className="text-sm text-muted-foreground mb-4 max-w-xs">
               Create, manage, and track QR codes with powerful analytics and inventory management. A complete digital solution from IEOSUIA.
