@@ -2,8 +2,11 @@
 
 namespace App\Controllers;
 
+use App\Config\Database;
 use App\Helpers\Response;
 use App\Helpers\Validator;
+use App\Middleware\RateLimit;
+use App\Services\CaptchaService;
 use App\Services\MailService;
 
 class ContactController
@@ -19,7 +22,13 @@ class ContactController
 
     public static function submit(): void
     {
+        // Rate limit: max 5 contact form submissions per 15 minutes per IP
+        RateLimit::check('contact_form', 5, 15);
+        
         $data = json_decode(file_get_contents('php://input'), true);
+
+        // Verify reCAPTCHA
+        CaptchaService::verify($data['captcha_token'] ?? null, 'contact');
 
         // Validate required fields
         $required = ['name', 'email', 'message'];
@@ -105,11 +114,36 @@ class ContactController
         </p>
         ";
 
+        // Get client info for logging
+        $ipAddress = self::getClientIp();
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+
         try {
+            // Log email attempt first
+            $logId = self::logEmail([
+                'recipient_email' => $targetEmail,
+                'cc_email' => self::$ccEmail,
+                'reply_to_email' => $email,
+                'subject' => $subject,
+                'body_preview' => substr(strip_tags($message), 0, 500),
+                'email_type' => 'contact',
+                'status' => 'pending',
+                'sender_name' => $name,
+                'sender_email' => $email,
+                'sender_company' => $company,
+                'inquiry_purpose' => $purposeLabel,
+                'origin_url' => $originUrl,
+                'ip_address' => $ipAddress,
+                'user_agent' => substr($userAgent, 0, 500),
+            ]);
+            
             // Send to primary recipient with CC
             $sent = MailService::sendWithCC($targetEmail, self::$ccEmail, $subject, $body, $email);
             
             if ($sent) {
+                // Update log status
+                self::updateEmailLogStatus($logId, 'sent');
+                
                 // Send auto-reply confirmation to user
                 self::sendConfirmationEmail($email, $name, $purposeLabel, $message);
                 
@@ -117,6 +151,9 @@ class ContactController
                 error_log("Contact form submission from: $email - $name - Purpose: $purpose - Routed to: $targetEmail");
                 Response::success(['message' => 'Message sent successfully']);
             } else {
+                // Update log status
+                self::updateEmailLogStatus($logId, 'failed', 'Failed to send via SMTP');
+                
                 // Log for manual follow-up even if email fails
                 error_log("Contact form (email failed): $name <$email> - Purpose: $purpose - Company: $company - Message: $message");
                 Response::success(['message' => 'Message received, we will contact you soon']);
@@ -126,6 +163,75 @@ class ContactController
             // Still return success to user, log for manual processing
             Response::success(['message' => 'Message received, we will contact you soon']);
         }
+    }
+
+    /**
+     * Log email to database
+     */
+    private static function logEmail(array $data): ?int
+    {
+        try {
+            $pdo = Database::getInstance();
+            $stmt = $pdo->prepare("
+                INSERT INTO email_logs 
+                (recipient_email, cc_email, reply_to_email, subject, body_preview, email_type, status, 
+                 sender_name, sender_email, sender_company, inquiry_purpose, origin_url, ip_address, user_agent)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $data['recipient_email'],
+                $data['cc_email'],
+                $data['reply_to_email'],
+                $data['subject'],
+                $data['body_preview'],
+                $data['email_type'],
+                $data['status'],
+                $data['sender_name'],
+                $data['sender_email'],
+                $data['sender_company'],
+                $data['inquiry_purpose'],
+                $data['origin_url'],
+                $data['ip_address'],
+                $data['user_agent'],
+            ]);
+            return (int)$pdo->lastInsertId();
+        } catch (\Exception $e) {
+            error_log("Failed to log email: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Update email log status
+     */
+    private static function updateEmailLogStatus(?int $logId, string $status, ?string $errorMessage = null): void
+    {
+        if (!$logId) return;
+        
+        try {
+            $pdo = Database::getInstance();
+            $stmt = $pdo->prepare("UPDATE email_logs SET status = ?, error_message = ? WHERE id = ?");
+            $stmt->execute([$status, $errorMessage, $logId]);
+        } catch (\Exception $e) {
+            error_log("Failed to update email log: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get client IP address
+     */
+    private static function getClientIp(): string
+    {
+        $headers = ['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'REMOTE_ADDR'];
+        
+        foreach ($headers as $header) {
+            if (!empty($_SERVER[$header])) {
+                $ips = explode(',', $_SERVER[$header]);
+                return trim($ips[0]);
+            }
+        }
+        
+        return '127.0.0.1';
     }
 
     /**
@@ -229,6 +335,24 @@ class ContactController
             </body>
             </html>
             ";
+
+            // Log auto-reply
+            self::logEmail([
+                'recipient_email' => $userEmail,
+                'cc_email' => null,
+                'reply_to_email' => null,
+                'subject' => $subject,
+                'body_preview' => 'Auto-reply confirmation for contact form submission',
+                'email_type' => 'notification',
+                'status' => 'sent',
+                'sender_name' => null,
+                'sender_email' => null,
+                'sender_company' => null,
+                'inquiry_purpose' => null,
+                'origin_url' => null,
+                'ip_address' => self::getClientIp(),
+                'user_agent' => null,
+            ]);
 
             MailService::send($userEmail, $subject, $confirmationBody);
             error_log("Confirmation email sent to: $userEmail");

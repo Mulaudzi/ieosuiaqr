@@ -15,6 +15,7 @@ import {
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { useToast } from "@/hooks/use-toast";
+import { useRecaptcha } from "@/hooks/useRecaptcha";
 import {
   Mail,
   Phone,
@@ -27,6 +28,7 @@ import {
   HelpCircle,
   Headphones,
   Briefcase,
+  Shield,
 } from "lucide-react";
 
 type InquiryPurpose = "general" | "support" | "sales";
@@ -66,6 +68,7 @@ export default function Contact() {
   const [purpose, setPurpose] = useState<InquiryPurpose>("general");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const { executeRecaptcha, isLoaded: recaptchaLoaded } = useRecaptcha();
 
   // Handle preselected purpose from URL parameter
   useEffect(() => {
@@ -99,6 +102,9 @@ export default function Contact() {
 
     setIsSubmitting(true);
     try {
+      // Get reCAPTCHA token
+      const captchaToken = await executeRecaptcha("contact");
+      
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -111,7 +117,8 @@ export default function Contact() {
           purposeLabel: purposeConfig[purpose].label,
           targetEmail: purposeConfig[purpose].email,
           originUrl: window.location.href,
-          source: "IEOSUIA QR - Contact Form" 
+          source: "IEOSUIA QR - Contact Form",
+          captcha_token: captchaToken,
         }),
       });
 
