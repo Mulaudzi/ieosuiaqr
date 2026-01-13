@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +60,8 @@ import {
   Send,
   CheckCheck,
   MailWarning,
+  BarChart3,
+  Settings,
 } from "lucide-react";
 
 interface EmailLog {
@@ -390,10 +392,24 @@ export default function AdminEmails() {
               <p className="text-xs text-muted-foreground">Contact Emails & Logs</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={handleLogout}>
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/admin/stats">
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Statistics
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/admin/settings">
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+          </div>
         </div>
       </header>
 

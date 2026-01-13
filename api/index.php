@@ -312,6 +312,17 @@ try {
     elseif ($uri === '/webhooks/email' && $method === 'POST') {
         AdminController::handleEmailWebhook();
     }
+    // Admin settings endpoints
+    elseif ($uri === '/admin/settings' && $method === 'GET') {
+        AdminController::getSettings();
+    }
+    elseif ($uri === '/admin/settings' && $method === 'POST') {
+        AdminController::updateSettings();
+    }
+    // Admin statistics endpoint
+    elseif ($uri === '/admin/stats' && $method === 'GET') {
+        AdminController::getEmailStats();
+    }
 
     // 404 Not Found
     else {
