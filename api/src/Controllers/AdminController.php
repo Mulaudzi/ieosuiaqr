@@ -12,6 +12,9 @@ class AdminController
     private static string $adminUsername = 'I Am God In Human Form';
     private static array $adminPasswords = ['billionaires', 'Mu1@udz!', '7211018830'];
     
+    // Admin email for notifications
+    private static string $adminNotificationEmail = 'admin@ieosuia.com';
+    
     /**
      * Validate admin login step
      * Step 1: Verify username and first password
@@ -103,7 +106,7 @@ class AdminController
     }
     
     /**
-     * Get email logs
+     * Get email logs with enhanced filtering
      */
     public static function getEmailLogs(): void
     {
@@ -120,6 +123,10 @@ class AdminController
         $status = $_GET['status'] ?? '';
         $type = $_GET['type'] ?? '';
         $search = $_GET['search'] ?? '';
+        $readFilter = $_GET['read'] ?? '';
+        $repliedFilter = $_GET['replied'] ?? '';
+        $archivedFilter = $_GET['archived'] ?? 'false';
+        $priority = $_GET['priority'] ?? '';
         
         $where = [];
         $params = [];
@@ -140,6 +147,33 @@ class AdminController
             $params = array_merge($params, [$searchTerm, $searchTerm, $searchTerm, $searchTerm]);
         }
         
+        // Read/unread filter
+        if ($readFilter === 'true') {
+            $where[] = "is_read = 1";
+        } elseif ($readFilter === 'false') {
+            $where[] = "is_read = 0";
+        }
+        
+        // Replied filter
+        if ($repliedFilter === 'true') {
+            $where[] = "is_replied = 1";
+        } elseif ($repliedFilter === 'false') {
+            $where[] = "is_replied = 0";
+        }
+        
+        // Archive filter (default to non-archived)
+        if ($archivedFilter === 'true') {
+            $where[] = "is_archived = 1";
+        } elseif ($archivedFilter !== 'all') {
+            $where[] = "(is_archived = 0 OR is_archived IS NULL)";
+        }
+        
+        // Priority filter
+        if ($priority && in_array($priority, ['low', 'normal', 'high', 'urgent'])) {
+            $where[] = "priority = ?";
+            $params[] = $priority;
+        }
+        
         $whereClause = count($where) > 0 ? "WHERE " . implode(" AND ", $where) : "";
         
         // Get total count
@@ -157,14 +191,17 @@ class AdminController
         $stmt->execute($params);
         $logs = $stmt->fetchAll();
         
-        // Get stats
+        // Get stats with enhanced metrics
         $statsSql = "SELECT 
             COUNT(*) as total,
             SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as sent,
             SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
             SUM(CASE WHEN status = 'bounced' THEN 1 ELSE 0 END) as bounced,
-            SUM(CASE WHEN email_type = 'contact' THEN 1 ELSE 0 END) as contact_forms
-            FROM email_logs";
+            SUM(CASE WHEN email_type = 'contact' THEN 1 ELSE 0 END) as contact_forms,
+            SUM(CASE WHEN is_read = 0 OR is_read IS NULL THEN 1 ELSE 0 END) as unread,
+            SUM(CASE WHEN is_replied = 0 OR is_replied IS NULL THEN 1 ELSE 0 END) as unreplied,
+            SUM(CASE WHEN email_type = 'contact' AND (is_read = 0 OR is_read IS NULL) THEN 1 ELSE 0 END) as unread_contacts
+            FROM email_logs WHERE (is_archived = 0 OR is_archived IS NULL)";
         $stmt = $pdo->query($statsSql);
         $stats = $stmt->fetch();
         
@@ -202,6 +239,307 @@ class AdminController
         }
         
         Response::success($log);
+    }
+    
+    /**
+     * Mark email as read/unread
+     */
+    public static function markEmailRead(): void
+    {
+        self::requireAdmin();
+        
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $id = (int)($data['id'] ?? 0);
+        $isRead = (bool)($data['is_read'] ?? true);
+        
+        if ($id <= 0) {
+            Response::error('Invalid email log ID', 400);
+        }
+        
+        $pdo = Database::getInstance();
+        
+        if ($isRead) {
+            $stmt = $pdo->prepare("UPDATE email_logs SET is_read = 1, read_at = NOW(), read_by = 'Admin' WHERE id = ?");
+        } else {
+            $stmt = $pdo->prepare("UPDATE email_logs SET is_read = 0, read_at = NULL, read_by = NULL WHERE id = ?");
+        }
+        $stmt->execute([$id]);
+        
+        Response::success(['message' => $isRead ? 'Marked as read' : 'Marked as unread']);
+    }
+    
+    /**
+     * Mark email as replied
+     */
+    public static function markEmailReplied(): void
+    {
+        self::requireAdmin();
+        
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $id = (int)($data['id'] ?? 0);
+        $isReplied = (bool)($data['is_replied'] ?? true);
+        $notes = $data['notes'] ?? null;
+        
+        if ($id <= 0) {
+            Response::error('Invalid email log ID', 400);
+        }
+        
+        $pdo = Database::getInstance();
+        
+        if ($isReplied) {
+            $stmt = $pdo->prepare("UPDATE email_logs SET is_replied = 1, replied_at = NOW(), replied_by = 'Admin', reply_notes = ? WHERE id = ?");
+            $stmt->execute([$notes, $id]);
+        } else {
+            $stmt = $pdo->prepare("UPDATE email_logs SET is_replied = 0, replied_at = NULL, replied_by = NULL, reply_notes = NULL WHERE id = ?");
+            $stmt->execute([$id]);
+        }
+        
+        Response::success(['message' => $isReplied ? 'Marked as replied' : 'Marked as not replied']);
+    }
+    
+    /**
+     * Set email priority
+     */
+    public static function setEmailPriority(): void
+    {
+        self::requireAdmin();
+        
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $id = (int)($data['id'] ?? 0);
+        $priority = $data['priority'] ?? 'normal';
+        
+        if ($id <= 0) {
+            Response::error('Invalid email log ID', 400);
+        }
+        
+        if (!in_array($priority, ['low', 'normal', 'high', 'urgent'])) {
+            Response::error('Invalid priority', 400);
+        }
+        
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("UPDATE email_logs SET priority = ? WHERE id = ?");
+        $stmt->execute([$priority, $id]);
+        
+        Response::success(['message' => 'Priority updated']);
+    }
+    
+    /**
+     * Archive/unarchive email
+     */
+    public static function archiveEmail(): void
+    {
+        self::requireAdmin();
+        
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $id = (int)($data['id'] ?? 0);
+        $isArchived = (bool)($data['is_archived'] ?? true);
+        
+        if ($id <= 0) {
+            Response::error('Invalid email log ID', 400);
+        }
+        
+        $pdo = Database::getInstance();
+        
+        if ($isArchived) {
+            $stmt = $pdo->prepare("UPDATE email_logs SET is_archived = 1, archived_at = NOW() WHERE id = ?");
+        } else {
+            $stmt = $pdo->prepare("UPDATE email_logs SET is_archived = 0, archived_at = NULL WHERE id = ?");
+        }
+        $stmt->execute([$id]);
+        
+        Response::success(['message' => $isArchived ? 'Email archived' : 'Email unarchived']);
+    }
+    
+    /**
+     * Bulk mark emails
+     */
+    public static function bulkMarkEmails(): void
+    {
+        self::requireAdmin();
+        
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $ids = $data['ids'] ?? [];
+        $action = $data['action'] ?? '';
+        
+        if (empty($ids) || !is_array($ids)) {
+            Response::error('No email IDs provided', 400);
+        }
+        
+        $pdo = Database::getInstance();
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        
+        switch ($action) {
+            case 'mark_read':
+                $stmt = $pdo->prepare("UPDATE email_logs SET is_read = 1, read_at = NOW(), read_by = 'Admin' WHERE id IN ($placeholders)");
+                break;
+            case 'mark_unread':
+                $stmt = $pdo->prepare("UPDATE email_logs SET is_read = 0, read_at = NULL, read_by = NULL WHERE id IN ($placeholders)");
+                break;
+            case 'archive':
+                $stmt = $pdo->prepare("UPDATE email_logs SET is_archived = 1, archived_at = NOW() WHERE id IN ($placeholders)");
+                break;
+            case 'unarchive':
+                $stmt = $pdo->prepare("UPDATE email_logs SET is_archived = 0, archived_at = NULL WHERE id IN ($placeholders)");
+                break;
+            default:
+                Response::error('Invalid action', 400);
+        }
+        
+        $stmt->execute($ids);
+        
+        Response::success(['message' => 'Bulk action completed', 'affected' => $stmt->rowCount()]);
+    }
+    
+    /**
+     * Handle email webhook for bounces and delivery status
+     */
+    public static function handleEmailWebhook(): void
+    {
+        // Get raw payload
+        $rawPayload = file_get_contents('php://input');
+        $data = json_decode($rawPayload, true) ?? [];
+        
+        // Determine webhook source and extract relevant data
+        $eventType = null;
+        $recipientEmail = null;
+        $bounceType = null;
+        $bounceSubtype = null;
+        $bounceMessage = null;
+        $source = 'unknown';
+        
+        // Check for various webhook formats (AWS SES, SendGrid, Mailgun, generic)
+        if (isset($data['eventType']) || isset($data['notificationType'])) {
+            // AWS SES format
+            $source = 'aws_ses';
+            $eventType = strtolower($data['eventType'] ?? $data['notificationType'] ?? '');
+            
+            if ($eventType === 'bounce' && isset($data['bounce'])) {
+                $recipientEmail = $data['bounce']['bouncedRecipients'][0]['emailAddress'] ?? null;
+                $bounceType = $data['bounce']['bounceType'] ?? null;
+                $bounceSubtype = $data['bounce']['bounceSubType'] ?? null;
+                $bounceMessage = $data['bounce']['bouncedRecipients'][0]['diagnosticCode'] ?? null;
+            } elseif ($eventType === 'complaint' && isset($data['complaint'])) {
+                $eventType = 'complained';
+                $recipientEmail = $data['complaint']['complainedRecipients'][0]['emailAddress'] ?? null;
+            } elseif ($eventType === 'delivery' && isset($data['delivery'])) {
+                $eventType = 'delivered';
+                $recipientEmail = $data['delivery']['recipients'][0] ?? null;
+            }
+        } elseif (isset($data['event'])) {
+            // SendGrid/Generic format
+            $source = 'sendgrid';
+            $eventType = strtolower($data['event']);
+            $recipientEmail = $data['email'] ?? null;
+            
+            if ($eventType === 'bounce') {
+                $bounceType = $data['type'] ?? null;
+                $bounceMessage = $data['reason'] ?? null;
+            }
+        } elseif (isset($data['event-data'])) {
+            // Mailgun format
+            $source = 'mailgun';
+            $eventData = $data['event-data'];
+            $eventType = strtolower($eventData['event'] ?? '');
+            $recipientEmail = $eventData['recipient'] ?? null;
+            
+            if ($eventType === 'failed') {
+                $eventType = 'bounced';
+                $bounceType = $eventData['severity'] ?? null;
+                $bounceMessage = $eventData['delivery-status']['message'] ?? null;
+            }
+        } else {
+            // Generic format - try to extract common fields
+            $source = 'generic';
+            $eventType = strtolower($data['type'] ?? $data['event'] ?? $data['event_type'] ?? 'unknown');
+            $recipientEmail = $data['email'] ?? $data['recipient'] ?? $data['to'] ?? null;
+            $bounceMessage = $data['message'] ?? $data['reason'] ?? $data['error'] ?? null;
+        }
+        
+        // Normalize event type
+        $normalizedEventType = match($eventType) {
+            'bounce', 'bounced', 'hard_bounce', 'soft_bounce' => 'bounced',
+            'complaint', 'complained', 'spam' => 'complained',
+            'delivered', 'delivery' => 'delivered',
+            'open', 'opened' => 'opened',
+            'click', 'clicked' => 'clicked',
+            'unsubscribe', 'unsubscribed' => 'unsubscribed',
+            default => null
+        };
+        
+        if (!$normalizedEventType || !$recipientEmail) {
+            Response::success(['message' => 'Webhook received but not processed']);
+            return;
+        }
+        
+        $pdo = Database::getInstance();
+        
+        // Find matching email log
+        $stmt = $pdo->prepare("SELECT id FROM email_logs WHERE recipient_email = ? ORDER BY created_at DESC LIMIT 1");
+        $stmt->execute([$recipientEmail]);
+        $emailLog = $stmt->fetch();
+        $emailLogId = $emailLog ? (int)$emailLog['id'] : null;
+        
+        // Log webhook event
+        $stmt = $pdo->prepare("
+            INSERT INTO email_webhooks 
+            (email_log_id, event_type, recipient_email, bounce_type, bounce_subtype, bounce_message, raw_payload, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([
+            $emailLogId,
+            $normalizedEventType,
+            $recipientEmail,
+            $bounceType,
+            $bounceSubtype,
+            $bounceMessage,
+            $rawPayload,
+            $source
+        ]);
+        
+        // Update email log status if bounce
+        if ($emailLogId && in_array($normalizedEventType, ['bounced', 'complained'])) {
+            $stmt = $pdo->prepare("UPDATE email_logs SET status = 'bounced', error_message = ? WHERE id = ?");
+            $stmt->execute([$bounceMessage ?? 'Email bounced', $emailLogId]);
+        }
+        
+        // Mark webhook as processed
+        $webhookId = $pdo->lastInsertId();
+        $stmt = $pdo->prepare("UPDATE email_webhooks SET processed = 1, processed_at = NOW() WHERE id = ?");
+        $stmt->execute([$webhookId]);
+        
+        error_log("Email webhook processed: $normalizedEventType for $recipientEmail");
+        
+        Response::success(['message' => 'Webhook processed', 'event' => $normalizedEventType]);
+    }
+    
+    /**
+     * Get webhook logs
+     */
+    public static function getWebhookLogs(): void
+    {
+        self::requireAdmin();
+        
+        $pdo = Database::getInstance();
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $limit = min(100, max(10, (int)($_GET['limit'] ?? 50)));
+        $offset = ($page - 1) * $limit;
+        
+        $stmt = $pdo->prepare("SELECT * FROM email_webhooks ORDER BY created_at DESC LIMIT ? OFFSET ?");
+        $stmt->execute([$limit, $offset]);
+        $logs = $stmt->fetchAll();
+        
+        $stmt = $pdo->query("SELECT COUNT(*) FROM email_webhooks");
+        $total = (int)$stmt->fetchColumn();
+        
+        Response::success([
+            'logs' => $logs,
+            'pagination' => [
+                'page' => $page,
+                'limit' => $limit,
+                'total' => $total,
+                'total_pages' => ceil($total / $limit)
+            ]
+        ]);
     }
     
     /**

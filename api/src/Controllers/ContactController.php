@@ -19,6 +19,9 @@ class ContactController
     ];
     
     private static string $ccEmail = 'info@ieosuia.com';
+    
+    // Admin notification email
+    private static string $adminNotificationEmail = 'admin@ieosuia.com';
 
     public static function submit(): void
     {
@@ -140,12 +143,15 @@ class ContactController
             // Send to primary recipient with CC
             $sent = MailService::sendWithCC($targetEmail, self::$ccEmail, $subject, $body, $email);
             
-            if ($sent) {
+        if ($sent) {
                 // Update log status
                 self::updateEmailLogStatus($logId, 'sent');
                 
                 // Send auto-reply confirmation to user
                 self::sendConfirmationEmail($email, $name, $purposeLabel, $message);
+                
+                // Send admin notification
+                self::sendAdminNotification($name, $email, $company, $purposeLabel, $message, $targetEmail);
                 
                 // Log the contact submission
                 error_log("Contact form submission from: $email - $name - Purpose: $purpose - Routed to: $targetEmail");
@@ -153,6 +159,9 @@ class ContactController
             } else {
                 // Update log status
                 self::updateEmailLogStatus($logId, 'failed', 'Failed to send via SMTP');
+                
+                // Still send admin notification for failed emails
+                self::sendAdminNotification($name, $email, $company, $purposeLabel, $message, $targetEmail, true);
                 
                 // Log for manual follow-up even if email fails
                 error_log("Contact form (email failed): $name <$email> - Purpose: $purpose - Company: $company - Message: $message");
@@ -360,6 +369,121 @@ class ContactController
         } catch (\Exception $e) {
             // Don't fail the main request if confirmation email fails
             error_log("Failed to send confirmation email to $userEmail: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Send admin notification for new contact form submission
+     */
+    private static function sendAdminNotification(
+        string $senderName, 
+        string $senderEmail, 
+        string $company, 
+        string $purposeLabel, 
+        string $message, 
+        string $routedTo,
+        bool $failed = false
+    ): void {
+        try {
+            $statusBadge = $failed 
+                ? '<span style="background: #ef4444; color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px;">⚠️ EMAIL FAILED</span>'
+                : '<span style="background: #10b981; color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px;">✓ Delivered</span>';
+            
+            $subject = ($failed ? "[URGENT] " : "") . "📬 New Contact Form: $purposeLabel from $senderName";
+            
+            $adminBody = "
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset='UTF-8'>
+                <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            </head>
+            <body style='margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif; background-color: #0a0a0a;'>
+                <table width='100%' cellpadding='0' cellspacing='0' style='background-color: #0a0a0a; padding: 40px 20px;'>
+                    <tr>
+                        <td align='center'>
+                            <table width='600' cellpadding='0' cellspacing='0' style='background-color: #141414; border-radius: 16px; overflow: hidden; border: 1px solid #262626;'>
+                                <!-- Header -->
+                                <tr>
+                                    <td style='background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 30px 40px; text-align: center;'>
+                                        <h1 style='color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;'>📬 New Contact Form Submission</h1>
+                                        <p style='color: rgba(255, 255, 255, 0.9); margin: 10px 0 0; font-size: 14px;'>" . date('M j, Y \a\t g:i A') . "</p>
+                                    </td>
+                                </tr>
+                                
+                                <!-- Status -->
+                                <tr>
+                                    <td style='padding: 20px 40px 0;'>
+                                        $statusBadge
+                                    </td>
+                                </tr>
+                                
+                                <!-- Body -->
+                                <tr>
+                                    <td style='padding: 30px 40px;'>
+                                        <!-- Contact Info Card -->
+                                        <div style='background-color: #1f1f1f; border-radius: 12px; padding: 24px; margin-bottom: 24px; border: 1px solid #333;'>
+                                            <h3 style='color: #ffffff; margin: 0 0 16px; font-size: 16px; font-weight: 600;'>Contact Details</h3>
+                                            <table style='width: 100%;'>
+                                                <tr>
+                                                    <td style='color: #71717a; font-size: 13px; padding: 6px 0;'>Name:</td>
+                                                    <td style='color: #ffffff; font-size: 14px; font-weight: 500;'>$senderName</td>
+                                                </tr>
+                                                <tr>
+                                                    <td style='color: #71717a; font-size: 13px; padding: 6px 0;'>Email:</td>
+                                                    <td style='color: #3b82f6; font-size: 14px;'><a href='mailto:$senderEmail' style='color: #3b82f6; text-decoration: none;'>$senderEmail</a></td>
+                                                </tr>
+                                                " . ($company ? "<tr>
+                                                    <td style='color: #71717a; font-size: 13px; padding: 6px 0;'>Company:</td>
+                                                    <td style='color: #ffffff; font-size: 14px;'>$company</td>
+                                                </tr>" : "") . "
+                                                <tr>
+                                                    <td style='color: #71717a; font-size: 13px; padding: 6px 0;'>Inquiry Type:</td>
+                                                    <td><span style='background: #3b82f6; color: white; padding: 3px 10px; border-radius: 4px; font-size: 12px;'>$purposeLabel</span></td>
+                                                </tr>
+                                                <tr>
+                                                    <td style='color: #71717a; font-size: 13px; padding: 6px 0;'>Routed To:</td>
+                                                    <td style='color: #a3a3a3; font-size: 14px;'>$routedTo</td>
+                                                </tr>
+                                            </table>
+                                        </div>
+                                        
+                                        <!-- Message Card -->
+                                        <div style='background-color: #1f1f1f; border-radius: 12px; padding: 24px; border: 1px solid #333;'>
+                                            <h3 style='color: #ffffff; margin: 0 0 16px; font-size: 16px; font-weight: 600;'>Message</h3>
+                                            <p style='color: #d4d4d4; font-size: 14px; line-height: 1.7; margin: 0; white-space: pre-wrap;'>" . nl2br(htmlspecialchars($message)) . "</p>
+                                        </div>
+                                        
+                                        <!-- Quick Actions -->
+                                        <div style='margin-top: 24px; text-align: center;'>
+                                            <a href='mailto:$senderEmail?subject=Re: $purposeLabel' style='display: inline-block; background: #3b82f6; color: white; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 14px; margin-right: 10px;'>Reply to $senderName</a>
+                                            <a href='" . ($_ENV['APP_URL'] ?? 'https://qr.ieosuia.com') . "/admin/emails' style='display: inline-block; background: #262626; color: white; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 14px; border: 1px solid #404040;'>View in Admin</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                
+                                <!-- Footer -->
+                                <tr>
+                                    <td style='background-color: #0a0a0a; padding: 20px 40px; border-top: 1px solid #262626; text-align: center;'>
+                                        <p style='color: #525252; font-size: 12px; margin: 0;'>
+                                            IEOSUIA QR Admin Notification System
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </body>
+            </html>
+            ";
+
+            MailService::send(self::$adminNotificationEmail, $subject, $adminBody);
+            error_log("Admin notification sent for contact form from: $senderEmail");
+            
+        } catch (\Exception $e) {
+            // Don't fail if admin notification fails
+            error_log("Failed to send admin notification: " . $e->getMessage());
         }
     }
 }
