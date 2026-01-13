@@ -109,7 +109,7 @@ export function InvoiceHistory() {
   const handleDownloadReceipt = async (invoice: Invoice) => {
     setDownloadingId(invoice.id);
     try {
-      const response = await billingApi.downloadReceipt(invoice.id);
+      const response = await billingApi.downloadInvoiceReceipt(invoice.id);
       if (response.success && response.data?.download_url) {
         // Open PDF in new tab for download
         window.open(response.data.download_url, "_blank");

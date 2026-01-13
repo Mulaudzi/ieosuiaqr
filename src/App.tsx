@@ -47,6 +47,8 @@ import AdminQA from "./pages/AdminQA";
 import AdminCreate from "./pages/AdminCreate";
 import AdminUsers from "./pages/AdminUsers";
 import AdminAuditLog from "./pages/AdminAuditLog";
+import AdminSubscriptions from "./pages/AdminSubscriptions";
+import Subscription from "./pages/Subscription";
 import QA from "./pages/QA";
 
 const queryClient = new QueryClient();
@@ -74,6 +76,7 @@ const App = () => (
             <Route path="/dashboard/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/dashboard/inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
             <Route path="/dashboard/inventory/analytics" element={<ProtectedRoute><InventoryAnalytics /></ProtectedRoute>} />
+            <Route path="/dashboard/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
             <Route path="/dashboard/qa" element={<ProtectedRoute><QA /></ProtectedRoute>} />
             <Route path="/scan/:id" element={<Scan />} />
             <Route path="/scan/:id/history" element={<ItemHistory />} />
@@ -98,6 +101,7 @@ const App = () => (
             <Route path="/admin/create" element={<AdminCreate />} />
             <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/admin/audit" element={<AdminAuditLog />} />
+            <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <CookieConsent />

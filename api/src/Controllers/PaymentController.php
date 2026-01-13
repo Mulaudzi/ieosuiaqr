@@ -850,4 +850,224 @@ class PaymentController
             'errors' => $errors
         ]);
     }
+
+    /**
+     * Download payment receipt PDF
+     */
+    public static function downloadReceipt(int $paymentId): void
+    {
+        $user = Auth::check();
+        $pdo = Database::getInstance();
+        
+        // Get payment details
+        $stmt = $pdo->prepare("
+            SELECT p.*, u.name as user_name, u.email as user_email
+            FROM payments p
+            JOIN users u ON p.user_id = u.id
+            WHERE p.id = ? AND p.user_id = ? AND p.status = 'succeeded'
+        ");
+        $stmt->execute([$paymentId, $user['id']]);
+        $payment = $stmt->fetch();
+        
+        if (!$payment) {
+            Response::error('Payment not found', 404);
+        }
+        
+        // Generate receipt HTML
+        $html = self::generateReceiptHtml($payment);
+        
+        // Generate PDF
+        $receiptPath = $_ENV['RECEIPTS_PATH'] ?? __DIR__ . '/../../receipts';
+        if (!is_dir($receiptPath)) {
+            mkdir($receiptPath, 0755, true);
+        }
+        
+        $filename = "receipt_{$payment['payment_id']}.pdf";
+        $filepath = "{$receiptPath}/{$filename}";
+        
+        // Check if PDF already exists
+        if (!file_exists($filepath)) {
+            try {
+                // Use simple HTML to PDF generation (jsPDF compatible HTML)
+                file_put_contents("{$receiptPath}/{$payment['payment_id']}.html", $html);
+                
+                // Store the HTML for now, frontend can convert to PDF
+                Response::success([
+                    'payment_id' => $payment['payment_id'],
+                    'receipt_html' => $html,
+                    'amount' => (float)$payment['amount_zar'],
+                    'date' => $payment['created_at'],
+                    'description' => $payment['description'],
+                    'user_name' => $payment['user_name'],
+                    'user_email' => $payment['user_email'],
+                    'status' => $payment['status']
+                ]);
+                return;
+            } catch (\Exception $e) {
+                error_log("Receipt generation error: " . $e->getMessage());
+                Response::error('Failed to generate receipt', 500);
+            }
+        }
+        
+        Response::success([
+            'download_url' => "/receipts/{$filename}",
+            'filename' => $filename
+        ]);
+    }
+
+    /**
+     * Generate receipt HTML
+     */
+    private static function generateReceiptHtml(array $payment): string
+    {
+        $appUrl = $_ENV['APP_URL'] ?? 'https://qr.ieosuia.com';
+        $date = date('F j, Y', strtotime($payment['created_at']));
+        $time = date('H:i', strtotime($payment['created_at']));
+        $amount = number_format($payment['amount_zar'], 2);
+        $paymentMethod = ucfirst($payment['payment_method'] ?? 'Card');
+        
+        return <<<HTML
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Receipt - {$payment['payment_id']}</title>
+    <style>
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 40px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 2px solid #14b8a6;
+            padding-bottom: 20px;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #14b8a6;
+        }
+        .logo span {
+            color: #0d9488;
+        }
+        .receipt-title {
+            color: #666;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .status-badge {
+            display: inline-block;
+            background-color: #dcfce7;
+            color: #166534;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+        .details {
+            margin-bottom: 30px;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .detail-label {
+            color: #666;
+        }
+        .detail-value {
+            font-weight: 600;
+        }
+        .amount-section {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        .amount-label {
+            color: #666;
+            font-size: 14px;
+        }
+        .amount-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #14b8a6;
+            margin: 10px 0;
+        }
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        .footer a {
+            color: #14b8a6;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">IEOSUIA <span>QR</span></div>
+        <div class="receipt-title">Payment Receipt</div>
+        <div class="status-badge">✓ PAYMENT SUCCESSFUL</div>
+    </div>
+
+    <div class="amount-section">
+        <div class="amount-label">Amount Paid</div>
+        <div class="amount-value">R {$amount}</div>
+        <div style="color: #666; font-size: 14px;">South African Rand</div>
+    </div>
+
+    <div class="details">
+        <div class="detail-row">
+            <span class="detail-label">Receipt Number</span>
+            <span class="detail-value">{$payment['payment_id']}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Date</span>
+            <span class="detail-value">{$date} at {$time}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Customer</span>
+            <span class="detail-value">{$payment['user_name']}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Email</span>
+            <span class="detail-value">{$payment['user_email']}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Description</span>
+            <span class="detail-value">{$payment['description']}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Payment Method</span>
+            <span class="detail-value">{$paymentMethod}</span>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Thank you for your purchase!</p>
+        <p>
+            IEOSUIA QR &bull; <a href="{$appUrl}">{$appUrl}</a><br>
+            Questions? Contact <a href="mailto:support@ieosuia.com">support@ieosuia.com</a>
+        </p>
+        <p style="margin-top: 20px; font-size: 11px; color: #999;">
+            This is an electronic receipt. No signature required.
+        </p>
+    </div>
+</body>
+</html>
+HTML;
+    }
 }

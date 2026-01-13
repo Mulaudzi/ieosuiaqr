@@ -1047,4 +1047,137 @@ class AdminController
             'by_purpose' => $byPurpose
         ]);
     }
+
+    /**
+     * Get subscription metrics for admin dashboard
+     */
+    public static function getSubscriptionMetrics(): void
+    {
+        self::requireAdmin();
+        
+        $pdo = Database::getInstance();
+        
+        // Get total and active subscribers
+        $stmt = $pdo->query("
+            SELECT 
+                COUNT(*) as total_subscribers,
+                SUM(CASE WHEN s.status = 'active' THEN 1 ELSE 0 END) as active_subscribers,
+                SUM(CASE WHEN s.status = 'canceled' AND s.updated_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as churned_this_month,
+                SUM(CASE WHEN s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as new_this_month
+            FROM subscriptions s
+        ");
+        $counts = $stmt->fetch();
+        
+        // Calculate MRR (Monthly Recurring Revenue)
+        $stmt = $pdo->query("
+            SELECT 
+                SUM(CASE 
+                    WHEN s.frequency = 'annual' THEN p.price_annual_zar / 12
+                    ELSE p.price_monthly_zar 
+                END) as mrr
+            FROM subscriptions s
+            JOIN plans p ON s.plan_id = p.id
+            WHERE s.status = 'active' AND p.name != 'Free'
+        ");
+        $mrrData = $stmt->fetch();
+        $mrr = (float)($mrrData['mrr'] ?? 0);
+        $arr = $mrr * 12;
+        
+        // Calculate churn rate
+        $activeCount = (int)($counts['active_subscribers'] ?? 0);
+        $churnedCount = (int)($counts['churned_this_month'] ?? 0);
+        $churnRate = $activeCount > 0 ? ($churnedCount / ($activeCount + $churnedCount)) * 100 : 0;
+        
+        // Calculate growth rate (comparing to previous month)
+        $stmt = $pdo->query("
+            SELECT 
+                COUNT(*) as last_month_subscribers
+            FROM subscriptions
+            WHERE status = 'active' 
+            AND created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)
+        ");
+        $lastMonthData = $stmt->fetch();
+        $lastMonthSubs = (int)($lastMonthData['last_month_subscribers'] ?? 0);
+        $growthRate = $lastMonthSubs > 0 ? (($activeCount - $lastMonthSubs) / $lastMonthSubs) * 100 : 0;
+        
+        // Plan breakdown
+        $stmt = $pdo->query("
+            SELECT 
+                p.name as plan,
+                COUNT(*) as count
+            FROM subscriptions s
+            JOIN plans p ON s.plan_id = p.id
+            WHERE s.status = 'active'
+            GROUP BY p.id, p.name
+            ORDER BY p.price_monthly_zar
+        ");
+        $planBreakdown = $stmt->fetchAll();
+        
+        $totalActive = $activeCount ?: 1;
+        foreach ($planBreakdown as &$item) {
+            $item['percentage'] = ($item['count'] / $totalActive) * 100;
+        }
+        
+        // MRR trend (last 6 months)
+        $mrrTrend = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $monthStart = date('Y-m-01', strtotime("-{$i} months"));
+            $monthEnd = date('Y-m-t', strtotime("-{$i} months"));
+            $monthLabel = date('M Y', strtotime("-{$i} months"));
+            
+            $stmt = $pdo->prepare("
+                SELECT 
+                    SUM(CASE 
+                        WHEN s.frequency = 'annual' THEN p.price_annual_zar / 12
+                        ELSE p.price_monthly_zar 
+                    END) as mrr
+                FROM subscriptions s
+                JOIN plans p ON s.plan_id = p.id
+                WHERE s.status = 'active' 
+                AND p.name != 'Free'
+                AND s.created_at <= ?
+                AND (s.updated_at > ? OR s.status = 'active')
+            ");
+            $stmt->execute([$monthEnd, $monthStart]);
+            $monthMrr = $stmt->fetch();
+            
+            $mrrTrend[] = [
+                'month' => $monthLabel,
+                'mrr' => (float)($monthMrr['mrr'] ?? 0)
+            ];
+        }
+        
+        // Recent subscriptions
+        $stmt = $pdo->query("
+            SELECT 
+                s.id,
+                u.name as user_name,
+                u.email as user_email,
+                p.name as plan,
+                s.status,
+                s.frequency,
+                s.renewal_date,
+                s.created_at
+            FROM subscriptions s
+            JOIN users u ON s.user_id = u.id
+            JOIN plans p ON s.plan_id = p.id
+            ORDER BY s.created_at DESC
+            LIMIT 20
+        ");
+        $recentSubs = $stmt->fetchAll();
+        
+        Response::success([
+            'total_subscribers' => (int)$counts['total_subscribers'],
+            'active_subscribers' => $activeCount,
+            'churned_this_month' => $churnedCount,
+            'new_this_month' => (int)$counts['new_this_month'],
+            'mrr' => round($mrr, 2),
+            'arr' => round($arr, 2),
+            'churn_rate' => round($churnRate, 2),
+            'growth_rate' => round($growthRate, 2),
+            'plan_breakdown' => $planBreakdown,
+            'mrr_trend' => $mrrTrend,
+            'recent_subscriptions' => $recentSubs
+        ]);
+    }
 }
