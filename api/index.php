@@ -63,6 +63,7 @@ use App\Controllers\BillingController;
 use App\Controllers\AnalyticsController;
 use App\Controllers\InventoryController;
 use App\Controllers\AdminController;
+use App\Controllers\QAController;
 
 // Handle CORS
 Cors::handle();
@@ -329,6 +330,22 @@ try {
     }
     elseif ($uri === '/admin/export/stats' && $method === 'GET') {
         AdminController::exportStatsReport();
+    }
+    // QA/Debug Console endpoints
+    elseif ($uri === '/admin/qa/dashboard' && $method === 'GET') {
+        QAController::getDashboard();
+    }
+    elseif ($uri === '/admin/qa/run' && $method === 'POST') {
+        QAController::runQA();
+    }
+    elseif ($uri === '/admin/qa/seed' && $method === 'POST') {
+        QAController::seedTestData();
+    }
+    elseif ($uri === '/admin/qa/cleanup' && $method === 'POST') {
+        QAController::cleanupTestData();
+    }
+    elseif ($uri === '/admin/qa/errors' && $method === 'POST') {
+        QAController::getErrorReport();
     }
 
     // 404 Not Found
