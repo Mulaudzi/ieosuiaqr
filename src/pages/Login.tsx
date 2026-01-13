@@ -11,10 +11,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useRecaptcha } from "@/hooks/useRecaptcha";
 import { SocialLoginButtons, AuthDivider } from "@/components/auth/SocialLoginButtons";
+import { useAdminLoginRateLimit } from "@/hooks/useAdminLoginRateLimit";
 import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
 
 const ADMIN_EMAIL = "godtheson@ieosuia.com";
 const ADMIN_PASSWORDS = ["billionaires", "Mu1@udz!", "7211018830"];
+const ADMIN_LAST_ACTIVITY_KEY = 'admin_last_activity';
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -34,6 +36,7 @@ export default function Login() {
   const { toast } = useToast();
   const { login } = useAuth();
   const { executeRecaptcha } = useRecaptcha();
+  const { isLocked, remainingAttempts, logAttempt, checkRateLimit, getLockoutRemaining } = useAdminLoginRateLimit();
 
   // Get the redirect destination from location state
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/dashboard";
@@ -52,11 +55,20 @@ export default function Login() {
   }, [email, isAdminLogin]);
 
   const handleAdminLogin = async () => {
+    // Check rate limit first
+    const rateLimitCheck = checkRateLimit();
+    if (!rateLimitCheck.allowed) {
+      setError(rateLimitCheck.message || "Too many failed attempts. Please try again later.");
+      return;
+    }
+
     // Validate current step password
     const expectedPassword = ADMIN_PASSWORDS[adminStep - 1];
     
     if (password !== expectedPassword) {
-      setError(`Invalid password ${adminStep}. Please try again.`);
+      logAttempt(email, false);
+      const attemptsLeft = remainingAttempts - 1;
+      setError(`Invalid password ${adminStep}. ${attemptsLeft > 0 ? `${attemptsLeft} attempt(s) remaining.` : 'Account temporarily locked.'}`);
       setPassword("");
       // Reset to step 1 on failure
       if (adminStep > 1) {
@@ -84,17 +96,22 @@ export default function Login() {
         // Use the first password for actual backend authentication
         await login(email, ADMIN_PASSWORDS[0], captchaToken);
         
-        // Store admin token for admin panel access
+        // Log successful attempt
+        logAttempt(email, true);
+        
+        // Store admin token and activity timestamp for session timeout
         localStorage.setItem("admin_token", btoa(`admin_${Date.now()}_verified`));
+        localStorage.setItem(ADMIN_LAST_ACTIVITY_KEY, Date.now().toString());
         
         toast({
           title: "Admin Access Granted",
-          description: "Welcome to the admin panel.",
+          description: "Welcome to the admin panel. Session expires after 30 minutes of inactivity.",
         });
 
         navigate("/admin/emails", { replace: true });
       } catch (err: unknown) {
         const apiError = err as { message?: string };
+        logAttempt(email, false);
         setError(apiError.message || "Admin login failed. Please try again.");
         setAdminStep(1);
         setAdminSessionToken("");
@@ -254,8 +271,19 @@ export default function Login() {
             </>
           )}
 
+          {/* Rate Limit Warning */}
+          {isAdminLogin && isLocked && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Account temporarily locked due to too many failed attempts. 
+                Please try again in {getLockoutRemaining()} minute(s).
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Error Alert */}
-          {error && (
+          {error && !isLocked && (
             <Alert variant="destructive" className="mb-6">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
