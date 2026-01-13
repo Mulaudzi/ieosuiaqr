@@ -166,7 +166,7 @@ export default function AdminEmails() {
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { isValidSession, isChecking, requireAdminSession, clearAdminSession } = useAdminSession();
+  const { isValidSession, isChecking, clearAdminSession } = useAdminSession();
 
   const adminToken = localStorage.getItem("admin_token");
 
@@ -174,26 +174,26 @@ export default function AdminEmails() {
     if (isChecking) return;
     
     if (!isValidSession || !adminToken) {
-      navigate("/login");
+      navigate("/login", { state: { adminRedirect: true }, replace: true });
       return;
     }
     verifyAndFetch();
-  }, [page, statusFilter, typeFilter, readFilter, repliedFilter, archivedFilter, isChecking, isValidSession]);
+  }, [page, statusFilter, typeFilter, readFilter, repliedFilter, archivedFilter, isChecking, isValidSession, adminToken]);
 
   const verifyAndFetch = async () => {
-    if (!requireAdminSession()) return;
+    if (!isValidSession || !adminToken) return;
     
     try {
       const verifyRes = await fetch(`/api/admin/verify?admin_token=${adminToken}`);
       if (!verifyRes.ok) {
         clearAdminSession();
-        navigate("/login");
+        navigate("/login", { state: { adminRedirect: true }, replace: true });
         return;
       }
       await fetchEmails();
       await fetchChartData();
     } catch {
-      navigate("/login");
+      navigate("/login", { state: { adminRedirect: true }, replace: true });
     }
   };
 

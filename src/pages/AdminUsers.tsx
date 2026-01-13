@@ -71,11 +71,11 @@ export default function AdminUsers() {
   
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { isValidSession, isChecking, requireAdminSession } = useAdminSession();
+  const { isValidSession, isChecking, clearAdminSession } = useAdminSession();
 
   useEffect(() => {
     if (!isChecking && !isValidSession) {
-      navigate("/login", { replace: true });
+      navigate("/login", { state: { adminRedirect: true }, replace: true });
     }
   }, [isChecking, isValidSession, navigate]);
 

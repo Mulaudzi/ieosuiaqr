@@ -90,7 +90,7 @@ export default function AdminAuditLog() {
 
   useEffect(() => {
     if (!isChecking && !isValidSession) {
-      navigate("/login", { replace: true });
+      navigate("/login", { state: { adminRedirect: true }, replace: true });
     }
   }, [isChecking, isValidSession, navigate]);
 
