@@ -8,11 +8,11 @@ import {
   ScanLog,
 } from "./types";
 
-// Analytics & Scan Tracking endpoints - ready for Laravel backend
+// Analytics & Scan Tracking endpoints
 export const analyticsApi = {
   /**
    * Get scan logs for a QR code (Pro/Enterprise only)
-   * GET /api/v1/qr/:id/scans
+   * GET /api/qr/:id/scans
    */
   getScans: async (
     qrId: string,
@@ -30,7 +30,7 @@ export const analyticsApi = {
 
   /**
    * Get analytics summary for user's QR codes
-   * GET /api/v1/analytics/summary
+   * GET /api/analytics/summary
    */
   getSummary: async (params?: {
     start_date?: string;
@@ -42,7 +42,7 @@ export const analyticsApi = {
 
   /**
    * Get top performing QR codes
-   * GET /api/v1/analytics/top-qr-codes
+   * GET /api/analytics/top-qr-codes
    */
   getTopQRCodes: async (params?: {
     limit?: number;
@@ -60,7 +60,7 @@ export const analyticsApi = {
 
   /**
    * Get device breakdown
-   * GET /api/v1/analytics/devices
+   * GET /api/analytics/devices
    */
   getDeviceBreakdown: async (params?: {
     start_date?: string;
@@ -78,7 +78,7 @@ export const analyticsApi = {
 
   /**
    * Get geographic distribution (Enterprise only)
-   * GET /api/v1/analytics/geo
+   * GET /api/analytics/geo
    */
   getGeoDistribution: async (params?: {
     start_date?: string;
@@ -97,7 +97,7 @@ export const analyticsApi = {
 
   /**
    * Get hourly distribution
-   * GET /api/v1/analytics/hourly
+   * GET /api/analytics/hourly
    */
   getHourlyDistribution: async (params?: {
     start_date?: string;
@@ -109,7 +109,7 @@ export const analyticsApi = {
 
   /**
    * Get daily trend
-   * GET /api/v1/analytics/daily
+   * GET /api/analytics/daily
    */
   getDailyTrend: async (params?: {
     start_date?: string;
@@ -121,7 +121,7 @@ export const analyticsApi = {
 
   /**
    * Export analytics report
-   * POST /api/v1/reports/export
+   * POST /api/reports/export
    */
   exportReport: async (data: ReportRequest): Promise<ApiResponse<ReportResponse>> => {
     return post("/reports/export", data);
@@ -129,7 +129,7 @@ export const analyticsApi = {
 
   /**
    * Log a scan (public endpoint - no auth required)
-   * POST /api/v1/scan/log
+   * POST /api/scan/log
    * Called when QR code is scanned
    */
   logScan: async (data: {

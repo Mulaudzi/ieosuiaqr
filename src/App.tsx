@@ -24,6 +24,8 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import CookiePolicy from "./pages/CookiePolicy";
 import Support from "./pages/Support";
 import Contact from "./pages/Contact";
+import BillingSuccess from "./pages/BillingSuccess";
+import BillingError from "./pages/BillingError";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +51,8 @@ const App = () => (
             <Route path="/dashboard/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
             <Route path="/dashboard/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/dashboard/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/billing/success" element={<ProtectedRoute><BillingSuccess /></ProtectedRoute>} />
+            <Route path="/billing/error" element={<BillingError />} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/cookies" element={<CookiePolicy />} />
