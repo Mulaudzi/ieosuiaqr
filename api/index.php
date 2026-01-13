@@ -344,6 +344,9 @@ try {
     elseif ($uri === '/admin/qa/cleanup' && $method === 'POST') {
         QAController::cleanupTestData();
     }
+    elseif ($uri === '/admin/qa/status' && $method === 'GET') {
+        QAController::getSeedingStatus();
+    }
     elseif ($uri === '/admin/qa/errors' && $method === 'POST') {
         QAController::getErrorReport();
     }

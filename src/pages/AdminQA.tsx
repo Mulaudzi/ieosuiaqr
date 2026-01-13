@@ -62,6 +62,7 @@ import {
   CreditCard,
   Server,
   ArrowLeft,
+  Eye,
 } from "lucide-react";
 
 // Types
@@ -142,16 +143,24 @@ const systemConfig = {
 export default function AdminQA() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRunning, setIsRunning] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [isCleaning, setIsCleaning] = useState(false);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [results, setResults] = useState<TestResults | null>(null);
   const [selectedSystem, setSelectedSystem] = useState("all");
   const [userMode, setUserMode] = useState("admin");
   const [includeSeeding, setIncludeSeeding] = useState(false);
+  const [seedCount, setSeedCount] = useState(5);
   const [expandedSystems, setExpandedSystems] = useState<string[]>([]);
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showSeedingDialog, setShowSeedingDialog] = useState(false);
+  const [showCleanupDialog, setShowCleanupDialog] = useState(false);
   const [exportFormat, setExportFormat] = useState("text");
   const [exportContent, setExportContent] = useState("");
+  const [seedingResult, setSeedingResult] = useState<any>(null);
+  const [cleanupResult, setCleanupResult] = useState<any>(null);
+  const [seedingStatus, setSeedingStatus] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("dashboard");
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -190,6 +199,8 @@ export default function AdminQA() {
         const data = await response.json();
         setDashboard(data.data);
       }
+      // Also fetch seeding status
+      await fetchSeedingStatus();
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to load dashboard" });
     } finally {
@@ -242,7 +253,8 @@ export default function AdminQA() {
     }
   };
 
-  const seedTestData = async () => {
+  const seedTestData = async (count: number = 5) => {
+    setIsSeeding(true);
     try {
       const response = await fetch("/api/admin/qa/seed", {
         method: "POST",
@@ -250,31 +262,63 @@ export default function AdminQA() {
           "Content-Type": "application/json",
           Authorization: `Admin ${adminToken}`,
         },
-        body: JSON.stringify({ system: selectedSystem }),
+        body: JSON.stringify({ system: selectedSystem, count }),
       });
 
       if (!response.ok) throw new Error("Seeding failed");
 
       const data = await response.json();
-      toast({ title: "Test Data Seeded", description: JSON.stringify(data.data.seeded) });
+      setSeedingResult(data.data);
+      setShowSeedingDialog(true);
+      await fetchSeedingStatus();
+      toast({ title: "Test Data Seeded", description: `Created ${Object.keys(data.data.seeded?.records || {}).length} system records` });
     } catch {
       toast({ variant: "destructive", title: "Seeding Failed" });
+    } finally {
+      setIsSeeding(false);
     }
   };
 
-  const cleanupTestData = async () => {
+  const cleanupTestData = async (dryRun: boolean = false) => {
+    setIsCleaning(true);
     try {
       const response = await fetch("/api/admin/qa/cleanup", {
         method: "POST",
-        headers: { Authorization: `Admin ${adminToken}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Admin ${adminToken}`,
+        },
+        body: JSON.stringify({ system: selectedSystem, dry_run: dryRun }),
       });
 
       if (!response.ok) throw new Error("Cleanup failed");
 
       const data = await response.json();
-      toast({ title: "Cleanup Complete", description: JSON.stringify(data.data.cleaned) });
+      setCleanupResult(data.data);
+      setShowCleanupDialog(true);
+      if (!dryRun) await fetchSeedingStatus();
+      toast({ 
+        title: dryRun ? "Dry Run Complete" : "Cleanup Complete", 
+        description: `${data.data.cleaned?.totals?.deleted || 0} records deleted` 
+      });
     } catch {
       toast({ variant: "destructive", title: "Cleanup Failed" });
+    } finally {
+      setIsCleaning(false);
+    }
+  };
+
+  const fetchSeedingStatus = async () => {
+    try {
+      const response = await fetch("/api/admin/qa/status", {
+        headers: { Authorization: `Admin ${adminToken}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSeedingStatus(data.data);
+      }
+    } catch {
+      // Silent fail
     }
   };
 
@@ -480,14 +524,33 @@ export default function AdminQA() {
             </div>
 
             {/* Additional Actions */}
-            <div className="flex gap-2 mt-4 pt-4 border-t">
-              <Button variant="outline" size="sm" onClick={seedTestData}>
-                <Plus className="h-4 w-4 mr-2" />
+            <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => seedTestData(seedCount)}
+                disabled={isSeeding}
+              >
+                {isSeeding ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
                 Seed Test Data
               </Button>
-              <Button variant="outline" size="sm" onClick={cleanupTestData}>
-                <Trash2 className="h-4 w-4 mr-2" />
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => cleanupTestData(false)}
+                disabled={isCleaning}
+              >
+                {isCleaning ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
                 Cleanup Test Data
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => cleanupTestData(true)}
+                disabled={isCleaning}
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Dry Run
               </Button>
               <Button 
                 variant="outline" 
@@ -872,6 +935,120 @@ export default function AdminQA() {
             <Button onClick={downloadReport}>
               <Download className="h-4 w-4 mr-2" />
               Download
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Seeding Result Dialog */}
+      <Dialog open={showSeedingDialog} onOpenChange={setShowSeedingDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-success" />
+              Test Data Seeded
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[400px]">
+            {seedingResult && (
+              <div className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  System: <Badge>{seedingResult.seeded?.system || 'all'}</Badge>
+                  <span className="ml-4">Timestamp: {seedingResult.seeded?.timestamp}</span>
+                </div>
+                
+                {Object.entries(seedingResult.seeded?.records || {}).map(([system, data]: [string, any]) => (
+                  <Card key={system}>
+                    <CardHeader className="py-3">
+                      <CardTitle className="text-sm capitalize">{system}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="py-2">
+                      <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">
+                        {JSON.stringify(data, null, 2)}
+                      </pre>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSeedingDialog(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cleanup Result Dialog */}
+      <Dialog open={showCleanupDialog} onOpenChange={setShowCleanupDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-warning" />
+              {cleanupResult?.cleaned?.dry_run ? 'Cleanup Dry Run' : 'Cleanup Complete'}
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[400px]">
+            {cleanupResult && (
+              <div className="space-y-4">
+                <div className="flex gap-4 text-sm">
+                  <Badge variant={cleanupResult.cleaned?.dry_run ? "outline" : "default"}>
+                    {cleanupResult.cleaned?.dry_run ? 'Dry Run' : 'Executed'}
+                  </Badge>
+                  <span>System: {cleanupResult.cleaned?.system}</span>
+                </div>
+                
+                {cleanupResult.cleaned?.totals && (
+                  <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold">{cleanupResult.cleaned.totals.found}</p>
+                      <p className="text-sm text-muted-foreground">Records Found</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-destructive">{cleanupResult.cleaned.totals.deleted}</p>
+                      <p className="text-sm text-muted-foreground">Records Deleted</p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="space-y-2">
+                  {Object.entries(cleanupResult.cleaned?.records || {}).map(([table, data]: [string, any]) => (
+                    <div key={table} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                      <span className="font-mono text-sm">{table}</span>
+                      <div className="flex gap-2">
+                        {data.found !== undefined && (
+                          <Badge variant="outline">Found: {data.found}</Badge>
+                        )}
+                        {data.deleted !== undefined && (
+                          <Badge variant={data.deleted > 0 ? "destructive" : "outline"}>
+                            Deleted: {data.deleted}
+                          </Badge>
+                        )}
+                        {data.skipped && (
+                          <Badge variant="secondary">Skipped</Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </ScrollArea>
+          <DialogFooter>
+            {cleanupResult?.cleaned?.dry_run && (
+              <Button 
+                variant="destructive" 
+                onClick={() => {
+                  setShowCleanupDialog(false);
+                  cleanupTestData(false);
+                }}
+              >
+                Execute Cleanup
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setShowCleanupDialog(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
