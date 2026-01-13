@@ -3,6 +3,46 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
+import { AuthProvider } from "@/contexts/AuthContext";
+import Index from "./pages/Index";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import Dashboard from "./pages/Dashboard";
+import CreateQRCode from "./pages/CreateQRCode";
+import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
+import Analytics from "./pages/Analytics";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import VerifyEmail from "./pages/VerifyEmail";
+import VerificationRequired from "./pages/VerificationRequired";
+import GoogleCallback from "./pages/GoogleCallback";
+import NotFound from "./pages/NotFound";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+import CookiePolicy from "./pages/CookiePolicy";
+import Contact from "./pages/Contact";
+import Support from "./pages/Support";
+import Documentation from "./pages/Documentation";
+import BillingSuccess from "./pages/BillingSuccess";
+import BillingError from "./pages/BillingError";
+import Scan from "./pages/Scan";
+import ItemHistory from "./pages/ItemHistory";
+import Inventory from "./pages/Inventory";
+import InventoryAnalytics from "./pages/InventoryAnalytics";
+import Careers from "./pages/Careers";
+import Solutions from "./pages/Solutions";
+import SolutionDetail from "./pages/SolutionDetail";
+import AdminLogin from "./pages/AdminLogin";
+import AdminEmails from "./pages/AdminEmails";
+import AdminSettings from "./pages/AdminSettings";
+import AdminStats from "./pages/AdminStats";
+import AdminQA from "./pages/AdminQA";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute, PublicRoute } from "@/components/auth/ProtectedRoute";
 import { CookieConsent } from "@/components/CookieConsent";
@@ -83,6 +123,7 @@ const App = () => (
             <Route path="/admin/emails" element={<AdminEmails />} />
             <Route path="/admin/settings" element={<AdminSettings />} />
             <Route path="/admin/stats" element={<AdminStats />} />
+            <Route path="/admin/qa" element={<AdminQA />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <CookieConsent />
