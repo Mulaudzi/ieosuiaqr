@@ -68,7 +68,7 @@ const colorClasses = {
 
 export function UseCasesSection() {
   return (
-    <section id="use-cases" className="py-24 lg:py-32 relative bg-muted/30">
+    <section id="solutions" className="py-24 lg:py-32 relative bg-muted/30">
       <div className="container mx-auto px-4">
         {/* Header */}
         <motion.div
@@ -79,7 +79,7 @@ export function UseCasesSection() {
           className="text-center mb-16"
         >
           <span className="inline-block px-4 py-1.5 rounded-full bg-success/10 text-success text-sm font-medium mb-4">
-            Use Cases
+            Solutions
           </span>
           <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
             Built for{" "}

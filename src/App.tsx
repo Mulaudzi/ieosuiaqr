@@ -33,6 +33,7 @@ import Support from "./pages/Support";
 import Contact from "./pages/Contact";
 import Documentation from "./pages/Documentation";
 import Careers from "./pages/Careers";
+import Solutions from "./pages/Solutions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -71,6 +72,7 @@ const App = () => (
             <Route path="/contact" element={<Contact />} />
             <Route path="/docs" element={<Documentation />} />
             <Route path="/careers" element={<Careers />} />
+            <Route path="/solutions" element={<Solutions />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <CookieConsent />
