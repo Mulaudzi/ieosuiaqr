@@ -288,4 +288,151 @@ class InventoryController
             'can_edit' => $limits['can_edit'],
         ]);
     }
+
+    /**
+     * Public endpoint: Get inventory item by QR code ID
+     * Also logs the scan
+     */
+    public static function getByQrCode(int $qrId): void
+    {
+        $pdo = Database::getInstance();
+        $location = $_GET['location'] ?? null;
+
+        // Find item linked to this QR
+        $stmt = $pdo->prepare("
+            SELECT i.*, q.content as qr_content, u.id as owner_id
+            FROM inventory_items i
+            LEFT JOIN qr_codes q ON i.qr_id = q.id
+            LEFT JOIN users u ON i.user_id = u.id
+            WHERE i.qr_id = ?
+        ");
+        $stmt->execute([$qrId]);
+        $item = $stmt->fetch();
+
+        if (!$item) {
+            Response::success(['item' => null, 'is_owner' => false]);
+            return;
+        }
+
+        // Update last scan date
+        $updates = ["last_scan_date = NOW()"];
+        $params = [];
+
+        if ($location) {
+            $updates[] = "location = ?";
+            $params[] = $location;
+        }
+
+        $params[] = $item['id'];
+        $stmt = $pdo->prepare("UPDATE inventory_items SET " . implode(', ', $updates) . " WHERE id = ?");
+        $stmt->execute($params);
+
+        // Check if current user is owner
+        $isOwner = false;
+        try {
+            $user = Auth::getUser();
+            if ($user && $user['id'] == $item['owner_id']) {
+                $isOwner = true;
+            }
+            // Check shared access for Enterprise
+            if ($user && !empty($item['shared_access'])) {
+                $sharedAccess = json_decode($item['shared_access'], true) ?? [];
+                if (in_array($user['id'], $sharedAccess)) {
+                    $isOwner = true;
+                }
+            }
+        } catch (\Exception $e) {
+            // Not logged in - that's fine
+        }
+
+        // Remove owner_id from response
+        unset($item['owner_id']);
+
+        // Refresh item data
+        $stmt = $pdo->prepare("SELECT * FROM inventory_items WHERE id = ?");
+        $stmt->execute([$item['id']]);
+        $updatedItem = $stmt->fetch();
+
+        Response::success(['item' => $updatedItem, 'is_owner' => $isOwner]);
+    }
+
+    /**
+     * Public endpoint: Update item status (owner or shared access only)
+     */
+    public static function updateStatusByQrCode(int $qrId): void
+    {
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $pdo = Database::getInstance();
+
+        // Find item
+        $stmt = $pdo->prepare("
+            SELECT i.*, i.user_id as owner_id
+            FROM inventory_items i
+            WHERE i.qr_id = ?
+        ");
+        $stmt->execute([$qrId]);
+        $item = $stmt->fetch();
+
+        if (!$item) {
+            Response::error('Item not found', 404);
+        }
+
+        // Check authorization
+        $user = Auth::check(); // Requires auth
+        $limits = self::$planLimits[$user['plan']] ?? self::$planLimits['Free'];
+        
+        if (!$limits['can_edit']) {
+            Response::error('Upgrade to Pro to update item status.', 403);
+        }
+
+        $canUpdate = false;
+        if ($user['id'] == $item['owner_id']) {
+            $canUpdate = true;
+        }
+        // Check shared access for Enterprise
+        if (!empty($item['shared_access'])) {
+            $sharedAccess = json_decode($item['shared_access'], true) ?? [];
+            if (in_array($user['id'], $sharedAccess)) {
+                $canUpdate = true;
+            }
+        }
+
+        if (!$canUpdate) {
+            Response::error('You do not have permission to update this item', 403);
+        }
+
+        // Validate status
+        $allowedStatuses = ['in_stock', 'out', 'maintenance', 'checked_out'];
+        if (!empty($data['status']) && !in_array($data['status'], $allowedStatuses)) {
+            Response::error('Invalid status', 400);
+        }
+
+        // Update item
+        $updates = ["updated_at = NOW()"];
+        $params = [];
+
+        if (!empty($data['status'])) {
+            $updates[] = "status = ?";
+            $params[] = $data['status'];
+        }
+        if (isset($data['location'])) {
+            $updates[] = "location = ?";
+            $params[] = $data['location'];
+        }
+
+        if (count($updates) === 1) {
+            Response::error('No valid fields to update', 400);
+        }
+
+        $params[] = $item['id'];
+        $stmt = $pdo->prepare("UPDATE inventory_items SET " . implode(', ', $updates) . " WHERE id = ?");
+        $stmt->execute($params);
+
+        // Return updated item
+        $stmt = $pdo->prepare("SELECT * FROM inventory_items WHERE id = ?");
+        $stmt->execute([$item['id']]);
+        $updatedItem = $stmt->fetch();
+
+        Response::success($updatedItem, 'Item updated successfully');
+    }
 }

@@ -20,6 +20,7 @@ import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import Inventory from "./pages/Inventory";
+import Scan from "./pages/Scan";
 import BillingSuccess from "./pages/BillingSuccess";
 import BillingError from "./pages/BillingError";
 import TermsOfService from "./pages/TermsOfService";
@@ -53,6 +54,7 @@ const App = () => (
             <Route path="/dashboard/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/dashboard/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/dashboard/inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
+            <Route path="/scan/:id" element={<Scan />} />
             <Route path="/billing/success" element={<ProtectedRoute><BillingSuccess /></ProtectedRoute>} />
             <Route path="/billing/error" element={<BillingError />} />
             <Route path="/terms" element={<TermsOfService />} />

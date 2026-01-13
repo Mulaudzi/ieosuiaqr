@@ -97,4 +97,20 @@ export const inventoryApi = {
   getLimits: async (): Promise<ApiResponse<{ max_items: number; current_count: number; can_edit: boolean }>> => {
     return get("/inventory/limits");
   },
+
+  /**
+   * Get inventory item by QR code ID (public endpoint)
+   * GET /api/inventory/qr/:qrId
+   */
+  getByQrCode: async (qrId: string, location?: string): Promise<ApiResponse<{ item: InventoryItem | null; is_owner: boolean }>> => {
+    return get(`/inventory/qr/${qrId}`, { location });
+  },
+
+  /**
+   * Public endpoint to update item status (authorized users only)
+   * POST /api/inventory/qr/:qrId/status
+   */
+  publicUpdateStatus: async (qrId: string, data: { status: InventoryStatus; location?: string }): Promise<ApiResponse<InventoryItem>> => {
+    return post(`/inventory/qr/${qrId}/status`, data);
+  },
 };
