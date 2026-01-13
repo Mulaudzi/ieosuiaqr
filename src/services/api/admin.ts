@@ -1,4 +1,4 @@
-import { ApiResponse } from "./types";
+import { ApiResponse, PaginatedResponse } from "./types";
 
 export interface AdminUser {
   id: number;
@@ -10,6 +10,30 @@ export interface AdminUser {
   locked_until: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface AuditLog {
+  id: number;
+  admin_id: number | null;
+  admin_email: string | null;
+  action: string;
+  category: string;
+  target_type: string | null;
+  target_id: number | null;
+  target_name: string | null;
+  details: Record<string, unknown> | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  status: 'success' | 'failure' | 'warning';
+  created_at: string;
+}
+
+export interface AuditStats {
+  by_category: Array<{ category: string; count: number }>;
+  by_status: Array<{ status: string; count: number }>;
+  recent_failures: AuditLog[];
+  activity_by_day: Array<{ date: string; count: number }>;
+  top_admins: Array<{ admin_email: string; count: number }>;
 }
 
 export interface AdminLoginStep1Response {
@@ -205,5 +229,60 @@ export const adminApi = {
       body: JSON.stringify(data)
     });
     return handleResponse(response);
+  },
+
+  // ===== Audit Log Methods =====
+
+  /**
+   * Get audit logs with pagination and filtering
+   */
+  getAuditLogs: async (params?: {
+    page?: number;
+    per_page?: number;
+    category?: string;
+    action?: string;
+    admin_id?: number;
+    status?: string;
+    from_date?: string;
+    to_date?: string;
+  }): Promise<PaginatedResponse<AuditLog>> => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          searchParams.append(key, String(value));
+        }
+      });
+    }
+    const response = await fetch(`${getBaseUrl()}/admin/audit?${searchParams}`, {
+      headers: getAuthHeaders()
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      throw { status: response.status, message: result.message || "Request failed" };
+    }
+    return result as PaginatedResponse<AuditLog>;
+  },
+
+  /**
+   * Get audit statistics
+   */
+  getAuditStats: async (): Promise<ApiResponse<AuditStats>> => {
+    const response = await fetch(`${getBaseUrl()}/admin/audit/stats`, {
+      headers: getAuthHeaders()
+    });
+    return handleResponse(response);
+  },
+
+  /**
+   * Get audit export URL
+   */
+  getAuditExportUrl: (fromDate?: string, toDate?: string): string => {
+    const adminToken = localStorage.getItem("admin_token");
+    const params = new URLSearchParams();
+    if (fromDate) params.append("from_date", fromDate);
+    if (toDate) params.append("to_date", toDate);
+    params.append("token", adminToken || "");
+    return `${getBaseUrl()}/admin/audit/export?${params}`;
   }
 };

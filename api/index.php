@@ -149,6 +149,16 @@ try {
     elseif (preg_match('#^/admin/users/(\d+)$#', $uri, $matches) && $method === 'DELETE') {
         AdminAuthController::deleteAdmin((int)$matches[1]);
     }
+    // Admin Audit Logs
+    elseif ($uri === '/admin/audit' && $method === 'GET') {
+        AdminAuthController::getAuditLogs();
+    }
+    elseif ($uri === '/admin/audit/stats' && $method === 'GET') {
+        AdminAuthController::getAuditStats();
+    }
+    elseif ($uri === '/admin/audit/export' && $method === 'GET') {
+        AdminAuthController::exportAuditLogs();
+    }
 
     // User profile (auth required)
     elseif ($uri === '/user/profile' && $method === 'GET') {
