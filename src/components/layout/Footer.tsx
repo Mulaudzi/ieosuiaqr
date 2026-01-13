@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { QrCode, Youtube, Linkedin, MessageCircle, MapPin, Mail, Phone } from "lucide-react";
+import { Youtube, MessageCircle, Instagram, Facebook } from "lucide-react";
+import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
 
 const footerLinks = {
   product: [
@@ -15,7 +16,6 @@ const footerLinks = {
   resources: [
     { name: "Documentation", href: "/docs" },
     { name: "Support", href: "/support" },
-    { name: "Tutorials", href: "https://www.youtube.com/@JohannesMilke", external: true },
   ],
   legal: [
     { name: "Privacy Policy", href: "/privacy" },
@@ -33,38 +33,11 @@ export function Footer() {
           {/* Brand Column */}
           <div className="col-span-2">
             <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                <QrCode className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <div className="flex flex-col">
-                <span className="font-display text-xl font-bold">
-                  <span className="gradient-text">IEOSUIA</span>
-                  <span className="text-foreground"> QR</span>
-                </span>
-                <span className="text-[10px] text-muted-foreground -mt-1">Your Story, Beautifully Told</span>
-              </div>
+              <img src={ieosuiaLogo} alt="IEOSUIA QR" className="h-10 w-auto" />
             </Link>
             <p className="text-sm text-muted-foreground mb-4 max-w-xs">
               Create, manage, and track QR codes with powerful analytics and inventory management. A complete digital solution from IEOSUIA.
             </p>
-            
-            {/* Contact Info */}
-            <div className="space-y-2 mb-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Mail className="w-4 h-4" />
-                <a href="mailto:hello@ieosuia.com" className="hover:text-foreground transition-colors">
-                  hello@ieosuia.com
-                </a>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone className="w-4 h-4" />
-                <span>079 928 2775 / 063 154 0696</span>
-              </div>
-              <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                <MapPin className="w-4 h-4 mt-0.5" />
-                <span>26 Rock Alder, Extension 15,<br />Naturena, Johannesburg, 2095</span>
-              </div>
-            </div>
 
             <div className="flex items-center gap-4">
               <a
@@ -77,7 +50,7 @@ export function Footer() {
                 <MessageCircle className="w-4 h-4" />
               </a>
               <a
-                href="https://www.youtube.com/@JohannesMilke"
+                href="https://www.youtube.com/@iaborza"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
@@ -86,13 +59,22 @@ export function Footer() {
                 <Youtube className="w-4 h-4" />
               </a>
               <a
-                href="https://linkedin.com/in/JohannesMilke"
+                href="https://www.instagram.com/ieosuia"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
-                title="LinkedIn"
+                title="Instagram"
               >
-                <Linkedin className="w-4 h-4" />
+                <Instagram className="w-4 h-4" />
+              </a>
+              <a
+                href="https://www.facebook.com/ieosuia"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
+                title="Facebook"
+              >
+                <Facebook className="w-4 h-4" />
               </a>
             </div>
           </div>
@@ -188,7 +170,7 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="mt-12 pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} IEOSUIA QR Codes. All rights reserved.
+            © {new Date().getFullYear()} IEOSUIA QR. All rights reserved.
           </p>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Made with</span>

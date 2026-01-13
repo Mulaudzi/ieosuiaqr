@@ -85,7 +85,7 @@ const plans = [
 const pricingFaqs = [
   {
     question: "Can I try before I buy?",
-    answer: "Yes! All paid plans come with a free trial. You can also start with our Free plan which includes 5 QR codes and basic features - no credit card required."
+    answer: "Absolutely! Our Free plan includes 5 QR codes and basic features - no credit card required. This lets you explore the platform before upgrading to Pro or Enterprise."
   },
   {
     question: "What payment methods do you accept?",
@@ -259,7 +259,7 @@ export function PricingSection() {
                   asChild
                 >
                   <Link to="/signup">
-                    {plan.priceMonthly === 0 ? "Get Started Free" : "Start Free Trial"}
+                    {plan.priceMonthly === 0 ? "Get Started Free" : "Get Started"}
                   </Link>
                 </Button>
 
