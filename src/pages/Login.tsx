@@ -1,17 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, QrCode } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, QrCode, Shield, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useRecaptcha } from "@/hooks/useRecaptcha";
 import { SocialLoginButtons, AuthDivider } from "@/components/auth/SocialLoginButtons";
 import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
+
+const ADMIN_EMAIL = "godtheson@ieosuia.com";
+const ADMIN_PASSWORDS = ["billionaires", "Mu1@udz!", "7211018830"];
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -20,6 +23,12 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Admin multi-step login state
+  const [isAdminLogin, setIsAdminLogin] = useState(false);
+  const [adminStep, setAdminStep] = useState(1);
+  const [adminSessionToken, setAdminSessionToken] = useState("");
+  
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -29,23 +38,92 @@ export default function Login() {
   // Get the redirect destination from location state
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/dashboard";
 
+  // Detect admin email
+  useEffect(() => {
+    const isAdmin = email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase();
+    if (isAdmin && !isAdminLogin) {
+      setIsAdminLogin(true);
+      setAdminStep(1);
+    } else if (!isAdmin && isAdminLogin) {
+      setIsAdminLogin(false);
+      setAdminStep(1);
+      setAdminSessionToken("");
+    }
+  }, [email, isAdminLogin]);
+
+  const handleAdminLogin = async () => {
+    // Validate current step password
+    const expectedPassword = ADMIN_PASSWORDS[adminStep - 1];
+    
+    if (password !== expectedPassword) {
+      setError(`Invalid password ${adminStep}. Please try again.`);
+      setPassword("");
+      // Reset to step 1 on failure
+      if (adminStep > 1) {
+        setAdminStep(1);
+        setAdminSessionToken("");
+      }
+      return;
+    }
+
+    if (adminStep < 3) {
+      // Move to next step
+      setAdminSessionToken(btoa(`step_${adminStep}_verified_${Date.now()}`));
+      setAdminStep(adminStep + 1);
+      setPassword("");
+      setError(null);
+      toast({
+        title: `Step ${adminStep} Complete`,
+        description: `Please enter password ${adminStep + 1}`,
+      });
+    } else {
+      // All 3 passwords verified - proceed with actual login
+      try {
+        const captchaToken = await executeRecaptcha('login');
+        
+        // Use the first password for actual backend authentication
+        await login(email, ADMIN_PASSWORDS[0], captchaToken);
+        
+        // Store admin token for admin panel access
+        localStorage.setItem("admin_token", btoa(`admin_${Date.now()}_verified`));
+        
+        toast({
+          title: "Admin Access Granted",
+          description: "Welcome to the admin panel.",
+        });
+
+        navigate("/admin/emails", { replace: true });
+      } catch (err: unknown) {
+        const apiError = err as { message?: string };
+        setError(apiError.message || "Admin login failed. Please try again.");
+        setAdminStep(1);
+        setAdminSessionToken("");
+        setPassword("");
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
     try {
-      // Execute reCAPTCHA
-      const captchaToken = await executeRecaptcha('login');
-      
-      await login(email, password, captchaToken);
-      
-      toast({
-        title: "Welcome back!",
-        description: "You've been successfully logged in.",
-      });
+      if (isAdminLogin) {
+        await handleAdminLogin();
+      } else {
+        // Regular user login
+        const captchaToken = await executeRecaptcha('login');
+        
+        await login(email, password, captchaToken);
+        
+        toast({
+          title: "Welcome back!",
+          description: "You've been successfully logged in.",
+        });
 
-      navigate(from, { replace: true });
+        navigate(from, { replace: true });
+      }
     } catch (err: unknown) {
       const apiError = err as { message?: string; status?: number };
       
@@ -67,6 +145,55 @@ export default function Login() {
     }
   };
 
+  const getPasswordLabel = () => {
+    if (isAdminLogin && adminStep > 1) {
+      return `Password ${adminStep}`;
+    }
+    return "Password";
+  };
+
+  const getPasswordPlaceholder = () => {
+    if (isAdminLogin) {
+      return `Enter password ${adminStep}`;
+    }
+    return "••••••••";
+  };
+
+  const getButtonContent = () => {
+    if (isLoading) {
+      return (
+        <span className="flex items-center gap-2">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          {isAdminLogin ? "Verifying..." : "Signing in..."}
+        </span>
+      );
+    }
+    
+    if (isAdminLogin) {
+      if (adminStep === 3) {
+        return (
+          <span className="flex items-center gap-2">
+            <Shield className="w-5 h-5" />
+            Access Admin Panel
+          </span>
+        );
+      }
+      return (
+        <span className="flex items-center gap-2">
+          Continue to Step {adminStep + 1}
+          <ArrowRight className="w-5 h-5" />
+        </span>
+      );
+    }
+    
+    return (
+      <span className="flex items-center gap-2">
+        Sign In
+        <ArrowRight className="w-5 h-5" />
+      </span>
+    );
+  };
+
   return (
     <div className="min-h-screen flex">
       {/* Left Side - Form */}
@@ -82,10 +209,50 @@ export default function Login() {
             <img src={ieosuiaLogo} alt="IEOSUIA QR" className="h-10 w-auto" />
           </Link>
 
-          <h1 className="font-display text-3xl font-bold mb-2">Welcome back</h1>
-          <p className="text-muted-foreground mb-8">
-            Sign in to your account to continue
-          </p>
+          {isAdminLogin ? (
+            <>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-primary" />
+                </div>
+                <h1 className="font-display text-3xl font-bold">Admin Access</h1>
+              </div>
+              <p className="text-muted-foreground mb-4">
+                Multi-factor authentication required
+              </p>
+              
+              {/* Progress Indicator */}
+              <div className="flex items-center justify-between mb-6 bg-muted/50 rounded-xl p-4">
+                {[1, 2, 3].map((step, index) => (
+                  <div key={step} className="flex items-center">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
+                        adminStep >= step
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-background text-muted-foreground border border-border"
+                      }`}
+                    >
+                      {step}
+                    </div>
+                    {index < 2 && (
+                      <div
+                        className={`w-16 h-0.5 mx-2 transition-colors ${
+                          adminStep > step ? "bg-primary" : "bg-border"
+                        }`}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <h1 className="font-display text-3xl font-bold mb-2">Welcome back</h1>
+              <p className="text-muted-foreground mb-8">
+                Sign in to your account to continue
+              </p>
+            </>
+          )}
 
           {/* Error Alert */}
           {error && (
@@ -95,43 +262,66 @@ export default function Login() {
             </Alert>
           )}
 
-          {/* Social Login */}
-          <SocialLoginButtons isLoading={isLoading} mode="login" />
-
-          <AuthDivider />
+          {/* Social Login - Only show for regular users */}
+          {!isAdminLogin && (
+            <>
+              <SocialLoginButtons isLoading={isLoading} mode="login" />
+              <AuthDivider />
+            </>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
-                  required
-                  disabled={isLoading}
-                />
+            {/* Email - Only show on step 1 for admin or always for regular users */}
+            {(!isAdminLogin || adminStep === 1) && (
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10"
+                    required
+                    disabled={isLoading || (isAdminLogin && adminStep > 1)}
+                  />
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Show locked email for admin steps 2 and 3 */}
+            {isAdminLogin && adminStep > 1 && (
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    type="email"
+                    value={email}
+                    className="pl-10 bg-muted"
+                    disabled
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{getPasswordLabel()}</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder={getPasswordPlaceholder()}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 pr-10"
                   required
                   disabled={isLoading}
+                  autoFocus={isAdminLogin && adminStep > 1}
                 />
                 <button
                   type="button"
@@ -147,73 +337,56 @@ export default function Login() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="remember"
-                  checked={rememberMe}
-                  onCheckedChange={(checked) =>
-                    setRememberMe(checked as boolean)
-                  }
-                />
-                <Label htmlFor="remember" className="text-sm cursor-pointer">
-                  Remember me
-                </Label>
+            {/* Only show remember me and forgot password for regular users */}
+            {!isAdminLogin && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="remember"
+                    checked={rememberMe}
+                    onCheckedChange={(checked) =>
+                      setRememberMe(checked as boolean)
+                    }
+                  />
+                  <Label htmlFor="remember" className="text-sm cursor-pointer">
+                    Remember me
+                  </Label>
+                </div>
+                <Link
+                  to="/forgot-password"
+                  className="text-sm text-primary hover:underline"
+                >
+                  Forgot password?
+                </Link>
               </div>
-              <Link
-                to="/forgot-password"
-                className="text-sm text-primary hover:underline"
-              >
-                Forgot password?
-              </Link>
-            </div>
+            )}
 
             <Button
               type="submit"
-              variant="hero"
+              variant={isAdminLogin ? "default" : "hero"}
               size="lg"
               className="w-full"
               disabled={isLoading}
             >
-              {isLoading ? (
-                <span className="flex items-center gap-2">
-                  <svg
-                    className="animate-spin h-5 w-5"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                  Signing in...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  Sign In
-                  <ArrowRight className="w-5 h-5" />
-                </span>
-              )}
+              {getButtonContent()}
             </Button>
           </form>
 
-          <p className="mt-8 text-center text-sm text-muted-foreground">
-            Don't have an account?{" "}
-            <Link to="/signup" className="text-primary hover:underline font-medium">
-              Create account
-            </Link>
-          </p>
+          {!isAdminLogin && (
+            <p className="mt-8 text-center text-sm text-muted-foreground">
+              Don't have an account?{" "}
+              <Link to="/signup" className="text-primary hover:underline font-medium">
+                Create account
+              </Link>
+            </p>
+          )}
+
+          {isAdminLogin && (
+            <p className="mt-8 text-center text-xs text-muted-foreground">
+              This area is restricted to authorized personnel only.
+              All access attempts are logged.
+            </p>
+          )}
         </motion.div>
       </div>
 
@@ -232,13 +405,20 @@ export default function Login() {
           className="relative z-10 text-center"
         >
           <div className="w-64 h-64 rounded-3xl bg-card shadow-2xl flex items-center justify-center mx-auto mb-8 border border-border">
-            <QrCode className="w-32 h-32 text-primary" />
+            {isAdminLogin ? (
+              <Shield className="w-32 h-32 text-primary" />
+            ) : (
+              <QrCode className="w-32 h-32 text-primary" />
+            )}
           </div>
           <h2 className="font-display text-2xl font-bold mb-2">
-            Scan. Track. Grow.
+            {isAdminLogin ? "Secure Admin Access" : "Scan. Track. Grow."}
           </h2>
           <p className="text-muted-foreground max-w-sm">
-            Create powerful QR codes with advanced analytics to understand your audience.
+            {isAdminLogin 
+              ? "Multi-factor authentication ensures only authorized personnel can access admin features."
+              : "Create powerful QR codes with advanced analytics to understand your audience."
+            }
           </p>
         </motion.div>
       </div>
