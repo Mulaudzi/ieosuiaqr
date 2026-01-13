@@ -180,6 +180,30 @@ export const billingApi = {
   } | null>> => {
     return get("/billing/upcoming");
   },
+
+  /**
+   * Get payment retry status
+   * GET /api/billing/retry-status
+   */
+  getRetryStatus: async () => {
+    const response = await get<{
+      has_retry: boolean;
+      subscription_status?: string;
+      plan?: string;
+      message?: string;
+      retry?: {
+        status: string;
+        retry_count: number;
+        max_retries: number;
+        next_retry_at: string | null;
+        grace_period_ends_at: string | null;
+        days_remaining: number | null;
+        failure_reason: string | null;
+        amount: number;
+      };
+    }>("/billing/retry-status");
+    return response;
+  },
 };
 
 // PayFast specific helpers

@@ -1070,4 +1070,139 @@ class PaymentController
 </html>
 HTML;
     }
+
+    /**
+     * Process pending payment retries (cron endpoint)
+     */
+    public static function processPaymentRetries(): void
+    {
+        // Validate cron API key
+        $cronKey = $_ENV['CRON_API_KEY'] ?? '';
+        $providedKey = $_GET['key'] ?? $_SERVER['HTTP_X_CRON_KEY'] ?? '';
+        
+        if (empty($cronKey) || $providedKey !== $cronKey) {
+            Response::error('Unauthorized', 401);
+        }
+        
+        try {
+            $results = \App\Services\PaymentRetryService::processPendingRetries();
+            
+            Response::success([
+                'message' => 'Payment retries processed',
+                'results' => $results
+            ]);
+        } catch (\Exception $e) {
+            error_log("Process retries error: " . $e->getMessage());
+            Response::error('Failed to process retries', 500);
+        }
+    }
+
+    /**
+     * Process expired grace periods (cron endpoint)
+     */
+    public static function processExpiredGracePeriods(): void
+    {
+        // Validate cron API key
+        $cronKey = $_ENV['CRON_API_KEY'] ?? '';
+        $providedKey = $_GET['key'] ?? $_SERVER['HTTP_X_CRON_KEY'] ?? '';
+        
+        if (empty($cronKey) || $providedKey !== $cronKey) {
+            Response::error('Unauthorized', 401);
+        }
+        
+        try {
+            $results = \App\Services\PaymentRetryService::processExpiredGracePeriods();
+            
+            Response::success([
+                'message' => 'Grace periods processed',
+                'results' => $results
+            ]);
+        } catch (\Exception $e) {
+            error_log("Process grace periods error: " . $e->getMessage());
+            Response::error('Failed to process grace periods', 500);
+        }
+    }
+
+    /**
+     * Get current retry status for user's subscription
+     */
+    public static function getRetryStatus(): void
+    {
+        $user = Auth::check();
+        $pdo = Database::getInstance();
+        
+        try {
+            // Get user's active subscription
+            $stmt = $pdo->prepare("
+                SELECT s.id, s.status, s.grace_period_ends_at, s.failed_payment_count,
+                       p.name as plan_name
+                FROM subscriptions s
+                JOIN plans p ON s.plan_id = p.id
+                WHERE s.user_id = ? AND s.status IN ('active', 'past_due')
+                ORDER BY s.created_at DESC
+                LIMIT 1
+            ");
+            $stmt->execute([$user['id']]);
+            $subscription = $stmt->fetch();
+            
+            if (!$subscription) {
+                Response::success([
+                    'has_retry' => false,
+                    'message' => 'No active subscription'
+                ]);
+                return;
+            }
+            
+            // Check for active retries
+            $retryStatus = \App\Services\PaymentRetryService::getRetryStatus($subscription['id']);
+            
+            if (!$retryStatus) {
+                Response::success([
+                    'has_retry' => false,
+                    'subscription_status' => $subscription['status'],
+                    'plan' => $subscription['plan_name']
+                ]);
+                return;
+            }
+            
+            // Calculate days remaining in grace period
+            $daysRemaining = null;
+            if ($retryStatus['grace_period_ends_at']) {
+                $gracePeriodEnds = strtotime($retryStatus['grace_period_ends_at']);
+                $daysRemaining = max(0, ceil(($gracePeriodEnds - time()) / 86400));
+            }
+            
+            Response::success([
+                'has_retry' => true,
+                'subscription_status' => $subscription['status'],
+                'plan' => $subscription['plan_name'],
+                'retry' => [
+                    'status' => $retryStatus['status'],
+                    'retry_count' => (int)$retryStatus['retry_count'],
+                    'max_retries' => (int)$retryStatus['max_retries'],
+                    'next_retry_at' => $retryStatus['next_retry_at'],
+                    'grace_period_ends_at' => $retryStatus['grace_period_ends_at'],
+                    'days_remaining' => $daysRemaining,
+                    'failure_reason' => $retryStatus['failure_reason'],
+                    'amount' => (float)$retryStatus['amount_zar']
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            error_log("Get retry status error: " . $e->getMessage());
+            Response::error('Failed to get retry status', 500);
+        }
+    }
+
+    /**
+     * Handle failed payment and create retry
+     */
+    public static function handleFailedPayment(int $userId, int $subscriptionId, float $amount, string $paymentId, string $reason): void
+    {
+        try {
+            \App\Services\PaymentRetryService::createRetry($userId, $subscriptionId, $amount, $paymentId, $reason);
+        } catch (\Exception $e) {
+            error_log("Handle failed payment error: " . $e->getMessage());
+        }
+    }
 }
