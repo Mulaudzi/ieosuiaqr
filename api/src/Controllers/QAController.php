@@ -679,7 +679,7 @@ class QAController
     }
 
     /**
-     * Seed test data
+     * Seed test data - comprehensive seeding for all systems
      */
     public static function seedTestData(): void
     {
@@ -687,51 +687,185 @@ class QAController
         
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
         $system = $data['system'] ?? 'all';
+        $count = min(100, max(1, (int)($data['count'] ?? 5))); // Number of records to seed
         
         $pdo = Database::getInstance();
-        $seeded = [];
+        $seeded = [
+            'timestamp' => date('Y-m-d H:i:s'),
+            'system' => $system,
+            'records' => [],
+        ];
         
         try {
             $pdo->beginTransaction();
             
-            // Shared system seeding
-            if ($system === 'all' || $system === 'shared') {
-                // Create test user
-                $testEmail = 'QA_TEST_' . time() . '@test.local';
+            $testUserId = null;
+            $testUserEmail = null;
+            
+            // Always seed a test user first if seeding any system
+            if ($system === 'all' || in_array($system, ['shared', 'qr', 'invoicing', 'sms'])) {
+                $testUserEmail = 'QA_TEST_' . time() . '_' . bin2hex(random_bytes(4)) . '@test.local';
                 $stmt = $pdo->prepare("
-                    INSERT INTO users (email, password, name, plan, email_verified_at)
-                    VALUES (?, ?, ?, 'Pro', NOW())
+                    INSERT INTO users (email, password, name, plan, email_verified_at, created_at)
+                    VALUES (?, ?, ?, 'Pro', NOW(), NOW())
                 ");
-                $stmt->execute([$testEmail, password_hash('test123', PASSWORD_DEFAULT), 'QA Test User']);
+                $stmt->execute([
+                    $testUserEmail, 
+                    password_hash('TestPass123!', PASSWORD_DEFAULT), 
+                    'QA Test User ' . date('His')
+                ]);
                 $testUserId = $pdo->lastInsertId();
-                $seeded['shared'] = ['user_id' => $testUserId, 'email' => $testEmail];
+                $seeded['records']['user'] = [
+                    'id' => $testUserId,
+                    'email' => $testUserEmail,
+                    'password' => 'TestPass123!',
+                ];
             }
             
-            // QR system seeding
-            if (($system === 'all' || $system === 'qr') && isset($testUserId)) {
-                $stmt = $pdo->prepare("
-                    INSERT INTO qr_codes (user_id, type, name, content, is_active)
-                    VALUES (?, 'url', 'QR_TEST_url', ?, 1)
-                ");
-                $stmt->execute([$testUserId, json_encode(['url' => 'https://test.local'])]);
-                $seeded['qr'] = ['qr_id' => $pdo->lastInsertId()];
+            // Shared system seeding - Additional users with different plans
+            if ($system === 'all' || $system === 'shared') {
+                $plans = ['Free', 'Pro', 'Enterprise'];
+                $additionalUsers = [];
+                
+                for ($i = 0; $i < min($count, 3); $i++) {
+                    $email = 'QA_TEST_' . $plans[$i] . '_' . time() . '@test.local';
+                    $stmt = $pdo->prepare("
+                        INSERT INTO users (email, password, name, plan, email_verified_at, created_at)
+                        VALUES (?, ?, ?, ?, NOW(), NOW())
+                    ");
+                    $stmt->execute([
+                        $email,
+                        password_hash('TestPass123!', PASSWORD_DEFAULT),
+                        "QA {$plans[$i]} User",
+                        $plans[$i]
+                    ]);
+                    $additionalUsers[] = [
+                        'id' => $pdo->lastInsertId(),
+                        'email' => $email,
+                        'plan' => $plans[$i],
+                    ];
+                }
+                
+                $seeded['records']['shared'] = [
+                    'additional_users' => $additionalUsers,
+                    'count' => count($additionalUsers),
+                ];
             }
             
-            // Invoicing seeding
-            if (($system === 'all' || $system === 'invoicing') && isset($testUserId)) {
-                $invoiceNum = 'INV_TEST_' . time();
-                $stmt = $pdo->prepare("
-                    INSERT INTO invoices (user_id, invoice_number, amount_zar, status, invoice_date)
-                    VALUES (?, ?, 179.00, 'paid', CURDATE())
-                ");
-                $stmt->execute([$testUserId, $invoiceNum]);
-                $seeded['invoicing'] = ['invoice_id' => $pdo->lastInsertId(), 'invoice_number' => $invoiceNum];
+            // QR system seeding - Multiple QR types
+            if (($system === 'all' || $system === 'qr') && $testUserId) {
+                $qrTypes = ['url', 'text', 'email', 'phone', 'wifi', 'vcard'];
+                $qrRecords = [];
+                
+                foreach ($qrTypes as $idx => $type) {
+                    if ($idx >= $count) break;
+                    
+                    $content = self::generateQRContent($type);
+                    $stmt = $pdo->prepare("
+                        INSERT INTO qr_codes (user_id, type, name, content, is_active, total_scans, created_at)
+                        VALUES (?, ?, ?, ?, 1, ?, NOW())
+                    ");
+                    $stmt->execute([
+                        $testUserId, 
+                        $type, 
+                        "QR_TEST_{$type}_" . time(),
+                        json_encode($content),
+                        rand(0, 100)
+                    ]);
+                    $qrId = $pdo->lastInsertId();
+                    $qrRecords[] = ['id' => $qrId, 'type' => $type];
+                    
+                    // Add scan logs for each QR
+                    $scanCount = rand(1, 10);
+                    for ($s = 0; $s < $scanCount; $s++) {
+                        $stmt = $pdo->prepare("
+                            INSERT INTO scan_logs (qr_id, ip_hash, location, device, timestamp)
+                            VALUES (?, ?, ?, ?, DATE_SUB(NOW(), INTERVAL ? DAY))
+                        ");
+                        $stmt->execute([
+                            $qrId,
+                            md5('QA_TEST_IP_' . $s),
+                            json_encode(['city' => 'Test City', 'country' => 'ZA']),
+                            json_encode(['platform' => 'Test', 'is_mobile' => rand(0, 1)]),
+                            rand(0, 30)
+                        ]);
+                    }
+                }
+                
+                $seeded['records']['qr'] = [
+                    'qr_codes' => $qrRecords,
+                    'count' => count($qrRecords),
+                    'scan_logs_created' => true,
+                ];
+            }
+            
+            // Invoicing system seeding
+            if (($system === 'all' || $system === 'invoicing') && $testUserId) {
+                $invoiceRecords = [];
+                $statuses = ['paid', 'pending', 'failed'];
+                
+                for ($i = 0; $i < $count; $i++) {
+                    $invoiceNum = 'INV_TEST_' . time() . '_' . str_pad($i, 3, '0', STR_PAD_LEFT);
+                    $status = $statuses[array_rand($statuses)];
+                    $amount = rand(1, 5) * 179.00;
+                    
+                    $stmt = $pdo->prepare("
+                        INSERT INTO invoices (user_id, invoice_number, amount_zar, status, description, invoice_date, paid_at, created_at)
+                        VALUES (?, ?, ?, ?, ?, DATE_SUB(CURDATE(), INTERVAL ? DAY), ?, NOW())
+                    ");
+                    $paidAt = $status === 'paid' ? date('Y-m-d H:i:s', strtotime("-" . rand(0, 30) . " days")) : null;
+                    $stmt->execute([
+                        $testUserId,
+                        $invoiceNum,
+                        $amount,
+                        $status,
+                        'QA Test Invoice - ' . ucfirst($status),
+                        rand(0, 60),
+                        $paidAt
+                    ]);
+                    $invoiceRecords[] = [
+                        'id' => $pdo->lastInsertId(),
+                        'number' => $invoiceNum,
+                        'status' => $status,
+                        'amount' => $amount,
+                    ];
+                }
+                
+                // Seed email logs for invoicing
+                foreach ($invoiceRecords as $inv) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO email_logs (recipient_email, subject, email_type, status, created_at)
+                        VALUES (?, ?, 'notification', 'sent', NOW())
+                    ");
+                    $stmt->execute([
+                        $testUserEmail,
+                        'QA_TEST Invoice ' . $inv['number']
+                    ]);
+                }
+                
+                $seeded['records']['invoicing'] = [
+                    'invoices' => $invoiceRecords,
+                    'count' => count($invoiceRecords),
+                    'email_logs_created' => true,
+                ];
+            }
+            
+            // SMS system seeding
+            if ($system === 'all' || $system === 'sms') {
+                $smsSeeded = self::seedSMSData($pdo, $testUserId, $count);
+                $seeded['records']['sms'] = $smsSeeded;
+            }
+            
+            // Inventory system seeding
+            if ($system === 'all' || $system === 'inventory') {
+                $inventorySeeded = self::seedInventoryData($pdo, $testUserId, $count);
+                $seeded['records']['inventory'] = $inventorySeeded;
             }
             
             $pdo->commit();
             
             Response::success([
-                'message' => 'Test data seeded',
+                'message' => 'Test data seeded successfully',
                 'seeded' => $seeded,
             ]);
             
@@ -742,41 +876,343 @@ class QAController
     }
 
     /**
-     * Clean up test data
+     * Generate QR content based on type
+     */
+    private static function generateQRContent(string $type): array
+    {
+        return match($type) {
+            'url' => ['url' => 'https://qa-test.local/' . bin2hex(random_bytes(4))],
+            'text' => ['text' => 'QA Test Text Content ' . time()],
+            'email' => ['email' => 'qa-test@test.local', 'subject' => 'QA Test', 'body' => 'Test body'],
+            'phone' => ['phone' => '+27' . rand(100000000, 999999999)],
+            'wifi' => ['ssid' => 'QA_TEST_WIFI', 'password' => 'testpass123', 'encryption' => 'WPA'],
+            'vcard' => ['firstName' => 'QA', 'lastName' => 'Tester', 'email' => 'qa@test.local', 'phone' => '+27123456789'],
+            default => ['data' => 'QA Test ' . $type],
+        };
+    }
+
+    /**
+     * Seed SMS test data
+     */
+    private static function seedSMSData(\PDO $pdo, ?int $userId, int $count): array
+    {
+        $result = ['tables_checked' => [], 'records_created' => 0];
+        
+        // Check if SMS tables exist
+        try {
+            $pdo->query("SELECT 1 FROM sms_credits LIMIT 1");
+            $result['tables_checked']['sms_credits'] = 'exists';
+            
+            if ($userId) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO sms_credits (user_id, credits, created_at, updated_at)
+                    VALUES (?, ?, NOW(), NOW())
+                    ON DUPLICATE KEY UPDATE credits = credits + ?
+                ");
+                $credits = rand(10, 100);
+                $stmt->execute([$userId, $credits, $credits]);
+                $result['credits_added'] = $credits;
+            }
+        } catch (\Exception $e) {
+            $result['tables_checked']['sms_credits'] = 'missing';
+        }
+        
+        try {
+            $pdo->query("SELECT 1 FROM sms_logs LIMIT 1");
+            $result['tables_checked']['sms_logs'] = 'exists';
+            
+            if ($userId) {
+                $statuses = ['sent', 'delivered', 'failed', 'pending'];
+                for ($i = 0; $i < $count; $i++) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO sms_logs (user_id, recipient, message, status, created_at)
+                        VALUES (?, ?, ?, ?, DATE_SUB(NOW(), INTERVAL ? DAY))
+                    ");
+                    $stmt->execute([
+                        $userId,
+                        '+27' . rand(700000000, 799999999),
+                        'SMS_TEST_Message_' . $i,
+                        $statuses[array_rand($statuses)],
+                        rand(0, 30)
+                    ]);
+                    $result['records_created']++;
+                }
+            }
+        } catch (\Exception $e) {
+            $result['tables_checked']['sms_logs'] = 'missing';
+        }
+        
+        return $result;
+    }
+
+    /**
+     * Seed Inventory test data
+     */
+    private static function seedInventoryData(\PDO $pdo, ?int $userId, int $count): array
+    {
+        $result = ['records_created' => 0, 'items' => []];
+        
+        if (!$userId) return $result;
+        
+        try {
+            $categories = ['Equipment', 'Tools', 'Electronics', 'Furniture', 'Supplies'];
+            $statuses = ['in_stock', 'out', 'maintenance', 'checked_out'];
+            
+            for ($i = 0; $i < $count; $i++) {
+                $category = $categories[array_rand($categories)];
+                $status = $statuses[array_rand($statuses)];
+                
+                $stmt = $pdo->prepare("
+                    INSERT INTO inventory_items (user_id, name, category, status, location, created_at)
+                    VALUES (?, ?, ?, ?, ?, NOW())
+                ");
+                $stmt->execute([
+                    $userId,
+                    "INV_TEST_{$category}_" . str_pad($i, 3, '0', STR_PAD_LEFT),
+                    $category,
+                    $status,
+                    'QA Test Location ' . chr(65 + ($i % 5))
+                ]);
+                
+                $itemId = $pdo->lastInsertId();
+                $result['items'][] = ['id' => $itemId, 'category' => $category, 'status' => $status];
+                $result['records_created']++;
+                
+                // Add status history
+                $stmt = $pdo->prepare("
+                    INSERT INTO inventory_status_history (item_id, old_status, new_status, changed_by_name, changed_at)
+                    VALUES (?, 'in_stock', ?, 'QA System', NOW())
+                ");
+                $stmt->execute([$itemId, $status]);
+            }
+        } catch (\Exception $e) {
+            $result['error'] = $e->getMessage();
+        }
+        
+        return $result;
+    }
+
+    /**
+     * Clean up test data - comprehensive cleanup
      */
     public static function cleanupTestData(): void
     {
         self::requireAdmin();
         
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $system = $data['system'] ?? 'all';
+        $dryRun = $data['dry_run'] ?? false;
+        
         $pdo = Database::getInstance();
-        $cleaned = [];
+        $cleaned = [
+            'timestamp' => date('Y-m-d H:i:s'),
+            'system' => $system,
+            'dry_run' => $dryRun,
+            'records' => [],
+        ];
         
         try {
-            $pdo->beginTransaction();
+            if (!$dryRun) {
+                $pdo->beginTransaction();
+            }
             
-            // Clean QR test data
-            $stmt = $pdo->query("DELETE FROM qr_codes WHERE name LIKE 'QR_TEST_%'");
-            $cleaned['qr_codes'] = $stmt->rowCount();
+            // Clean scan logs first (foreign key to qr_codes)
+            if ($system === 'all' || $system === 'qr') {
+                $stmt = $pdo->query("
+                    SELECT COUNT(*) as c FROM scan_logs 
+                    WHERE ip_hash LIKE 'QA_TEST_%' OR qr_id IN (
+                        SELECT id FROM qr_codes WHERE name LIKE 'QR_TEST_%'
+                    )
+                ");
+                $count = (int)$stmt->fetch()['c'];
+                $cleaned['records']['scan_logs'] = ['found' => $count, 'deleted' => 0];
+                
+                if (!$dryRun && $count > 0) {
+                    $stmt = $pdo->query("
+                        DELETE FROM scan_logs 
+                        WHERE ip_hash LIKE 'QA_TEST_%' OR qr_id IN (
+                            SELECT id FROM qr_codes WHERE name LIKE 'QR_TEST_%'
+                        )
+                    ");
+                    $cleaned['records']['scan_logs']['deleted'] = $stmt->rowCount();
+                }
+                
+                // Clean QR codes
+                $stmt = $pdo->query("SELECT COUNT(*) as c FROM qr_codes WHERE name LIKE 'QR_TEST_%'");
+                $count = (int)$stmt->fetch()['c'];
+                $cleaned['records']['qr_codes'] = ['found' => $count, 'deleted' => 0];
+                
+                if (!$dryRun && $count > 0) {
+                    $stmt = $pdo->query("DELETE FROM qr_codes WHERE name LIKE 'QR_TEST_%'");
+                    $cleaned['records']['qr_codes']['deleted'] = $stmt->rowCount();
+                }
+            }
             
-            // Clean invoice test data
-            $stmt = $pdo->query("DELETE FROM invoices WHERE invoice_number LIKE 'INV_TEST_%'");
-            $cleaned['invoices'] = $stmt->rowCount();
+            // Clean invoices
+            if ($system === 'all' || $system === 'invoicing') {
+                $stmt = $pdo->query("SELECT COUNT(*) as c FROM invoices WHERE invoice_number LIKE 'INV_TEST_%'");
+                $count = (int)$stmt->fetch()['c'];
+                $cleaned['records']['invoices'] = ['found' => $count, 'deleted' => 0];
+                
+                if (!$dryRun && $count > 0) {
+                    $stmt = $pdo->query("DELETE FROM invoices WHERE invoice_number LIKE 'INV_TEST_%'");
+                    $cleaned['records']['invoices']['deleted'] = $stmt->rowCount();
+                }
+                
+                // Clean test email logs
+                $stmt = $pdo->query("SELECT COUNT(*) as c FROM email_logs WHERE subject LIKE 'QA_TEST%'");
+                $count = (int)$stmt->fetch()['c'];
+                $cleaned['records']['email_logs'] = ['found' => $count, 'deleted' => 0];
+                
+                if (!$dryRun && $count > 0) {
+                    $stmt = $pdo->query("DELETE FROM email_logs WHERE subject LIKE 'QA_TEST%'");
+                    $cleaned['records']['email_logs']['deleted'] = $stmt->rowCount();
+                }
+            }
             
-            // Clean test users (this will cascade delete related data)
-            $stmt = $pdo->query("DELETE FROM users WHERE email LIKE 'QA_TEST_%@test.local'");
-            $cleaned['users'] = $stmt->rowCount();
+            // Clean SMS data
+            if ($system === 'all' || $system === 'sms') {
+                try {
+                    $stmt = $pdo->query("SELECT COUNT(*) as c FROM sms_logs WHERE message LIKE 'SMS_TEST_%'");
+                    $count = (int)$stmt->fetch()['c'];
+                    $cleaned['records']['sms_logs'] = ['found' => $count, 'deleted' => 0];
+                    
+                    if (!$dryRun && $count > 0) {
+                        $stmt = $pdo->query("DELETE FROM sms_logs WHERE message LIKE 'SMS_TEST_%'");
+                        $cleaned['records']['sms_logs']['deleted'] = $stmt->rowCount();
+                    }
+                } catch (\Exception $e) {
+                    $cleaned['records']['sms_logs'] = ['skipped' => 'table not found'];
+                }
+            }
             
-            $pdo->commit();
+            // Clean inventory data
+            if ($system === 'all' || $system === 'inventory') {
+                try {
+                    // Clean status history first
+                    $stmt = $pdo->query("
+                        SELECT COUNT(*) as c FROM inventory_status_history 
+                        WHERE item_id IN (SELECT id FROM inventory_items WHERE name LIKE 'INV_TEST_%')
+                    ");
+                    $count = (int)$stmt->fetch()['c'];
+                    $cleaned['records']['inventory_status_history'] = ['found' => $count, 'deleted' => 0];
+                    
+                    if (!$dryRun && $count > 0) {
+                        $stmt = $pdo->query("
+                            DELETE FROM inventory_status_history 
+                            WHERE item_id IN (SELECT id FROM inventory_items WHERE name LIKE 'INV_TEST_%')
+                        ");
+                        $cleaned['records']['inventory_status_history']['deleted'] = $stmt->rowCount();
+                    }
+                    
+                    // Clean inventory items
+                    $stmt = $pdo->query("SELECT COUNT(*) as c FROM inventory_items WHERE name LIKE 'INV_TEST_%'");
+                    $count = (int)$stmt->fetch()['c'];
+                    $cleaned['records']['inventory_items'] = ['found' => $count, 'deleted' => 0];
+                    
+                    if (!$dryRun && $count > 0) {
+                        $stmt = $pdo->query("DELETE FROM inventory_items WHERE name LIKE 'INV_TEST_%'");
+                        $cleaned['records']['inventory_items']['deleted'] = $stmt->rowCount();
+                    }
+                } catch (\Exception $e) {
+                    $cleaned['records']['inventory'] = ['skipped' => $e->getMessage()];
+                }
+            }
+            
+            // Clean test users last (cascades related data)
+            if ($system === 'all' || $system === 'shared') {
+                $stmt = $pdo->query("SELECT COUNT(*) as c FROM users WHERE email LIKE 'QA_TEST_%@test.local'");
+                $count = (int)$stmt->fetch()['c'];
+                $cleaned['records']['users'] = ['found' => $count, 'deleted' => 0];
+                
+                if (!$dryRun && $count > 0) {
+                    $stmt = $pdo->query("DELETE FROM users WHERE email LIKE 'QA_TEST_%@test.local'");
+                    $cleaned['records']['users']['deleted'] = $stmt->rowCount();
+                }
+            }
+            
+            if (!$dryRun) {
+                $pdo->commit();
+            }
+            
+            // Calculate totals
+            $totalFound = 0;
+            $totalDeleted = 0;
+            foreach ($cleaned['records'] as $record) {
+                if (isset($record['found'])) $totalFound += $record['found'];
+                if (isset($record['deleted'])) $totalDeleted += $record['deleted'];
+            }
+            $cleaned['totals'] = ['found' => $totalFound, 'deleted' => $totalDeleted];
             
             Response::success([
-                'message' => 'Test data cleaned',
+                'message' => $dryRun ? 'Dry run complete - no data deleted' : 'Test data cleaned successfully',
                 'cleaned' => $cleaned,
             ]);
             
         } catch (\Exception $e) {
-            $pdo->rollBack();
+            if (!$dryRun) {
+                $pdo->rollBack();
+            }
             Response::error('Cleanup failed: ' . $e->getMessage(), 500);
         }
+    }
+
+    /**
+     * Get seeding status - check what test data exists
+     */
+    public static function getSeedingStatus(): void
+    {
+        self::requireAdmin();
+        
+        $pdo = Database::getInstance();
+        $status = [
+            'timestamp' => date('Y-m-d H:i:s'),
+            'test_data' => [],
+        ];
+        
+        // Check users
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) as c FROM users WHERE email LIKE 'QA_TEST_%@test.local'");
+            $status['test_data']['users'] = (int)$stmt->fetch()['c'];
+        } catch (\Exception $e) {
+            $status['test_data']['users'] = 0;
+        }
+        
+        // Check QR codes
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) as c FROM qr_codes WHERE name LIKE 'QR_TEST_%'");
+            $status['test_data']['qr_codes'] = (int)$stmt->fetch()['c'];
+        } catch (\Exception $e) {
+            $status['test_data']['qr_codes'] = 0;
+        }
+        
+        // Check invoices
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) as c FROM invoices WHERE invoice_number LIKE 'INV_TEST_%'");
+            $status['test_data']['invoices'] = (int)$stmt->fetch()['c'];
+        } catch (\Exception $e) {
+            $status['test_data']['invoices'] = 0;
+        }
+        
+        // Check inventory
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) as c FROM inventory_items WHERE name LIKE 'INV_TEST_%'");
+            $status['test_data']['inventory_items'] = (int)$stmt->fetch()['c'];
+        } catch (\Exception $e) {
+            $status['test_data']['inventory_items'] = 0;
+        }
+        
+        // Check SMS
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) as c FROM sms_logs WHERE message LIKE 'SMS_TEST_%'");
+            $status['test_data']['sms_logs'] = (int)$stmt->fetch()['c'];
+        } catch (\Exception $e) {
+            $status['test_data']['sms_logs'] = 0;
+        }
+        
+        $status['has_test_data'] = array_sum($status['test_data']) > 0;
+        
+        Response::success($status);
     }
 
     /**
