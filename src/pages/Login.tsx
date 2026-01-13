@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { QrCode, Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, QrCode } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useRecaptcha } from "@/hooks/useRecaptcha";
 import { SocialLoginButtons, AuthDivider } from "@/components/auth/SocialLoginButtons";
+import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -78,16 +79,7 @@ export default function Login() {
         >
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-              <QrCode className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-display text-xl font-bold">
-                <span className="gradient-text">IEOSUIA</span>
-                <span className="text-foreground"> QR</span>
-              </span>
-              <span className="text-[9px] text-muted-foreground">Your Story, Beautifully Told</span>
-            </div>
+            <img src={ieosuiaLogo} alt="IEOSUIA QR" className="h-10 w-auto" />
           </Link>
 
           <h1 className="font-display text-3xl font-bold mb-2">Welcome back</h1>

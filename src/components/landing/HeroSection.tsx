@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { QRCodeSVG } from "qrcode.react";
-import { ArrowRight, Sparkles, BarChart3, Shield } from "lucide-react";
+import { ArrowRight, Sparkles, BarChart3, Shield, Zap, Clock } from "lucide-react";
 import ieosuiaLogo from "@/assets/ieosuia-logo.png";
 
 export function HeroSection() {
@@ -130,16 +130,22 @@ export function HeroSection() {
                 {/* Stats Row */}
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-center p-3 rounded-xl bg-muted/50">
-                    <p className="text-2xl font-display font-bold text-primary">2.4K</p>
-                    <p className="text-xs text-muted-foreground">Scans</p>
+                    <div className="flex items-center justify-center mb-1">
+                      <Zap className="w-4 h-4 text-primary" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">Instant Setup</p>
                   </div>
                   <div className="text-center p-3 rounded-xl bg-muted/50">
-                    <p className="text-2xl font-display font-bold text-accent">89%</p>
-                    <p className="text-xs text-muted-foreground">Mobile</p>
+                    <div className="flex items-center justify-center mb-1">
+                      <Shield className="w-4 h-4 text-accent" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">POPIA Compliant</p>
                   </div>
                   <div className="text-center p-3 rounded-xl bg-muted/50">
-                    <p className="text-2xl font-display font-bold text-success">12</p>
-                    <p className="text-xs text-muted-foreground">Countries</p>
+                    <div className="flex items-center justify-center mb-1">
+                      <Clock className="w-4 h-4 text-success" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">24/7 Support</p>
                   </div>
                 </div>
               </div>
