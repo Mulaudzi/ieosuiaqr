@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { QRCodeSVG } from "qrcode.react";
 import { ArrowRight, Sparkles, BarChart3, Shield } from "lucide-react";
+import ieosuiaLogo from "@/assets/ieosuia-logo.png";
 
 export function HeroSection() {
   return (
@@ -106,15 +107,23 @@ export function HeroSection() {
                   </div>
                 </div>
                 
-                <div className="bg-background rounded-2xl p-6 mb-6">
+                <div className="bg-background rounded-2xl p-6 mb-6 flex items-center justify-center">
                   <QRCodeSVG
                     value="https://ieosuia.com"
                     size={200}
                     level="H"
                     includeMargin={false}
-                    className="w-full h-auto"
-                    fgColor="hsl(220, 30%, 10%)"
+                    className="w-full h-auto max-w-[200px]"
+                    fgColor="hsl(174, 72%, 35%)"
                     bgColor="transparent"
+                    imageSettings={{
+                      src: ieosuiaLogo,
+                      x: undefined,
+                      y: undefined,
+                      height: 50,
+                      width: 50,
+                      excavate: true,
+                    }}
                   />
                 </div>
 

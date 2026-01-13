@@ -50,9 +50,15 @@ import {
   Clock,
   Crown,
   Link as LinkIcon,
+  FileSpreadsheet,
+  History,
+  Sparkles,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
+import { BulkInventoryImport } from "./BulkInventoryImport";
+import { ScanHistoryModal } from "./ScanHistoryModal";
+import { CreateQRAndItemModal } from "./CreateQRAndItemModal";
 
 const statusConfig: Record<InventoryStatus, { label: string; color: string; icon: React.ElementType }> = {
   in_stock: { label: "In Stock", color: "bg-success/10 text-success", icon: CheckCircle },
@@ -80,9 +86,11 @@ export function InventoryTab() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [showScanHistory, setShowScanHistory] = useState(false);
+  const [showQRItemModal, setShowQRItemModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [showUpsell, setShowUpsell] = useState(false);
-  const [limits, setLimits] = useState({ max_items: 3, current_count: 0, can_edit: false });
   
   const { toast } = useToast();
   const { plan, isPro, isEnterprise } = useUserPlan();
@@ -198,32 +206,58 @@ export function InventoryTab() {
             </span>
           </p>
         </div>
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogTrigger asChild>
-            <Button 
-              variant="hero" 
-              onClick={() => {
-                if (items.length >= maxItems) {
-                  setShowUpsell(true);
-                } else {
-                  setShowCreateDialog(true);
-                }
-              }}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Item
+        <div className="flex items-center gap-2">
+          {/* Create QR + Item Button */}
+          <Button 
+            variant="outline"
+            onClick={() => {
+              if (items.length >= maxItems) {
+                setShowUpsell(true);
+              } else {
+                setShowQRItemModal(true);
+              }
+            }}
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            QR + Item
+          </Button>
+          
+          {/* Bulk Import (Enterprise) */}
+          {isEnterprise && (
+            <Button variant="outline" onClick={() => setShowBulkImport(true)}>
+              <FileSpreadsheet className="w-4 h-4 mr-2" />
+              Bulk Import
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Inventory Item</DialogTitle>
-              <DialogDescription>
-                Create a new item to track. You can link it to a QR code later.
-              </DialogDescription>
-            </DialogHeader>
-            <InventoryForm onSubmit={handleCreate} />
-          </DialogContent>
-        </Dialog>
+          )}
+          
+          {/* Add Item */}
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <DialogTrigger asChild>
+              <Button 
+                variant="hero" 
+                onClick={() => {
+                  if (items.length >= maxItems) {
+                    setShowUpsell(true);
+                  } else {
+                    setShowCreateDialog(true);
+                  }
+                }}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Item
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Inventory Item</DialogTitle>
+                <DialogDescription>
+                  Create a new item to track. You can link it to a QR code later.
+                </DialogDescription>
+              </DialogHeader>
+              <InventoryForm onSubmit={handleCreate} />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Plan Upgrade Banner for Free Users */}
@@ -358,6 +392,15 @@ export function InventoryTab() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
                         onClick={() => {
+                          setSelectedItem(item);
+                          setShowScanHistory(true);
+                        }}
+                      >
+                        <History className="w-4 h-4 mr-2" />
+                        Scan History
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
                           if (!canEdit) {
                             setShowUpsell(true);
                           } else {
@@ -407,6 +450,27 @@ export function InventoryTab() {
         open={showUpsell}
         onOpenChange={setShowUpsell}
         feature="More inventory items"
+      />
+      
+      {/* Bulk Import Modal (Enterprise) */}
+      <BulkInventoryImport
+        open={showBulkImport}
+        onOpenChange={setShowBulkImport}
+        onSuccess={fetchItems}
+      />
+      
+      {/* Scan History Modal */}
+      <ScanHistoryModal
+        item={selectedItem}
+        open={showScanHistory}
+        onOpenChange={setShowScanHistory}
+      />
+      
+      {/* Create QR + Item Modal */}
+      <CreateQRAndItemModal
+        open={showQRItemModal}
+        onOpenChange={setShowQRItemModal}
+        onSuccess={fetchItems}
       />
     </div>
   );
