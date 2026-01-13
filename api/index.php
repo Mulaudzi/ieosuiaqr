@@ -130,6 +130,9 @@ try {
     elseif ($uri === '/admin/auth/passwords' && $method === 'PUT') {
         AdminAuthController::updatePasswords();
     }
+    elseif ($uri === '/admin/auth/check-email' && $method === 'POST') {
+        AdminAuthController::checkAdminEmail();
+    }
     // Admin management routes
     elseif ($uri === '/admin/users' && $method === 'GET') {
         AdminAuthController::listAdmins();

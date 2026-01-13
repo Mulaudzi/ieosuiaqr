@@ -188,6 +188,27 @@ class AdminAuthController
     }
 
     /**
+     * Check if an email belongs to an admin user
+     */
+    public static function checkAdminEmail(): void
+    {
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        if (empty($data['email'])) {
+            Response::success(['is_admin' => false]);
+            return;
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("SELECT id FROM admin_users WHERE email = ? AND is_active = TRUE");
+        $stmt->execute([strtolower(trim($data['email']))]);
+        
+        Response::success([
+            'is_admin' => (bool)$stmt->fetch()
+        ]);
+    }
+
+    /**
      * Create a new admin user (requires existing admin auth)
      */
     public static function createAdmin(): void

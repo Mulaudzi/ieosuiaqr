@@ -74,6 +74,18 @@ const handleResponse = async <T>(response: Response): Promise<ApiResponse<T>> =>
 
 export const adminApi = {
   /**
+   * Check if an email belongs to an admin user
+   */
+  checkAdminEmail: async (email: string): Promise<ApiResponse<{ is_admin: boolean }>> => {
+    const response = await fetch(`${getBaseUrl()}/admin/auth/check-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    });
+    return handleResponse(response);
+  },
+
+  /**
    * Admin login step 1 - verify email and first password
    */
   loginStep1: async (email: string, password: string): Promise<ApiResponse<AdminLoginStep1Response>> => {
