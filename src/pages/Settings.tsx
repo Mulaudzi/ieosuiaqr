@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { TwoFactorSetup } from "@/components/auth/TwoFactorSetup";
 import { PasswordStrengthIndicator, getPasswordScore } from "@/components/auth/PasswordStrengthIndicator";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
+import { useQRStorage } from "@/hooks/useQRStorage";
 import {
   QrCode,
   BarChart3,
@@ -91,6 +92,11 @@ export default function Settings() {
   const { plan: currentPlan, limits, isPro } = useUserPlan();
   const { toast } = useToast();
   const { user, logout, updateUser, refreshUser } = useAuth();
+  const { qrCodes, isLoading: isLoadingQRCodes } = useQRStorage();
+  
+  // Calculate real stats from QR codes
+  const qrCodesUsed = qrCodes.length;
+  const totalScans = qrCodes.reduce((sum, qr) => sum + (qr.scans || 0), 0);
 
   // Initialize form with user data
   useEffect(() => {
@@ -598,11 +604,15 @@ export default function Settings() {
                       </div>
                       <div className="grid grid-cols-3 gap-4 text-center">
                         <div className="p-3 rounded-xl bg-muted/30">
-                          <p className="text-2xl font-display font-bold">4/{limits.maxQRCodes === Infinity ? "∞" : limits.maxQRCodes}</p>
+                          <p className="text-2xl font-display font-bold">
+                            {isLoadingQRCodes ? "..." : qrCodesUsed}/{limits.maxQRCodes === Infinity ? "∞" : limits.maxQRCodes}
+                          </p>
                           <p className="text-xs text-muted-foreground">QR Codes Used</p>
                         </div>
                         <div className="p-3 rounded-xl bg-muted/30">
-                          <p className="text-2xl font-display font-bold">2,102</p>
+                          <p className="text-2xl font-display font-bold">
+                            {isLoadingQRCodes ? "..." : totalScans.toLocaleString()}
+                          </p>
                           <p className="text-xs text-muted-foreground">Total Scans</p>
                         </div>
                         <div className="p-3 rounded-xl bg-muted/30">
