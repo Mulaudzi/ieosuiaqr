@@ -301,6 +301,52 @@ class PaymentController
             } catch (\Exception $e) {
                 error_log("PayFast ITN cancel error: " . $e->getMessage());
             }
+        } elseif ($paymentStatus === 'FAILED') {
+            // Handle failed recurring payment
+            try {
+                $email = $postData['email_address'] ?? '';
+                
+                // Get user
+                $stmt = $pdo->prepare("SELECT id, name FROM users WHERE email = ?");
+                $stmt->execute([$email]);
+                $user = $stmt->fetch();
+                
+                if ($user) {
+                    // Get user's active subscription
+                    $stmt = $pdo->prepare("
+                        SELECT s.id, s.plan_id, p.name as plan_name, p.price_monthly_zar
+                        FROM subscriptions s
+                        JOIN plans p ON s.plan_id = p.id
+                        WHERE s.user_id = ? AND s.status = 'active'
+                        ORDER BY s.created_at DESC LIMIT 1
+                    ");
+                    $stmt->execute([$user['id']]);
+                    $subscription = $stmt->fetch();
+                    
+                    if ($subscription) {
+                        $amount = (float)($amountGross ?: $subscription['price_monthly_zar']);
+                        $failureReason = $postData['payment_status_reason'] ?? 'Payment could not be processed';
+                        
+                        // Record the failed payment
+                        self::recordPayment($pdo, $user['id'], $mPaymentId, $amount, 'failed', 'payfast', 'Recurring payment failed');
+                        
+                        // Create payment retry
+                        \App\Services\PaymentRetryService::createRetry(
+                            $user['id'],
+                            $subscription['id'],
+                            $amount,
+                            $mPaymentId,
+                            $failureReason
+                        );
+                        
+                        error_log("PayFast ITN: Created payment retry for failed recurring payment - subscription #{$subscription['id']}");
+                    }
+                }
+                
+                error_log("PayFast ITN: Payment failed for {$email}");
+            } catch (\Exception $e) {
+                error_log("PayFast ITN failed payment error: " . $e->getMessage());
+            }
         }
 
         exit;
@@ -545,13 +591,36 @@ class PaymentController
             if ($user) {
                 self::recordPayment($pdo, $user['id'], $reference, $amountZar, 'failed', 'paystack', 'Payment failed');
                 
-                // Send payment failed email
-                MailService::sendPaymentFailedEmail(
-                    $email,
-                    $user['name'],
-                    $amountZar,
-                    $failureMessage
-                );
+                // Check if this is a recurring subscription payment
+                $stmt = $pdo->prepare("
+                    SELECT s.id, s.plan_id, p.name as plan_name
+                    FROM subscriptions s
+                    JOIN plans p ON s.plan_id = p.id
+                    WHERE s.user_id = ? AND s.status = 'active'
+                    ORDER BY s.created_at DESC LIMIT 1
+                ");
+                $stmt->execute([$user['id']]);
+                $subscription = $stmt->fetch();
+                
+                if ($subscription) {
+                    // Create payment retry for subscription payment failure
+                    \App\Services\PaymentRetryService::createRetry(
+                        $user['id'],
+                        $subscription['id'],
+                        $amountZar,
+                        $reference,
+                        $failureMessage
+                    );
+                    error_log("Paystack: Created payment retry for subscription #{$subscription['id']}");
+                } else {
+                    // Send simple payment failed email for non-subscription payments
+                    MailService::sendPaymentFailedEmail(
+                        $email,
+                        $user['name'],
+                        $amountZar,
+                        $failureMessage
+                    );
+                }
             }
             
             error_log("Paystack: Charge failed for {$email}");

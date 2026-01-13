@@ -11,6 +11,7 @@ import { PlanChangeModal } from "@/components/billing/PlanChangeModal";
 import { PayFastCheckout } from "@/components/billing/PayFastCheckout";
 import { InvoiceHistory } from "@/components/billing/InvoiceHistory";
 import { PaymentHistory } from "@/components/billing/PaymentHistory";
+import { PaymentRetryStatus } from "@/components/billing/PaymentRetryStatus";
 import { useUserPlan, UserPlan } from "@/hooks/useUserPlan";
 import { authApi } from "@/services/api/auth";
 import { useAuth } from "@/contexts/AuthContext";
@@ -551,6 +552,9 @@ export default function Settings() {
                   />
                 ) : (
                   <>
+                    {/* Payment Retry Warning Banner */}
+                    <PaymentRetryStatus />
+
                     {/* Current Plan Summary */}
                     <div className="p-6 rounded-2xl bg-card border border-border">
                       <h3 className="font-display font-semibold mb-4">Current Plan</h3>

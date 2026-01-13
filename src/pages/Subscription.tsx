@@ -28,6 +28,7 @@ import { useUserPlan, UserPlan } from "@/hooks/useUserPlan";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardSidebar } from "@/components/layout/DashboardSidebar";
 import { PlanChangeModal } from "@/components/billing/PlanChangeModal";
+import { PaymentRetryStatus } from "@/components/billing/PaymentRetryStatus";
 
 const planIcons: Record<string, typeof Crown> = {
   free: Zap,
@@ -147,6 +148,9 @@ export default function Subscription() {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
+              {/* Payment Retry Warning Banner */}
+              <PaymentRetryStatus />
+
               {/* Current Plan Card */}
               <div className="p-6 rounded-2xl bg-card border border-border">
                 <div className="flex items-start justify-between mb-6">
