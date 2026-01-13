@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { AdminBreadcrumb } from "@/components/admin/AdminBreadcrumb";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -188,6 +189,7 @@ export default function AdminStats() {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        <AdminBreadcrumb />
         {stats && (
           <div className="space-y-8">
             {/* Period Selector */}

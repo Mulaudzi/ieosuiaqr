@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { AdminBreadcrumb } from "@/components/admin/AdminBreadcrumb";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -165,21 +166,17 @@ export default function AdminAuditLog() {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto p-6">
+        <AdminBreadcrumb />
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/admin/settings")}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="font-display text-2xl font-bold flex items-center gap-2">
-                <FileText className="w-6 h-6 text-primary" />
-                Audit Log
-              </h1>
-              <p className="text-muted-foreground text-sm">
-                Security and activity tracking for compliance
-              </p>
-            </div>
+          <div>
+            <h1 className="font-display text-2xl font-bold flex items-center gap-2">
+              <FileText className="w-6 h-6 text-primary" />
+              Audit Log
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              Security and activity tracking for compliance
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing}>

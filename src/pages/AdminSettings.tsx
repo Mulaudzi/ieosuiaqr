@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { AdminBreadcrumb } from "@/components/admin/AdminBreadcrumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -243,6 +244,7 @@ export default function AdminSettings() {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-3xl">
+        <AdminBreadcrumb />
         {settings && (
           <div className="space-y-6">
             {/* Notification Emails */}
