@@ -431,6 +431,408 @@ HTML;
     }
 
     /**
+     * Send payment success notification
+     */
+    public static function sendPaymentSuccessEmail(
+        string $email,
+        string $name,
+        string $planName,
+        float $amount,
+        string $paymentId,
+        string $renewalDate
+    ): bool {
+        $appUrl = $_ENV['APP_URL'] ?? 'https://qr.ieosuia.com';
+        $billingUrl = $appUrl . '/dashboard/settings?tab=billing';
+
+        $subject = "Payment Successful - {$planName} Plan Activated 🎉";
+        $formattedAmount = 'R' . number_format($amount, 2);
+        $timestamp = date('M j, Y \a\t g:i A');
+
+        $html = <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Successful</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td align="center" style="padding: 40px 0;">
+                <table role="presentation" style="width: 600px; max-width: 100%; border-collapse: collapse; background-color: #141414; border-radius: 16px; overflow: hidden;">
+                    <!-- Header -->
+                    <tr>
+                        <td style="padding: 40px 40px 30px 40px; text-align: center; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                            <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #ffffff;">✅ Payment Successful</h1>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px;">
+                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #e5e5e5; line-height: 1.5;">Hello {$name},</p>
+                            
+                            <p style="margin: 0 0 25px 0; font-size: 16px; color: #a3a3a3; line-height: 1.6;">
+                                Your payment has been processed successfully. Your {$planName} plan is now active!
+                            </p>
+                            
+                            <!-- Payment Details Card -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #1f1f1f; border-radius: 12px; margin-bottom: 25px;">
+                                <tr>
+                                    <td style="padding: 24px;">
+                                        <h3 style="margin: 0 0 20px 0; font-size: 18px; font-weight: 600; color: #ffffff;">Payment Details</h3>
+                                        
+                                        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                                            <tr>
+                                                <td style="padding: 8px 0; color: #a3a3a3; font-size: 14px;">Plan</td>
+                                                <td style="padding: 8px 0; color: #ffffff; font-size: 14px; text-align: right;">{$planName}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0; color: #a3a3a3; font-size: 14px;">Amount Paid</td>
+                                                <td style="padding: 8px 0; color: #10b981; font-size: 14px; font-weight: 600; text-align: right;">{$formattedAmount}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0; color: #a3a3a3; font-size: 14px;">Transaction ID</td>
+                                                <td style="padding: 8px 0; color: #ffffff; font-size: 14px; text-align: right;">{$paymentId}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0; color: #a3a3a3; font-size: 14px;">Payment Date</td>
+                                                <td style="padding: 8px 0; color: #ffffff; font-size: 14px; text-align: right;">{$timestamp}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0; color: #a3a3a3; font-size: 14px;">Next Renewal</td>
+                                                <td style="padding: 8px 0; color: #ffffff; font-size: 14px; text-align: right;">{$renewalDate}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Button -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{$billingUrl}" style="display: inline-block; padding: 16px 32px; font-size: 16px; font-weight: 600; color: #ffffff; background: linear-gradient(135deg, #10b981 0%, #059669 100%); text-decoration: none; border-radius: 8px;">View Billing</a>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="margin: 25px 0 0 0; font-size: 12px; color: #525252; line-height: 1.5;">
+                                Thank you for your subscription! If you have any questions, please contact our support team.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; text-align: center; background-color: #0a0a0a; border-top: 1px solid #262626;">
+                            <p style="margin: 0; font-size: 12px; color: #525252;">
+                                &copy; 2025 IEOSUIA QR. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+HTML;
+
+        return self::send($email, $subject, $html);
+    }
+
+    /**
+     * Send payment failure notification
+     */
+    public static function sendPaymentFailedEmail(
+        string $email,
+        string $name,
+        float $amount,
+        string $reason = 'Payment could not be processed'
+    ): bool {
+        $appUrl = $_ENV['APP_URL'] ?? 'https://qr.ieosuia.com';
+        $billingUrl = $appUrl . '/dashboard/settings?tab=billing';
+
+        $subject = "Payment Failed - Action Required ⚠️";
+        $formattedAmount = 'R' . number_format($amount, 2);
+        $timestamp = date('M j, Y \a\t g:i A');
+
+        $html = <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Failed</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td align="center" style="padding: 40px 0;">
+                <table role="presentation" style="width: 600px; max-width: 100%; border-collapse: collapse; background-color: #141414; border-radius: 16px; overflow: hidden;">
+                    <!-- Header -->
+                    <tr>
+                        <td style="padding: 40px 40px 30px 40px; text-align: center; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                            <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #ffffff;">❌ Payment Failed</h1>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px;">
+                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #e5e5e5; line-height: 1.5;">Hello {$name},</p>
+                            
+                            <p style="margin: 0 0 25px 0; font-size: 16px; color: #a3a3a3; line-height: 1.6;">
+                                Unfortunately, we were unable to process your payment of <strong style="color: #ef4444;">{$formattedAmount}</strong>.
+                            </p>
+                            
+                            <!-- Error Card -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #1f1f1f; border-radius: 12px; margin-bottom: 25px; border: 1px solid #ef444433;">
+                                <tr>
+                                    <td style="padding: 24px;">
+                                        <h3 style="margin: 0 0 15px 0; font-size: 16px; font-weight: 600; color: #ef4444;">Reason</h3>
+                                        <p style="margin: 0; font-size: 14px; color: #a3a3a3;">{$reason}</p>
+                                        <p style="margin: 15px 0 0 0; font-size: 12px; color: #737373;">Attempted: {$timestamp}</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="margin: 0 0 25px 0; font-size: 14px; color: #a3a3a3; line-height: 1.6;">
+                                <strong>What you can do:</strong><br>
+                                • Check that your card details are correct<br>
+                                • Ensure sufficient funds are available<br>
+                                • Try a different payment method<br>
+                                • Contact your bank if the issue persists
+                            </p>
+                            
+                            <!-- Button -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{$billingUrl}" style="display: inline-block; padding: 16px 32px; font-size: 16px; font-weight: 600; color: #ffffff; background: linear-gradient(135deg, #10b981 0%, #059669 100%); text-decoration: none; border-radius: 8px;">Update Payment Method</a>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="margin: 25px 0 0 0; font-size: 12px; color: #525252; line-height: 1.5;">
+                                If you continue to experience issues, please contact our support team for assistance.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; text-align: center; background-color: #0a0a0a; border-top: 1px solid #262626;">
+                            <p style="margin: 0; font-size: 12px; color: #525252;">
+                                &copy; 2025 IEOSUIA QR. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+HTML;
+
+        return self::send($email, $subject, $html);
+    }
+
+    /**
+     * Send subscription renewal reminder
+     */
+    public static function sendRenewalReminderEmail(
+        string $email,
+        string $name,
+        string $planName,
+        float $amount,
+        string $renewalDate,
+        int $daysRemaining
+    ): bool {
+        $appUrl = $_ENV['APP_URL'] ?? 'https://qr.ieosuia.com';
+        $billingUrl = $appUrl . '/dashboard/settings?tab=billing';
+
+        $urgency = $daysRemaining <= 1 ? 'Tomorrow' : "in {$daysRemaining} days";
+        $subject = "Subscription Renewal {$urgency} - {$planName} Plan 📅";
+        $formattedAmount = 'R' . number_format($amount, 2);
+        
+        $urgencyColor = $daysRemaining <= 1 ? '#ef4444' : ($daysRemaining <= 3 ? '#f59e0b' : '#3b82f6');
+
+        $html = <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription Renewal Reminder</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td align="center" style="padding: 40px 0;">
+                <table role="presentation" style="width: 600px; max-width: 100%; border-collapse: collapse; background-color: #141414; border-radius: 16px; overflow: hidden;">
+                    <!-- Header -->
+                    <tr>
+                        <td style="padding: 40px 40px 30px 40px; text-align: center; background: linear-gradient(135deg, {$urgencyColor} 0%, {$urgencyColor}cc 100%);">
+                            <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #ffffff;">📅 Renewal Reminder</h1>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px;">
+                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #e5e5e5; line-height: 1.5;">Hello {$name},</p>
+                            
+                            <p style="margin: 0 0 25px 0; font-size: 16px; color: #a3a3a3; line-height: 1.6;">
+                                Your <strong style="color: #ffffff;">{$planName}</strong> subscription will automatically renew <strong style="color: {$urgencyColor};">{$urgency}</strong>.
+                            </p>
+                            
+                            <!-- Renewal Details Card -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #1f1f1f; border-radius: 12px; margin-bottom: 25px;">
+                                <tr>
+                                    <td style="padding: 24px;">
+                                        <h3 style="margin: 0 0 20px 0; font-size: 18px; font-weight: 600; color: #ffffff;">Renewal Details</h3>
+                                        
+                                        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                                            <tr>
+                                                <td style="padding: 8px 0; color: #a3a3a3; font-size: 14px;">Plan</td>
+                                                <td style="padding: 8px 0; color: #ffffff; font-size: 14px; text-align: right;">{$planName}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0; color: #a3a3a3; font-size: 14px;">Renewal Amount</td>
+                                                <td style="padding: 8px 0; color: #10b981; font-size: 14px; font-weight: 600; text-align: right;">{$formattedAmount}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0; color: #a3a3a3; font-size: 14px;">Renewal Date</td>
+                                                <td style="padding: 8px 0; color: #ffffff; font-size: 14px; text-align: right;">{$renewalDate}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="margin: 0 0 25px 0; font-size: 14px; color: #a3a3a3; line-height: 1.6;">
+                                No action is required if you wish to continue your subscription. Your card will be charged automatically on the renewal date.
+                            </p>
+                            
+                            <!-- Button -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{$billingUrl}" style="display: inline-block; padding: 16px 32px; font-size: 16px; font-weight: 600; color: #ffffff; background: linear-gradient(135deg, #10b981 0%, #059669 100%); text-decoration: none; border-radius: 8px;">Manage Subscription</a>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="margin: 25px 0 0 0; font-size: 12px; color: #525252; line-height: 1.5;">
+                                If you wish to cancel or change your plan, please do so before the renewal date.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; text-align: center; background-color: #0a0a0a; border-top: 1px solid #262626;">
+                            <p style="margin: 0; font-size: 12px; color: #525252;">
+                                &copy; 2025 IEOSUIA QR. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+HTML;
+
+        return self::send($email, $subject, $html);
+    }
+
+    /**
+     * Send subscription canceled notification
+     */
+    public static function sendSubscriptionCanceledEmail(
+        string $email,
+        string $name,
+        string $planName
+    ): bool {
+        $appUrl = $_ENV['APP_URL'] ?? 'https://qr.ieosuia.com';
+        $pricingUrl = $appUrl . '/#pricing';
+
+        $subject = "Your {$planName} Subscription Has Been Canceled";
+
+        $html = <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription Canceled</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td align="center" style="padding: 40px 0;">
+                <table role="presentation" style="width: 600px; max-width: 100%; border-collapse: collapse; background-color: #141414; border-radius: 16px; overflow: hidden;">
+                    <!-- Header -->
+                    <tr>
+                        <td style="padding: 40px 40px 30px 40px; text-align: center; background: linear-gradient(135deg, #737373 0%, #525252 100%);">
+                            <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #ffffff;">Subscription Canceled</h1>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px;">
+                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #e5e5e5; line-height: 1.5;">Hello {$name},</p>
+                            
+                            <p style="margin: 0 0 25px 0; font-size: 16px; color: #a3a3a3; line-height: 1.6;">
+                                Your <strong style="color: #ffffff;">{$planName}</strong> subscription has been canceled. You have been downgraded to the Free plan.
+                            </p>
+                            
+                            <p style="margin: 0 0 25px 0; font-size: 14px; color: #a3a3a3; line-height: 1.6;">
+                                We're sorry to see you go! If you change your mind, you can resubscribe at any time to regain access to premium features.
+                            </p>
+                            
+                            <!-- Button -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{$pricingUrl}" style="display: inline-block; padding: 16px 32px; font-size: 16px; font-weight: 600; color: #ffffff; background: linear-gradient(135deg, #10b981 0%, #059669 100%); text-decoration: none; border-radius: 8px;">View Plans</a>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="margin: 25px 0 0 0; font-size: 12px; color: #525252; line-height: 1.5;">
+                                If you have any feedback or questions, please don't hesitate to contact us.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; text-align: center; background-color: #0a0a0a; border-top: 1px solid #262626;">
+                            <p style="margin: 0; font-size: 12px; color: #525252;">
+                                &copy; 2025 IEOSUIA QR. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+HTML;
+
+        return self::send($email, $subject, $html);
+    }
+
+    /**
      */
     private static function getEmailTemplate(
         string $title,

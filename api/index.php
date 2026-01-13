@@ -244,6 +244,10 @@ try {
     elseif ($uri === '/subscriptions/sync' && $method === 'POST') {
         PaymentController::syncSubscription();
     }
+    // Renewal reminders (cron job endpoint)
+    elseif ($uri === '/cron/renewal-reminders' && $method === 'POST') {
+        PaymentController::sendRenewalReminders();
+    }
 
     // Billing/Invoices
     elseif ($uri === '/billing/invoices' && $method === 'GET') {

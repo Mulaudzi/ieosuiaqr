@@ -7,6 +7,7 @@ use App\Helpers\Response;
 use App\Helpers\Validator;
 use App\Middleware\Auth;
 use App\Services\InvoiceService;
+use App\Services\MailService;
 
 class PaymentController
 {
@@ -233,6 +234,22 @@ class PaymentController
                 // Update payment status to succeeded
                 self::updatePaymentStatus($pdo, $mPaymentId, 'succeeded');
 
+                // Get user details for email
+                $stmt = $pdo->prepare("SELECT name, email FROM users WHERE id = ?");
+                $stmt->execute([$user['id']]);
+                $userData = $stmt->fetch();
+
+                // Send payment success email
+                $renewalDate = date('M j, Y', strtotime('+1 month'));
+                MailService::sendPaymentSuccessEmail(
+                    $userData['email'],
+                    $userData['name'],
+                    $plan,
+                    (float)$amountGross,
+                    $mPaymentId,
+                    $renewalDate
+                );
+
                 Database::commit();
                 error_log("PayFast ITN: Payment processed successfully for {$email}");
 
@@ -244,6 +261,25 @@ class PaymentController
             // Handle cancellation
             try {
                 $email = $postData['email_address'] ?? '';
+                
+                // Get user name for email
+                $stmt = $pdo->prepare("SELECT name FROM users WHERE email = ?");
+                $stmt->execute([$email]);
+                $userData = $stmt->fetch();
+                $userName = $userData['name'] ?? 'Customer';
+                
+                // Get current plan before canceling
+                $stmt = $pdo->prepare("
+                    SELECT p.name as plan_name 
+                    FROM subscriptions s
+                    JOIN plans p ON s.plan_id = p.id
+                    JOIN users u ON s.user_id = u.id
+                    WHERE u.email = ? AND s.status = 'active'
+                ");
+                $stmt->execute([$email]);
+                $subData = $stmt->fetch();
+                $planName = $subData['plan_name'] ?? 'Pro';
+                
                 $stmt = $pdo->prepare("
                     UPDATE subscriptions s
                     JOIN users u ON s.user_id = u.id
@@ -257,6 +293,9 @@ class PaymentController
 
                 // Update payment status to failed
                 self::updatePaymentStatus($pdo, $mPaymentId, 'failed');
+
+                // Send cancellation email
+                MailService::sendSubscriptionCanceledEmail($email, $userName, $planName);
 
                 error_log("PayFast ITN: Subscription canceled for {$email}");
             } catch (\Exception $e) {
@@ -397,6 +436,22 @@ class PaymentController
             // Record payment
             self::recordPayment($pdo, $user['id'], $reference, $amountZar, 'succeeded', 'paystack', "IEOSUIA QR {$plan} Plan");
 
+            // Get user details for email
+            $stmt = $pdo->prepare("SELECT name, email FROM users WHERE id = ?");
+            $stmt->execute([$user['id']]);
+            $userData = $stmt->fetch();
+
+            // Send payment success email
+            $renewalDate = date('M j, Y', strtotime('+1 month'));
+            MailService::sendPaymentSuccessEmail(
+                $userData['email'],
+                $userData['name'],
+                $plan,
+                $amountZar,
+                $reference,
+                $renewalDate
+            );
+
             Database::commit();
             error_log("Paystack: Payment processed successfully for {$email}");
 
@@ -437,6 +492,19 @@ class PaymentController
         try {
             $email = $data['customer']['email'] ?? '';
             
+            // Get user name and current plan for email
+            $stmt = $pdo->prepare("
+                SELECT u.name, p.name as plan_name 
+                FROM users u
+                LEFT JOIN subscriptions s ON s.user_id = u.id AND s.status = 'active'
+                LEFT JOIN plans p ON s.plan_id = p.id
+                WHERE u.email = ?
+            ");
+            $stmt->execute([$email]);
+            $userData = $stmt->fetch();
+            $userName = $userData['name'] ?? 'Customer';
+            $planName = $userData['plan_name'] ?? 'Pro';
+            
             $stmt = $pdo->prepare("
                 UPDATE subscriptions s
                 JOIN users u ON s.user_id = u.id
@@ -447,6 +515,9 @@ class PaymentController
 
             $stmt = $pdo->prepare("UPDATE users SET plan = 'Free', updated_at = NOW() WHERE email = ?");
             $stmt->execute([$email]);
+            
+            // Send cancellation email
+            MailService::sendSubscriptionCanceledEmail($email, $userName, $planName);
             
             error_log("Paystack: Subscription canceled for {$email}");
         } catch (\Exception $e) {
@@ -464,14 +535,23 @@ class PaymentController
             $reference = $data['reference'] ?? '';
             $amountKobo = $data['amount'] ?? 0;
             $amountZar = $amountKobo / 100;
+            $failureMessage = $data['gateway_response'] ?? 'Payment could not be processed';
 
             // Get user
-            $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+            $stmt = $pdo->prepare("SELECT id, name FROM users WHERE email = ?");
             $stmt->execute([$email]);
             $user = $stmt->fetch();
 
             if ($user) {
                 self::recordPayment($pdo, $user['id'], $reference, $amountZar, 'failed', 'paystack', 'Payment failed');
+                
+                // Send payment failed email
+                MailService::sendPaymentFailedEmail(
+                    $email,
+                    $user['name'],
+                    $amountZar,
+                    $failureMessage
+                );
             }
             
             error_log("Paystack: Charge failed for {$email}");
@@ -689,6 +769,85 @@ class PaymentController
             'plan' => $subscription['plan_name'],
             'status' => $subscription['status'],
             'renewal_date' => $subscription['renewal_date']
+        ]);
+    }
+
+    /**
+     * Send renewal reminder emails for subscriptions expiring within specified days
+     * This should be called via cron job daily
+     */
+    public static function sendRenewalReminders(): void
+    {
+        // Verify admin API key for cron jobs
+        $apiKey = $_SERVER['HTTP_X_API_KEY'] ?? $_GET['api_key'] ?? '';
+        $expectedKey = $_ENV['CRON_API_KEY'] ?? '';
+        
+        if (empty($expectedKey) || $apiKey !== $expectedKey) {
+            Response::error('Unauthorized', 401);
+            return;
+        }
+
+        $pdo = Database::getInstance();
+        $sentCount = 0;
+        $errors = [];
+
+        // Get subscriptions expiring in 7 days, 3 days, and 1 day
+        $reminderDays = [7, 3, 1];
+
+        foreach ($reminderDays as $days) {
+            try {
+                $stmt = $pdo->prepare("
+                    SELECT 
+                        s.id,
+                        s.renewal_date,
+                        s.frequency,
+                        u.id as user_id,
+                        u.email,
+                        u.name,
+                        p.name as plan_name,
+                        p.price_monthly_zar,
+                        p.price_annual_zar
+                    FROM subscriptions s
+                    JOIN users u ON s.user_id = u.id
+                    JOIN plans p ON s.plan_id = p.id
+                    WHERE s.status = 'active'
+                    AND s.renewal_date = DATE_ADD(CURDATE(), INTERVAL ? DAY)
+                ");
+                $stmt->execute([$days]);
+                $subscriptions = $stmt->fetchAll();
+
+                foreach ($subscriptions as $sub) {
+                    $amount = $sub['frequency'] === 'annual' 
+                        ? (float)$sub['price_annual_zar'] 
+                        : (float)$sub['price_monthly_zar'];
+                    
+                    $renewalDate = date('M j, Y', strtotime($sub['renewal_date']));
+                    
+                    $sent = MailService::sendRenewalReminderEmail(
+                        $sub['email'],
+                        $sub['name'],
+                        $sub['plan_name'],
+                        $amount,
+                        $renewalDate,
+                        $days
+                    );
+
+                    if ($sent) {
+                        $sentCount++;
+                        error_log("Renewal reminder sent to {$sub['email']} ({$days} days)");
+                    } else {
+                        $errors[] = "Failed to send to {$sub['email']}";
+                    }
+                }
+            } catch (\Exception $e) {
+                $errors[] = "Error processing {$days}-day reminders: " . $e->getMessage();
+                error_log("Renewal reminder error: " . $e->getMessage());
+            }
+        }
+
+        Response::success([
+            'sent' => $sentCount,
+            'errors' => $errors
         ]);
     }
 }
