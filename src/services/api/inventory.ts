@@ -33,6 +33,21 @@ export interface InventoryAnalytics {
   }>;
 }
 
+export interface InventoryAlert {
+  id: string;
+  user_id: string;
+  item_id: string | null;
+  item_name: string | null;
+  alert_type: "low_activity" | "maintenance_due" | "status_change" | "custom";
+  title: string;
+  message: string | null;
+  priority: "low" | "medium" | "high";
+  is_read: boolean;
+  is_emailed: boolean;
+  due_date: string | null;
+  created_at: string;
+}
+
 export interface InventoryItem {
   id: string;
   user_id: string;
@@ -134,6 +149,53 @@ export const inventoryApi = {
    */
   getAnalytics: async (period?: string): Promise<ApiResponse<InventoryAnalytics>> => {
     return get("/inventory/analytics", { period });
+  },
+
+  /**
+   * Export analytics as CSV
+   * GET /api/inventory/analytics/export
+   */
+  exportAnalyticsCsv: (period?: string): string => {
+    const baseUrl = import.meta.env.VITE_API_URL || "https://qr.ieosuia.com/api";
+    const token = localStorage.getItem("auth_token");
+    return `${baseUrl}/inventory/analytics/export?period=${period || "30d"}&token=${token}`;
+  },
+
+  /**
+   * Get user's inventory alerts
+   * GET /api/inventory/alerts
+   */
+  getAlerts: async (): Promise<ApiResponse<{ alerts: InventoryAlert[]; unread_count: number }>> => {
+    return get("/inventory/alerts");
+  },
+
+  /**
+   * Mark alerts as read
+   * POST /api/inventory/alerts/read
+   */
+  markAlertsRead: async (alertIds?: string[]): Promise<ApiResponse<null>> => {
+    return post("/inventory/alerts/read", { alert_ids: alertIds });
+  },
+
+  /**
+   * Check and create low-activity alerts
+   * POST /api/inventory/alerts/check
+   */
+  checkAlerts: async (): Promise<ApiResponse<{ alerts_created: number; emails_sent: number }>> => {
+    return post("/inventory/alerts/check");
+  },
+
+  /**
+   * Set maintenance reminder for an item
+   * POST /api/inventory/maintenance
+   */
+  setMaintenanceReminder: async (data: {
+    item_id: string;
+    due_date: string;
+    message?: string;
+    priority?: "low" | "medium" | "high";
+  }): Promise<ApiResponse<null>> => {
+    return post("/inventory/maintenance", data);
   },
 
   /**

@@ -293,8 +293,101 @@ class MailService
 HTML;
     }
 
+    /**
+     * Send alert notification email
+     */
+    public static function sendAlertEmail(
+        string $email, 
+        string $name, 
+        string $alertTitle, 
+        string $alertMessage,
+        string $priority = 'medium'
+    ): bool {
+        $appUrl = $_ENV['APP_URL'] ?? 'https://qr.ieosuia.com';
+        $dashboardUrl = $appUrl . '/dashboard/inventory';
 
-     * Get styled email template
+        $priorityColors = [
+            'low' => '#3b82f6',
+            'medium' => '#f59e0b',
+            'high' => '#ef4444',
+        ];
+
+        $priorityLabels = [
+            'low' => 'Low Priority',
+            'medium' => 'Action Needed',
+            'high' => 'Urgent',
+        ];
+
+        $color = $priorityColors[$priority] ?? $priorityColors['medium'];
+        $label = $priorityLabels[$priority] ?? $priorityLabels['medium'];
+
+        $subject = "[{$label}] {$alertTitle}";
+
+        $html = <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Alert</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td align="center" style="padding: 40px 0;">
+                <table role="presentation" style="width: 600px; max-width: 100%; border-collapse: collapse; background-color: #141414; border-radius: 16px; overflow: hidden;">
+                    <!-- Header -->
+                    <tr>
+                        <td style="padding: 40px 40px 30px 40px; text-align: center; background: linear-gradient(135deg, {$color} 0%, {$color}99 100%);">
+                            <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #ffffff;">🔔 {$label}</h1>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px;">
+                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #e5e5e5; line-height: 1.5;">Hello {$name},</p>
+                            
+                            <h2 style="margin: 0 0 15px 0; font-size: 20px; font-weight: 600; color: #ffffff;">{$alertTitle}</h2>
+                            
+                            <p style="margin: 0 0 30px 0; font-size: 16px; color: #a3a3a3; line-height: 1.6;">{$alertMessage}</p>
+                            
+                            <!-- Button -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{$dashboardUrl}" style="display: inline-block; padding: 16px 32px; font-size: 16px; font-weight: 600; color: #ffffff; background: {$color}; text-decoration: none; border-radius: 8px;">View Inventory</a>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="margin: 25px 0 0 0; font-size: 12px; color: #525252; line-height: 1.5;">
+                                You're receiving this because alerts are enabled for your account. 
+                                <a href="{$dashboardUrl}" style="color: #10b981;">Manage alert preferences</a>
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; text-align: center; background-color: #0a0a0a; border-top: 1px solid #262626;">
+                            <p style="margin: 0; font-size: 12px; color: #525252;">
+                                &copy; 2025 IEOSUIA QR. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+HTML;
+
+        return self::send($email, $subject, $html);
+    }
+
+    /**
      */
     private static function getEmailTemplate(
         string $title,

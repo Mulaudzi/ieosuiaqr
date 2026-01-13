@@ -236,6 +236,21 @@ try {
     elseif ($uri === '/inventory/analytics' && $method === 'GET') {
         InventoryController::getAnalytics();
     }
+    elseif ($uri === '/inventory/analytics/export' && $method === 'GET') {
+        InventoryController::exportAnalyticsCsv();
+    }
+    elseif ($uri === '/inventory/alerts' && $method === 'GET') {
+        InventoryController::getAlerts();
+    }
+    elseif ($uri === '/inventory/alerts/read' && $method === 'POST') {
+        InventoryController::markAlertsRead();
+    }
+    elseif ($uri === '/inventory/alerts/check' && $method === 'POST') {
+        InventoryController::checkLowActivityAlerts();
+    }
+    elseif ($uri === '/inventory/maintenance' && $method === 'POST') {
+        InventoryController::setMaintenanceReminder();
+    }
     // Public inventory endpoints (for scan page)
     elseif (preg_match('#^/inventory/qr/(\d+)$#', $uri, $matches) && $method === 'GET') {
         InventoryController::getByQrCode((int)$matches[1]);

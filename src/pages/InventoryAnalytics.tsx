@@ -15,6 +15,8 @@ import {
   BarChart3,
   PieChartIcon,
   Loader2,
+  Download,
+  FileText,
 } from "lucide-react";
 import {
   AreaChart,
@@ -36,10 +38,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { inventoryApi, InventoryAnalytics } from "@/services/api/inventory";
+import { useUserPlan } from "@/hooks/useUserPlan";
+import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import jsPDF from "jspdf";
 
 const statusColors: Record<string, string> = {
   in_stock: "hsl(142, 76%, 36%)",
@@ -70,6 +76,8 @@ export default function InventoryAnalyticsPage() {
   const [analytics, setAnalytics] = useState<InventoryAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [period, setPeriod] = useState("30d");
+  const { isPro, isEnterprise } = useUserPlan();
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -88,6 +96,90 @@ export default function InventoryAnalyticsPage() {
 
     fetchAnalytics();
   }, [period]);
+
+  const handleExportCSV = () => {
+    const url = inventoryApi.exportAnalyticsCsv(period);
+    window.open(url, "_blank");
+    toast({
+      title: "Export Started",
+      description: "Your CSV report is being downloaded.",
+    });
+  };
+
+  const handleExportPDF = () => {
+    if (!analytics) return;
+    
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Title
+    doc.setFontSize(20);
+    doc.setTextColor(16, 185, 129);
+    doc.text("Inventory Analytics Report", pageWidth / 2, 20, { align: "center" });
+    
+    // Date
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated: ${format(new Date(), "MMMM d, yyyy")} | Period: ${period}`, pageWidth / 2, 28, { align: "center" });
+    
+    // Summary
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text("Summary", 20, 45);
+    
+    doc.setFontSize(11);
+    doc.text(`Total Items: ${analytics.summary.total_items}`, 25, 55);
+    doc.text(`Total Scans: ${analytics.summary.total_scans}`, 25, 63);
+    doc.text(`Items with QR: ${analytics.summary.items_with_qr}`, 25, 71);
+    doc.text(`Items without QR: ${analytics.summary.items_without_qr}`, 25, 79);
+    
+    // Status Distribution
+    doc.setFontSize(14);
+    doc.text("Status Distribution", 20, 95);
+    
+    let yPos = 105;
+    doc.setFontSize(11);
+    analytics.status_distribution.forEach((item) => {
+      doc.text(`${item.label}: ${item.count}`, 25, yPos);
+      yPos += 8;
+    });
+    
+    // Categories
+    doc.setFontSize(14);
+    doc.text("Items by Category", 20, yPos + 15);
+    
+    yPos += 25;
+    doc.setFontSize(11);
+    analytics.by_category.slice(0, 8).forEach((item) => {
+      doc.text(`${item.category}: ${item.count}`, 25, yPos);
+      yPos += 8;
+    });
+    
+    // Top Items
+    if (analytics.top_items.length > 0) {
+      doc.setFontSize(14);
+      doc.text("Most Active Items", 20, yPos + 15);
+      
+      yPos += 25;
+      doc.setFontSize(11);
+      analytics.top_items.slice(0, 5).forEach((item, index) => {
+        doc.text(`${index + 1}. ${item.name} - ${item.scan_count} scans`, 25, yPos);
+        yPos += 8;
+      });
+    }
+    
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text("IEOSUIA QR - Inventory Analytics", pageWidth / 2, 285, { align: "center" });
+    
+    doc.save(`inventory-report-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+    
+    toast({
+      title: "PDF Generated",
+      description: "Your report has been downloaded.",
+    });
+  };
 
   if (isLoading) {
     return (
@@ -179,6 +271,28 @@ export default function InventoryAnalyticsPage() {
               <SelectItem value="90d">Last 90 days</SelectItem>
             </SelectContent>
           </Select>
+          
+          {/* Export Dropdown */}
+          {(isPro || isEnterprise) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Download className="h-4 w-4" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportCSV}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Download CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportPDF}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Download PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         {/* Summary Cards */}
