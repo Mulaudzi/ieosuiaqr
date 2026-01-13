@@ -12,6 +12,8 @@ import { InvoiceHistory } from "@/components/billing/InvoiceHistory";
 import { useUserPlan, UserPlan } from "@/hooks/useUserPlan";
 import { authApi } from "@/services/api/auth";
 import { useAuth } from "@/contexts/AuthContext";
+import { TwoFactorSetup } from "@/components/auth/TwoFactorSetup";
+import { PasswordStrengthIndicator, getPasswordScore } from "@/components/auth/PasswordStrengthIndicator";
 import {
   QrCode,
   BarChart3,
@@ -75,10 +77,13 @@ export default function Settings() {
   // Billing state
   const [checkoutPlan, setCheckoutPlan] = useState<UserPlan | null>(null);
   const [isAnnualBilling, setIsAnnualBilling] = useState(false);
+
+  // 2FA state
+  const [show2FASetup, setShow2FASetup] = useState(false);
   
-  const { plan: currentPlan, limits } = useUserPlan();
+  const { plan: currentPlan, limits, isPro } = useUserPlan();
   const { toast } = useToast();
-  const { user, logout, updateUser } = useAuth();
+  const { user, logout, updateUser, refreshUser } = useAuth();
 
   // Initialize form with user data
   useEffect(() => {
@@ -563,15 +568,30 @@ export default function Settings() {
                   </p>
                   <Button 
                     variant="outline"
-                    onClick={() => {
-                      toast({ title: "2FA Setup", description: "Two-factor authentication setup coming soon. Contact support for early access." });
-                    }}
+                    onClick={() => setShow2FASetup(true)}
                   >
                     Enable 2FA
                   </Button>
                 </div>
+
+                {/* Password Strength for new password */}
+                {newPassword && (
+                  <div className="p-4 rounded-xl bg-muted/50">
+                    <PasswordStrengthIndicator password={newPassword} />
+                  </div>
+                )}
               </motion.div>
             </TabsContent>
+
+            {/* 2FA Setup Modal */}
+            <TwoFactorSetup
+              open={show2FASetup}
+              onOpenChange={setShow2FASetup}
+              onSuccess={() => {
+                refreshUser();
+                toast({ title: "2FA Enabled!", description: "Your account is now more secure." });
+              }}
+            />
 
             {/* Notifications Tab */}
             <TabsContent value="notifications">

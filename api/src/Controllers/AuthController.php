@@ -731,4 +731,166 @@ class AuthController
 
         Response::success(null, '2FA disabled successfully');
     }
+
+    /**
+     * Verify 2FA code and enable
+     */
+    public static function verify2FA(): void
+    {
+        $user = Auth::check();
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        if (empty($data['code']) || empty($data['secret'])) {
+            Response::error('Code and secret are required', 400);
+        }
+
+        $code = $data['code'];
+        $secret = $data['secret'];
+
+        // Simple TOTP verification (30-second window)
+        // In production, use a proper TOTP library
+        $timeSlice = floor(time() / 30);
+        $validCodes = [];
+        
+        for ($i = -1; $i <= 1; $i++) {
+            $validCodes[] = self::generateTOTPCode($secret, $timeSlice + $i);
+        }
+
+        if (!in_array($code, $validCodes, true)) {
+            Response::error('Invalid verification code', 400);
+        }
+
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("UPDATE users SET two_factor_enabled = 1, updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$user['id']]);
+
+        Response::success(null, '2FA enabled successfully');
+    }
+
+    private static function generateTOTPCode(string $secret, int $timeSlice): string
+    {
+        $secretKey = self::base32Decode($secret);
+        $time = pack('N*', 0, $timeSlice);
+        $hash = hash_hmac('sha1', $time, $secretKey, true);
+        $offset = ord($hash[strlen($hash) - 1]) & 0xf;
+        $code = (
+            ((ord($hash[$offset]) & 0x7f) << 24) |
+            ((ord($hash[$offset + 1]) & 0xff) << 16) |
+            ((ord($hash[$offset + 2]) & 0xff) << 8) |
+            (ord($hash[$offset + 3]) & 0xff)
+        ) % pow(10, 6);
+        return str_pad((string)$code, 6, '0', STR_PAD_LEFT);
+    }
+
+    private static function base32Decode(string $input): string
+    {
+        $map = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+        $input = strtoupper($input);
+        $buffer = 0;
+        $bits = 0;
+        $output = '';
+        
+        for ($i = 0; $i < strlen($input); $i++) {
+            $pos = strpos($map, $input[$i]);
+            if ($pos === false) continue;
+            
+            $buffer = ($buffer << 5) | $pos;
+            $bits += 5;
+            
+            if ($bits >= 8) {
+                $bits -= 8;
+                $output .= chr(($buffer >> $bits) & 0xff);
+            }
+        }
+        
+        return $output;
+    }
+
+    /**
+     * Get user's saved logos
+     */
+    public static function getLogos(): void
+    {
+        $user = Auth::check();
+        $pdo = Database::getInstance();
+
+        $stmt = $pdo->prepare("SELECT id, logo_path, preview_thumb, name, created_at FROM user_logos WHERE user_id = ? ORDER BY created_at DESC");
+        $stmt->execute([$user['id']]);
+        $logos = $stmt->fetchAll();
+
+        Response::success($logos);
+    }
+
+    /**
+     * Upload a new logo
+     */
+    public static function uploadLogo(): void
+    {
+        $user = Auth::check();
+
+        // Check plan (Pro or Enterprise only)
+        if ($user['plan'] === 'Free') {
+            Response::error('Logo uploads require a Pro or Enterprise plan', 403);
+        }
+
+        if (!isset($_FILES['logo']) || $_FILES['logo']['error'] !== UPLOAD_ERR_OK) {
+            Response::error('No valid file uploaded', 400);
+        }
+
+        $file = $_FILES['logo'];
+        $maxSize = 1 * 1024 * 1024; // 1MB
+
+        // Validate file type (PNG only)
+        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+        $mimeType = $finfo->file($file['tmp_name']);
+
+        if ($mimeType !== 'image/png') {
+            Response::error('Only PNG files are allowed for logos', 400);
+        }
+
+        if ($file['size'] > $maxSize) {
+            Response::error('Logo must be less than 1MB', 400);
+        }
+
+        $pdo = Database::getInstance();
+
+        // Check logo limit (Pro: 10, Enterprise: unlimited)
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM user_logos WHERE user_id = ?");
+        $stmt->execute([$user['id']]);
+        $count = (int)$stmt->fetch()['count'];
+
+        $maxLogos = $user['plan'] === 'Pro' ? 10 : PHP_INT_MAX;
+        if ($count >= $maxLogos) {
+            Response::error('Logo limit reached. Delete an existing logo first.', 403);
+        }
+
+        // Create upload directory
+        $uploadDir = __DIR__ . '/../../uploads/logos/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        // Generate unique filename
+        $filename = 'logo_' . $user['id'] . '_' . bin2hex(random_bytes(8)) . '.png';
+        $filepath = $uploadDir . $filename;
+
+        // Move uploaded file
+        if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+            Response::error('Failed to save file', 500);
+        }
+
+        // Save to database
+        $appUrl = $_ENV['APP_URL'] ?? 'https://qr.ieosuia.com';
+        $logoPath = $appUrl . '/api/uploads/logos/' . $filename;
+
+        $stmt = $pdo->prepare("INSERT INTO user_logos (user_id, logo_path, created_at) VALUES (?, ?, NOW())");
+        $stmt->execute([$user['id'], $logoPath]);
+
+        $logoId = (int)$pdo->lastInsertId();
+
+        Response::success([
+            'id' => $logoId,
+            'logo_path' => $logoPath
+        ], 'Logo uploaded successfully', 201);
+    }
 }
