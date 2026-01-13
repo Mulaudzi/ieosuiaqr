@@ -226,6 +226,12 @@ try {
     elseif ($uri === '/subscriptions/cancel' && $method === 'POST') {
         SubscriptionController::cancel();
     }
+    elseif ($uri === '/subscriptions/proration-preview' && $method === 'POST') {
+        SubscriptionController::getProrationPreview();
+    }
+    elseif ($uri === '/subscriptions/change' && $method === 'POST') {
+        SubscriptionController::changePlan();
+    }
 
     // Payments
     elseif ($uri === '/payments/checkout' && $method === 'POST') {

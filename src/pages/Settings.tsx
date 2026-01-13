@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { PlanSelector } from "@/components/billing/PlanSelector";
+import { PlanChangeModal } from "@/components/billing/PlanChangeModal";
 import { PayFastCheckout } from "@/components/billing/PayFastCheckout";
 import { InvoiceHistory } from "@/components/billing/InvoiceHistory";
 import { PaymentHistory } from "@/components/billing/PaymentHistory";
@@ -80,6 +81,8 @@ export default function Settings() {
   // Billing state
   const [checkoutPlan, setCheckoutPlan] = useState<UserPlan | null>(null);
   const [isAnnualBilling, setIsAnnualBilling] = useState(false);
+  const [showPlanChangeModal, setShowPlanChangeModal] = useState(false);
+  const [targetPlan, setTargetPlan] = useState<UserPlan>("pro");
 
   // 2FA state
   const [show2FASetup, setShow2FASetup] = useState(false);
@@ -612,11 +615,23 @@ export default function Settings() {
                       </h3>
                       <PlanSelector 
                         onSelectPlan={(plan, isAnnual) => {
-                          setCheckoutPlan(plan);
+                          setTargetPlan(plan);
                           setIsAnnualBilling(isAnnual);
+                          setShowPlanChangeModal(true);
                         }}
                       />
                     </div>
+
+                    {/* Plan Change Modal */}
+                    <PlanChangeModal
+                      open={showPlanChangeModal}
+                      onOpenChange={setShowPlanChangeModal}
+                      targetPlan={targetPlan}
+                      isAnnual={isAnnualBilling}
+                      onSuccess={() => {
+                        refreshUser();
+                      }}
+                    />
 
                     {/* Invoice History */}
                     <InvoiceHistory />

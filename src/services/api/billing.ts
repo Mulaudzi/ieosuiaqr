@@ -32,6 +32,19 @@ export interface SubscriptionStatus {
   is_synced: boolean;
 }
 
+export interface ProrationPreview {
+  current_plan: string;
+  new_plan: string;
+  current_plan_price: number;
+  new_plan_price: number;
+  days_remaining: number;
+  days_in_cycle: number;
+  credit_remaining: number;
+  amount_due: number;
+  effective_date: string;
+  is_upgrade: boolean;
+}
+
 // Billing & Subscription endpoints - ready for Laravel + PayFast backend
 export const billingApi = {
   /**
@@ -92,11 +105,19 @@ export const billingApi = {
   },
 
   /**
-   * Change subscription plan
-   * POST /api/subscription/change
+   * Get proration preview for plan change
+   * POST /api/subscriptions/proration-preview
+   */
+  getProrationPreview: async (data: CheckoutRequest): Promise<ApiResponse<ProrationPreview>> => {
+    return post("/subscriptions/proration-preview", data);
+  },
+
+  /**
+   * Change subscription plan with proration
+   * POST /api/subscriptions/change
    */
   changePlan: async (data: CheckoutRequest): Promise<ApiResponse<CheckoutResponse | Subscription>> => {
-    return post("/subscription/change", data);
+    return post("/subscriptions/change", data);
   },
 
   /**

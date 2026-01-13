@@ -89,16 +89,14 @@ export function PlanSelector({ onSelectPlan }: PlanSelectorProps) {
       return;
     }
 
-    if (plan.id === "free") {
-      toast({
-        title: "Downgrade",
-        description: "Please contact support to downgrade your plan.",
-      });
-      return;
-    }
-
+    // Allow both upgrades and downgrades
     onSelectPlan(plan.id, isAnnual);
   };
+
+  // Determine plan order for upgrade/downgrade logic
+  const planOrder: Record<UserPlan, number> = { free: 0, pro: 1, enterprise: 2 };
+  const isUpgrade = (targetPlan: UserPlan) => planOrder[targetPlan] > planOrder[currentPlan];
+  const isDowngrade = (targetPlan: UserPlan) => planOrder[targetPlan] < planOrder[currentPlan];
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-ZA", {
@@ -231,13 +229,13 @@ export function PlanSelector({ onSelectPlan }: PlanSelectorProps) {
                 variant={plan.popular ? "hero" : isCurrentPlan ? "outline" : "default"}
                 className="w-full"
                 onClick={() => handleSelectPlan(plan)}
-                disabled={isCurrentPlan || plan.id === "free"}
+                disabled={isCurrentPlan}
               >
                 {isCurrentPlan
                   ? "Current Plan"
-                  : plan.id === "free"
-                  ? "Free Forever"
-                  : `Upgrade to ${plan.name}`}
+                  : isUpgrade(plan.id)
+                  ? `Upgrade to ${plan.name}`
+                  : `Downgrade to ${plan.name}`}
               </Button>
             </motion.div>
           );
