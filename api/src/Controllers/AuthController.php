@@ -757,36 +757,6 @@ class AuthController
     }
 
     /**
-     * Delete user account (soft delete)
-     */
-    public static function deleteAccount(): void
-    {
-        $user = Auth::check();
-        $pdo = Database::getInstance();
-
-        try {
-            Database::beginTransaction();
-
-            // Soft delete - set deleted_at timestamp
-            $stmt = $pdo->prepare("UPDATE users SET deleted_at = NOW(), email = CONCAT('deleted_', id, '_', email) WHERE id = ?");
-            $stmt->execute([$user['id']]);
-
-            // Optionally deactivate all QR codes
-            $stmt = $pdo->prepare("UPDATE qr_codes SET is_active = 0 WHERE user_id = ?");
-            $stmt->execute([$user['id']]);
-
-            Database::commit();
-
-            Response::success(null, 'Account deleted successfully');
-
-        } catch (\Exception $e) {
-            Database::rollback();
-            error_log("Delete account error: " . $e->getMessage());
-            Response::error('Failed to delete account', 500);
-        }
-    }
-
-    /**
      * Enable 2FA (stub - returns setup info)
      */
     public static function enable2FA(): void
