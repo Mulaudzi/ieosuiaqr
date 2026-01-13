@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -38,6 +39,15 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import {
   Shield,
   Mail,
   Search,
@@ -62,7 +72,11 @@ import {
   MailWarning,
   BarChart3,
   Settings,
+  Download,
+  FileText,
+  TrendingUp,
 } from "lucide-react";
+import jsPDF from "jspdf";
 
 interface EmailLog {
   id: number;
@@ -99,6 +113,13 @@ interface Stats {
   unread: number;
   unreplied: number;
   unread_contacts: number;
+}
+
+interface ChartData {
+  date: string;
+  contacts: number;
+  replied: number;
+  total: number;
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -140,6 +161,8 @@ export default function AdminEmails() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [replyNotes, setReplyNotes] = useState("");
   const [activeTab, setActiveTab] = useState("inbox");
+  const [chartData, setChartData] = useState<ChartData[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -162,8 +185,23 @@ export default function AdminEmails() {
         return;
       }
       await fetchEmails();
+      await fetchChartData();
     } catch {
       navigate("/admin");
+    }
+  };
+
+  const fetchChartData = async () => {
+    try {
+      const response = await fetch(`/api/admin/stats?days=30`, {
+        headers: { Authorization: `Admin ${adminToken}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setChartData(data.data.charts.daily || []);
+      }
+    } catch {
+      // Silent fail for chart data
     }
   };
 
@@ -330,6 +368,121 @@ export default function AdminEmails() {
       dateStyle: "medium",
       timeStyle: "short",
     });
+  };
+
+  const formatChartDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("en-ZA", { month: "short", day: "numeric" });
+  };
+
+  const exportToCsv = async () => {
+    setIsExporting(true);
+    try {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 30);
+      const params = new URLSearchParams({
+        start_date: startDate.toISOString().split("T")[0],
+        end_date: new Date().toISOString().split("T")[0],
+        ...(statusFilter && { status: statusFilter }),
+        ...(typeFilter && { type: typeFilter }),
+      });
+
+      const response = await fetch(`/api/admin/export/emails?${params}`, {
+        headers: { Authorization: `Admin ${adminToken}` },
+      });
+
+      if (!response.ok) throw new Error("Export failed");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `email_logs_${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+
+      toast({ title: "Export complete", description: "CSV file downloaded successfully." });
+    } catch {
+      toast({ variant: "destructive", title: "Export failed", description: "Could not generate CSV file." });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportToPdf = async () => {
+    setIsExporting(true);
+    try {
+      const response = await fetch(`/api/admin/export/stats?days=30&format=json`, {
+        headers: { Authorization: `Admin ${adminToken}` },
+      });
+
+      if (!response.ok) throw new Error("Export failed");
+
+      const data = await response.json();
+      const report = data.data;
+
+      const pdf = new jsPDF();
+      const margin = 20;
+      let y = margin;
+
+      // Header
+      pdf.setFontSize(20);
+      pdf.setTextColor(59, 130, 246);
+      pdf.text("IEOSUIA QR - Email Statistics Report", margin, y);
+      y += 10;
+
+      pdf.setFontSize(10);
+      pdf.setTextColor(100);
+      pdf.text(`Generated: ${report.report_date}`, margin, y);
+      y += 5;
+      pdf.text(`Period: ${report.period.start} to ${report.period.end} (${report.period.days} days)`, margin, y);
+      y += 15;
+
+      // Summary
+      pdf.setFontSize(14);
+      pdf.setTextColor(0);
+      pdf.text("Summary", margin, y);
+      y += 8;
+
+      pdf.setFontSize(10);
+      const summaryData = [
+        ["Total Emails", report.summary.total_emails],
+        ["Contact Submissions", report.summary.contact_submissions],
+        ["Replied", report.summary.replied],
+        ["Response Rate", `${report.summary.response_rate}%`],
+        ["Avg Response Time", `${report.summary.avg_response_hours} hours`],
+        ["Delivered", report.summary.delivered],
+        ["Failed", report.summary.failed],
+        ["Bounced", report.summary.bounced],
+      ];
+
+      summaryData.forEach(([label, value]) => {
+        pdf.text(`${label}: ${value}`, margin, y);
+        y += 6;
+      });
+      y += 10;
+
+      // By Purpose
+      if (report.by_purpose.length > 0) {
+        pdf.setFontSize(14);
+        pdf.text("Submissions by Type", margin, y);
+        y += 8;
+
+        pdf.setFontSize(10);
+        report.by_purpose.forEach((item: { inquiry_purpose: string; count: number }) => {
+          pdf.text(`${item.inquiry_purpose}: ${item.count}`, margin, y);
+          y += 6;
+        });
+      }
+
+      pdf.save(`email_stats_report_${new Date().toISOString().split("T")[0]}.pdf`);
+      toast({ title: "Export complete", description: "PDF report downloaded successfully." });
+    } catch {
+      toast({ variant: "destructive", title: "Export failed", description: "Could not generate PDF report." });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleEmailClick = async (email: EmailLog) => {
@@ -520,6 +673,112 @@ export default function AdminEmails() {
               <p className="text-xs text-muted-foreground">Read</p>
             </motion.div>
           </div>
+        )}
+
+        {/* Submission Trends Chart */}
+        {chartData.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="mb-8"
+          >
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <TrendingUp className="w-4 h-4" />
+                    Submission Trends (Last 30 Days)
+                  </CardTitle>
+                  <div className="flex gap-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" disabled={isExporting}>
+                          <Download className="w-4 h-4 mr-2" />
+                          Export
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-card">
+                        <DropdownMenuItem onClick={exportToCsv}>
+                          <FileText className="w-4 h-4 mr-2" />
+                          Export Logs (CSV)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={exportToPdf}>
+                          <FileText className="w-4 h-4 mr-2" />
+                          Export Report (PDF)
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id="colorContacts" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="colorReplied" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis
+                        dataKey="date"
+                        tickFormatter={formatChartDate}
+                        className="text-xs"
+                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                      />
+                      <YAxis
+                        className="text-xs"
+                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                        allowDecimals={false}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "8px",
+                          fontSize: "12px",
+                        }}
+                        labelFormatter={(label) => formatChartDate(label)}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="contacts"
+                        stroke="hsl(var(--primary))"
+                        strokeWidth={2}
+                        fill="url(#colorContacts)"
+                        name="Contact Submissions"
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="replied"
+                        stroke="hsl(var(--success))"
+                        strokeWidth={2}
+                        fill="url(#colorReplied)"
+                        name="Replied"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex justify-center gap-6 mt-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-primary" />
+                    <span className="text-xs text-muted-foreground">Contact Submissions</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-success" />
+                    <span className="text-xs text-muted-foreground">Replied</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
         )}
 
         {/* Tabs */}

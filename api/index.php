@@ -323,6 +323,13 @@ try {
     elseif ($uri === '/admin/stats' && $method === 'GET') {
         AdminController::getEmailStats();
     }
+    // Export endpoints
+    elseif ($uri === '/admin/export/emails' && $method === 'GET') {
+        AdminController::exportEmailsCsv();
+    }
+    elseif ($uri === '/admin/export/stats' && $method === 'GET') {
+        AdminController::exportStatsReport();
+    }
 
     // 404 Not Found
     else {
