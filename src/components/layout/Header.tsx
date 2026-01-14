@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Menu, X, TestTube2 } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { useAuth } from "@/contexts/AuthContext";
 import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
@@ -69,12 +69,6 @@ export function Header() {
 
           {/* Auth Buttons / User Menu */}
           <div className="hidden lg:flex items-center gap-3">
-            <Button variant="outline" size="sm" asChild className="gap-2">
-              <Link to="/dashboard/tests">
-                <TestTube2 className="w-4 h-4" />
-                Tests
-              </Link>
-            </Button>
             {isAuthenticated ? (
               <>
                 <NotificationBell />
@@ -140,12 +134,6 @@ export function Header() {
                 )
               ))}
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
-                <Button variant="outline" asChild className="w-full justify-center gap-2">
-                  <Link to="/dashboard/tests" onClick={() => setIsMobileMenuOpen(false)}>
-                    <TestTube2 className="w-4 h-4" />
-                    Automated Tests
-                  </Link>
-                </Button>
                 {isAuthenticated ? (
                   <>
                     <div className="flex items-center justify-between px-2 py-2">
