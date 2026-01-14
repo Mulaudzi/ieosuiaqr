@@ -134,7 +134,7 @@ export interface Invoice {
 }
 
 // QR Code Types
-export type QRType = "url" | "text" | "email" | "phone" | "sms" | "wifi" | "vcard" | "event" | "location";
+export type QRType = "url" | "text" | "email" | "phone" | "sms" | "whatsapp" | "wifi" | "vcard" | "event" | "location" | "social" | "app";
 
 export interface QRCodeBase {
   id: string;

@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { QRCodeSVG } from "qrcode.react";
 import {
   ArrowLeft,
   Link2,
@@ -18,7 +17,6 @@ import {
   MapPin,
   ChevronRight,
   Download,
-  Palette,
   Crown,
   Check,
   FileImage,
@@ -26,6 +24,8 @@ import {
   FileCode,
   Lock,
   Loader2,
+  Share2,
+  Smartphone,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -53,6 +53,12 @@ import { WiFiForm, WiFiData, generateWiFiString } from "@/components/qr/WiFiForm
 import { VCardForm, VCardData, generateVCardString } from "@/components/qr/VCardForm";
 import { EventForm, EventData, generateEventString } from "@/components/qr/EventForm";
 import { LocationForm, LocationData, generateLocationString } from "@/components/qr/LocationForm";
+import { SMSForm, SMSData, generateSMSString } from "@/components/qr/SMSForm";
+import { WhatsAppForm, WhatsAppData, generateWhatsAppString } from "@/components/qr/WhatsAppForm";
+import { SocialMediaForm, SocialMediaData, generateSocialMediaString } from "@/components/qr/SocialMediaForm";
+import { AppForm, AppData, generateAppString } from "@/components/qr/AppForm";
+import { QRDesignCustomizer, QRDesignOptions, defaultDesignOptions } from "@/components/qr/QRDesignCustomizer";
+import { QRFramePreview } from "@/components/qr/QRFramePreview";
 import { qrCodeApi } from "@/services/api/qrcodes";
 
 const qrTypes = [
@@ -60,19 +66,14 @@ const qrTypes = [
   { id: "text", name: "Text", icon: MessageSquare, description: "Plain text message" },
   { id: "email", name: "Email", icon: Mail, description: "Email with subject & body" },
   { id: "phone", name: "Phone", icon: Phone, description: "Phone number to call" },
+  { id: "sms", name: "SMS", icon: MessageSquare, description: "Text message", premium: true },
+  { id: "whatsapp", name: "WhatsApp", icon: Share2, description: "WhatsApp chat", premium: true },
   { id: "wifi", name: "WiFi", icon: Wifi, description: "WiFi network credentials", premium: true },
   { id: "vcard", name: "vCard", icon: User, description: "Contact information", premium: true },
   { id: "event", name: "Event", icon: Calendar, description: "Calendar event", premium: true },
   { id: "location", name: "Location", icon: MapPin, description: "Geographic location", premium: true },
-];
-
-const colorPresets = [
-  { fg: "#000000", bg: "#FFFFFF", name: "Classic" },
-  { fg: "#1B9AAA", bg: "#FFFFFF", name: "Teal" },
-  { fg: "#7C3AED", bg: "#FFFFFF", name: "Purple" },
-  { fg: "#059669", bg: "#FFFFFF", name: "Green" },
-  { fg: "#DC2626", bg: "#FFFFFF", name: "Red" },
-  { fg: "#0D1117", bg: "#F6F8FA", name: "GitHub" },
+  { id: "social", name: "Social Media", icon: Share2, description: "Social profiles", premium: true },
+  { id: "app", name: "App Store", icon: Smartphone, description: "App download links", premium: true },
 ];
 
 const defaultWiFiData: WiFiData = { ssid: "", password: "", encryption: "WPA" };
@@ -100,13 +101,17 @@ const defaultLocationData: LocationData = {
   address: "",
   inputMode: "coordinates",
 };
+const defaultSMSData: SMSData = { phoneNumber: "", message: "" };
+const defaultWhatsAppData: WhatsAppData = { phoneNumber: "", message: "" };
+const defaultSocialMediaData: SocialMediaData = { links: [{ platform: "", url: "" }] };
+const defaultAppData: AppData = { appStoreUrl: "", playStoreUrl: "", linkType: "both" };
 
 export default function CreateQRCode() {
   const [step, setStep] = useState(1);
   const [selectedType, setSelectedType] = useState("url");
   const [qrName, setQrName] = useState("");
   const [qrContent, setQrContent] = useState("");
-  const [selectedColor, setSelectedColor] = useState(colorPresets[0]);
+  const [designOptions, setDesignOptions] = useState<QRDesignOptions>(defaultDesignOptions);
   const [showUpsell, setShowUpsell] = useState(false);
   const [upsellFeature, setUpsellFeature] = useState("");
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -118,6 +123,10 @@ export default function CreateQRCode() {
   const [vcardData, setVcardData] = useState<VCardData>(defaultVCardData);
   const [eventData, setEventData] = useState<EventData>(defaultEventData);
   const [locationData, setLocationData] = useState<LocationData>(defaultLocationData);
+  const [smsData, setSmsData] = useState<SMSData>(defaultSMSData);
+  const [whatsappData, setWhatsappData] = useState<WhatsAppData>(defaultWhatsAppData);
+  const [socialData, setSocialData] = useState<SocialMediaData>(defaultSocialMediaData);
+  const [appData, setAppData] = useState<AppData>(defaultAppData);
 
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -129,8 +138,8 @@ export default function CreateQRCode() {
     await download(format, {
       value: getQRValue(),
       fileName: qrName || "qr-code",
-      fgColor: selectedColor.fg,
-      bgColor: selectedColor.bg,
+      fgColor: designOptions.fgColor,
+      bgColor: designOptions.transparentBg ? "transparent" : designOptions.bgColor,
     });
     toast({
       title: "Downloaded!",
@@ -167,6 +176,14 @@ export default function CreateQRCode() {
         return generateEventString(eventData);
       case "location":
         return generateLocationString(locationData);
+      case "sms":
+        return generateSMSString(smsData);
+      case "whatsapp":
+        return generateWhatsAppString(whatsappData);
+      case "social":
+        return generateSocialMediaString(socialData);
+      case "app":
+        return generateAppString(appData);
       default:
         return qrContent || "https://qr.ieosuia.com";
     }
@@ -186,6 +203,14 @@ export default function CreateQRCode() {
             ? `${locationData.latitude}, ${locationData.longitude}`
             : "Not set"
           : locationData.address || "Not set";
+      case "sms":
+        return smsData.phoneNumber || "Not set";
+      case "whatsapp":
+        return whatsappData.phoneNumber || "Not set";
+      case "social":
+        return socialData.links[0]?.url || "Not set";
+      case "app":
+        return appData.appStoreUrl || appData.playStoreUrl || "Not set";
       default:
         return qrContent || "Not set";
     }
@@ -300,6 +325,62 @@ export default function CreateQRCode() {
           return false;
         }
         break;
+      case "sms":
+        if (!smsData.phoneNumber.trim()) {
+          toast({
+            title: "Phone number required",
+            description: "Please enter a phone number for SMS",
+            variant: "destructive",
+          });
+          return false;
+        }
+        break;
+      case "whatsapp":
+        if (!whatsappData.phoneNumber.trim()) {
+          toast({
+            title: "Phone number required",
+            description: "Please enter a WhatsApp phone number",
+            variant: "destructive",
+          });
+          return false;
+        }
+        break;
+      case "social":
+        if (!socialData.links.some(l => l.url.trim())) {
+          toast({
+            title: "Link required",
+            description: "Please add at least one social media link",
+            variant: "destructive",
+          });
+          return false;
+        }
+        break;
+      case "app":
+        if (appData.linkType === "ios" && !appData.appStoreUrl.trim()) {
+          toast({
+            title: "App Store URL required",
+            description: "Please enter the iOS App Store URL",
+            variant: "destructive",
+          });
+          return false;
+        }
+        if (appData.linkType === "android" && !appData.playStoreUrl.trim()) {
+          toast({
+            title: "Play Store URL required",
+            description: "Please enter the Android Play Store URL",
+            variant: "destructive",
+          });
+          return false;
+        }
+        if (appData.linkType === "both" && !appData.appStoreUrl.trim() && !appData.playStoreUrl.trim()) {
+          toast({
+            title: "App URL required",
+            description: "Please enter at least one app store URL",
+            variant: "destructive",
+          });
+          return false;
+        }
+        break;
     }
     return true;
   };
@@ -328,13 +409,18 @@ export default function CreateQRCode() {
       // Build the API request
       const contentData = getContentData();
       const customOptions = {
-        fgColor: selectedColor.fg,
-        bgColor: selectedColor.bg,
+        fgColor: designOptions.fgColor,
+        bgColor: designOptions.transparentBg ? "transparent" : designOptions.bgColor,
+        frameStyle: designOptions.frameStyle,
+        frameColor: designOptions.frameColor,
+        frameText: designOptions.frameText,
+        frameTextColor: designOptions.frameTextColor,
         ...(selectedLogo && { logo_path: selectedLogo }),
+        ...(designOptions.logoPreset && { logoPreset: designOptions.logoPreset }),
       };
 
       const response = await qrCodeApi.create({
-        type: selectedType as "url" | "text" | "email" | "phone" | "wifi" | "vcard" | "event" | "location",
+        type: selectedType as "url" | "text" | "email" | "phone" | "wifi" | "vcard" | "event" | "location" | "sms" | "whatsapp" | "social" | "app",
         name: qrName,
         content: contentData,
         custom_options: customOptions,
@@ -400,6 +486,14 @@ export default function CreateQRCode() {
         return eventData as unknown as Record<string, string>;
       case "location":
         return locationData as unknown as Record<string, string>;
+      case "sms":
+        return smsData as unknown as Record<string, string>;
+      case "whatsapp":
+        return whatsappData as unknown as Record<string, string>;
+      case "social":
+        return { links: JSON.stringify(socialData.links) };
+      case "app":
+        return appData as unknown as Record<string, string>;
       default:
         return { content: qrContent };
     }
@@ -624,6 +718,22 @@ export default function CreateQRCode() {
                     {selectedType === "location" && (
                       <LocationForm data={locationData} onChange={setLocationData} />
                     )}
+
+                    {selectedType === "sms" && (
+                      <SMSForm data={smsData} onChange={setSmsData} />
+                    )}
+
+                    {selectedType === "whatsapp" && (
+                      <WhatsAppForm data={whatsappData} onChange={setWhatsappData} />
+                    )}
+
+                    {selectedType === "social" && (
+                      <SocialMediaForm data={socialData} onChange={setSocialData} />
+                    )}
+
+                    {selectedType === "app" && (
+                      <AppForm data={appData} onChange={setAppData} />
+                    )}
                   </div>
                 </motion.div>
               )}
@@ -643,49 +753,23 @@ export default function CreateQRCode() {
                   </p>
 
                   <div className="space-y-6">
-                    <div>
-                      <Label className="mb-3 block">Color Presets</Label>
-                      <div className="grid grid-cols-3 gap-3">
-                        {colorPresets.map((color) => (
-                          <button
-                            key={color.name}
-                            onClick={() => setSelectedColor(color)}
-                            className={`p-4 rounded-xl border transition-all ${
-                              selectedColor.name === color.name
-                                ? "border-primary ring-2 ring-primary/20"
-                                : "border-border hover:border-primary/50"
-                            }`}
-                          >
-                            <div
-                              className="w-8 h-8 rounded-lg mx-auto mb-2"
-                              style={{ backgroundColor: color.fg }}
-                            />
-                            <p className="text-xs font-medium">{color.name}</p>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Logo Uploader - Pro/Enterprise only */}
-                    <LogoUploader
-                      selectedLogo={selectedLogo}
-                      onSelectLogo={setSelectedLogo}
+                    <QRDesignCustomizer
+                      options={designOptions}
+                      onChange={setDesignOptions}
+                      isPro={isPro}
+                      onUpgradeClick={() => {
+                        setUpsellFeature("Advanced Design Options");
+                        setShowUpsell(true);
+                      }}
                     />
 
-                    {!isPro && (
-                      <div className="p-4 rounded-2xl bg-muted/50 border border-dashed border-border">
-                        <div className="flex items-center gap-3 mb-3">
-                          <Palette className="w-5 h-5 text-muted-foreground" />
-                          <span className="font-medium">Custom Colors</span>
-                          <span className="text-xs bg-warning/10 text-warning px-2 py-0.5 rounded-full">
-                            Pro
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Upgrade to Pro to use custom colors and more customization options.
-                        </p>
-                      </div>
-                    )}
+                    {/* Logo Uploader - Pro/Enterprise only */}
+                    <div className="pt-4 border-t border-border">
+                      <LogoUploader
+                        selectedLogo={selectedLogo}
+                        onSelectLogo={setSelectedLogo}
+                      />
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -721,17 +805,11 @@ export default function CreateQRCode() {
                 </DropdownMenu>
               </div>
 
-              <div
-                className="rounded-2xl p-8 flex items-center justify-center mb-6"
-                style={{ backgroundColor: selectedColor.bg }}
-              >
-                <QRCodeSVG
+              <div className="rounded-2xl p-6 flex items-center justify-center mb-6 bg-muted/30">
+                <QRFramePreview
                   value={getQRValue()}
-                  size={200}
-                  level="H"
-                  fgColor={selectedColor.fg}
-                  bgColor={selectedColor.bg}
-                  className="w-full h-auto max-w-[200px]"
+                  options={designOptions}
+                  size={180}
                 />
               </div>
 
@@ -755,6 +833,12 @@ export default function CreateQRCode() {
                     {getContentSummary()}
                   </span>
                 </div>
+                {designOptions.frameStyle !== "none" && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Frame</span>
+                    <span className="font-medium capitalize">{designOptions.frameStyle}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -11,6 +11,9 @@ import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { PricingSection } from "@/components/landing/PricingSection";
 import { UseCasesSection } from "@/components/landing/UseCasesSection";
 import { CTASection } from "@/components/landing/CTASection";
+import { QRTypesExplainedSection } from "@/components/landing/QRTypesExplainedSection";
+import { QRTypesShowcaseSection } from "@/components/landing/QRTypesShowcaseSection";
+import { QRDesignShowcaseSection } from "@/components/landing/QRDesignShowcaseSection";
 import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
 
 const Index = () => {
@@ -58,6 +61,9 @@ const Index = () => {
       <main>
         <HeroSection />
         <FeaturesSection />
+        <QRTypesExplainedSection />
+        <QRTypesShowcaseSection />
+        <QRDesignShowcaseSection />
         <HowItWorksSection />
         <UseCasesSection />
         <PricingSection />

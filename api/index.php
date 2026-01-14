@@ -65,6 +65,7 @@ use App\Controllers\InventoryController;
 use App\Controllers\AdminController;
 use App\Controllers\QAController;
 use App\Controllers\AdminAuthController;
+use App\Controllers\DesignPresetController;
 
 // Handle CORS
 Cors::handle();
@@ -492,6 +493,26 @@ try {
     }
     elseif ($uri === '/qa/errors' && $method === 'POST') {
         QAController::getErrorReportUser();
+    }
+
+    // Design Presets
+    elseif ($uri === '/design-presets' && $method === 'GET') {
+        (new DesignPresetController())->index();
+    }
+    elseif ($uri === '/design-presets' && $method === 'POST') {
+        (new DesignPresetController())->store();
+    }
+    elseif (preg_match('#^/design-presets/([a-zA-Z0-9-]+)$#', $uri, $matches) && $method === 'GET') {
+        (new DesignPresetController())->show($matches[1]);
+    }
+    elseif (preg_match('#^/design-presets/([a-zA-Z0-9-]+)$#', $uri, $matches) && $method === 'PUT') {
+        (new DesignPresetController())->update($matches[1]);
+    }
+    elseif (preg_match('#^/design-presets/([a-zA-Z0-9-]+)$#', $uri, $matches) && $method === 'DELETE') {
+        (new DesignPresetController())->destroy($matches[1]);
+    }
+    elseif (preg_match('#^/design-presets/([a-zA-Z0-9-]+)/set-default$#', $uri, $matches) && $method === 'POST') {
+        (new DesignPresetController())->setDefault($matches[1]);
     }
 
     // 404 Not Found
