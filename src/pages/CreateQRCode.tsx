@@ -60,10 +60,14 @@ const qrTypes = [
   { id: "text", name: "Text", icon: MessageSquare, description: "Plain text message" },
   { id: "email", name: "Email", icon: Mail, description: "Email with subject & body" },
   { id: "phone", name: "Phone", icon: Phone, description: "Phone number to call" },
+  { id: "sms", name: "SMS", icon: MessageSquare, description: "Text message", premium: true },
+  { id: "whatsapp", name: "WhatsApp", icon: MessageSquare, description: "WhatsApp chat", premium: true },
   { id: "wifi", name: "WiFi", icon: Wifi, description: "WiFi network credentials", premium: true },
   { id: "vcard", name: "vCard", icon: User, description: "Contact information", premium: true },
   { id: "event", name: "Event", icon: Calendar, description: "Calendar event", premium: true },
   { id: "location", name: "Location", icon: MapPin, description: "Geographic location", premium: true },
+  { id: "social", name: "Social Media", icon: Link2, description: "Social profiles", premium: true },
+  { id: "app", name: "App Store", icon: Phone, description: "App download links", premium: true },
 ];
 
 const colorPresets = [
