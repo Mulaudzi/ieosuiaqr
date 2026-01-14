@@ -1,5 +1,15 @@
-import { QRCodeSVG } from "qrcode.react";
+import { useMemo } from "react";
 import { QRDesignOptions } from "./QRDesignCustomizer";
+import { QRCodeRenderer } from "./QRCodeRenderer";
+import {
+  Link2,
+  MapPin,
+  Mail,
+  Phone,
+  Wifi,
+  User,
+  ScanLine,
+} from "lucide-react";
 
 interface QRFramePreviewProps {
   value: string;
@@ -7,6 +17,17 @@ interface QRFramePreviewProps {
   size?: number;
   logoElement?: React.ReactNode;
 }
+
+// Map preset logo IDs to actual icons
+const presetLogoIcons: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
+  link: Link2,
+  location: MapPin,
+  email: Mail,
+  phone: Phone,
+  wifi: Wifi,
+  contact: User,
+  "scan-me": ScanLine,
+};
 
 export function QRFramePreview({
   value,
@@ -22,6 +43,8 @@ export function QRFramePreview({
     bgColor,
     fgColor,
     transparentBg,
+    logo,
+    logoPreset,
   } = options;
 
   const effectiveBgColor = transparentBg ? "transparent" : bgColor;
@@ -76,6 +99,43 @@ export function QRFramePreview({
   };
 
   const dims = getFrameDimensions();
+
+  // Render logo - either custom, preset icon, or external element
+  const renderLogo = useMemo(() => {
+    // Priority: external logoElement > custom logo URL > preset icon
+    if (logoElement) {
+      return logoElement;
+    }
+    
+    if (logo) {
+      return (
+        <img
+          src={logo}
+          alt="QR Logo"
+          className="w-10 h-10 object-contain"
+          style={{ maxWidth: size * 0.2, maxHeight: size * 0.2 }}
+        />
+      );
+    }
+    
+    if (logoPreset && presetLogoIcons[logoPreset]) {
+      const IconComponent = presetLogoIcons[logoPreset];
+      return (
+        <IconComponent
+          className="w-8 h-8"
+          style={{ 
+            color: fgColor,
+            width: size * 0.12,
+            height: size * 0.12,
+          }}
+        />
+      );
+    }
+    
+    return null;
+  }, [logoElement, logo, logoPreset, fgColor, size]);
+
+  const hasLogo = !!renderLogo;
 
   const renderFrame = () => {
     switch (frameStyle) {
@@ -257,31 +317,21 @@ export function QRFramePreview({
         }}
       >
         <div className="relative">
-          <QRCodeSVG
-            value={value}
+          {/* Custom QR Code Renderer with shape support */}
+          <QRCodeRenderer
+            value={value || "https://example.com"}
             size={size}
-            level="H"
-            fgColor={fgColor}
-            bgColor={effectiveBgColor === "transparent" ? "transparent" : bgColor}
-            imageSettings={
-              logoElement
-                ? {
-                    src: "",
-                    height: 0,
-                    width: 0,
-                    excavate: false,
-                  }
-                : undefined
-            }
+            options={options}
           />
+
           {/* Logo overlay */}
-          {logoElement && (
+          {hasLogo && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div
-                className="p-2 rounded-lg"
+                className="p-2 rounded-lg flex items-center justify-center"
                 style={{ backgroundColor: bgColor }}
               >
-                {logoElement}
+                {renderLogo}
               </div>
             </div>
           )}

@@ -140,6 +140,11 @@ export default function CreateQRCode() {
       fileName: qrName || "qr-code",
       fgColor: designOptions.fgColor,
       bgColor: designOptions.transparentBg ? "transparent" : designOptions.bgColor,
+      size: 400,
+      designOptions: {
+        ...designOptions,
+        logo: selectedLogo || designOptions.logo,
+      },
     });
     toast({
       title: "Downloaded!",
@@ -406,15 +411,28 @@ export default function CreateQRCode() {
     setIsCreating(true);
 
     try {
-      // Build the API request
+      // Build the API request with all design options
       const contentData = getContentData();
       const customOptions = {
+        // Shape and colors
+        shapeStyle: designOptions.shapeStyle,
         fgColor: designOptions.fgColor,
         bgColor: designOptions.transparentBg ? "transparent" : designOptions.bgColor,
+        transparentBg: designOptions.transparentBg,
+        gradient: designOptions.gradient,
+        gradientColor: designOptions.gradientColor,
+        // Corners
+        cornerStyle: designOptions.cornerStyle,
+        cornerColor: designOptions.cornerColor,
+        // Center
+        centerStyle: designOptions.centerStyle,
+        centerColor: designOptions.centerColor,
+        // Frame
         frameStyle: designOptions.frameStyle,
         frameColor: designOptions.frameColor,
         frameText: designOptions.frameText,
         frameTextColor: designOptions.frameTextColor,
+        // Logo
         ...(selectedLogo && { logo_path: selectedLogo }),
         ...(designOptions.logoPreset && { logoPreset: designOptions.logoPreset }),
       };
