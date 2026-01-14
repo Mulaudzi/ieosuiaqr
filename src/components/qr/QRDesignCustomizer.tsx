@@ -3,6 +3,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import { 
   Square, 
   Circle, 
@@ -18,6 +19,8 @@ import {
   User,
   Image
 } from "lucide-react";
+import { TemplateGallery } from "./TemplateGallery";
+import { DesignPresetManager } from "./DesignPresetManager";
 
 export interface QRDesignOptions {
   // Shape
@@ -144,6 +147,25 @@ export function QRDesignCustomizer({
 
   return (
     <div className="space-y-6">
+      {/* Quick Start Section */}
+      <div className="space-y-3">
+        <TemplateGallery onSelectTemplate={onChange} currentOptions={options} />
+        
+        {isPro && (
+          <>
+            <Separator />
+            <DesignPresetManager
+              currentOptions={options}
+              onLoadPreset={onChange}
+              isPro={isPro}
+            />
+          </>
+        )}
+      </div>
+
+      <Separator />
+
+      {/* Manual Customization */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="frame">Frame</TabsTrigger>
