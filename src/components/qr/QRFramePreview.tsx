@@ -1,5 +1,15 @@
+import { useMemo, useId } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { QRDesignOptions } from "./QRDesignCustomizer";
+import {
+  Link2,
+  MapPin,
+  Mail,
+  Phone,
+  Wifi,
+  User,
+  ScanLine,
+} from "lucide-react";
 
 interface QRFramePreviewProps {
   value: string;
@@ -8,12 +18,25 @@ interface QRFramePreviewProps {
   logoElement?: React.ReactNode;
 }
 
+// Map preset logo IDs to actual icons
+const presetLogoIcons: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
+  link: Link2,
+  location: MapPin,
+  email: Mail,
+  phone: Phone,
+  wifi: Wifi,
+  contact: User,
+  "scan-me": ScanLine,
+};
+
 export function QRFramePreview({
   value,
   options,
   size = 200,
   logoElement,
 }: QRFramePreviewProps) {
+  const gradientId = useId();
+  
   const {
     frameStyle,
     frameColor,
@@ -22,9 +45,22 @@ export function QRFramePreview({
     bgColor,
     fgColor,
     transparentBg,
+    gradient,
+    gradientColor,
+    cornerColor,
+    logo,
+    logoPreset,
   } = options;
 
   const effectiveBgColor = transparentBg ? "transparent" : bgColor;
+
+  // Determine the actual foreground color or gradient reference
+  const actualFgColor = useMemo(() => {
+    if (gradient && gradientColor) {
+      return `url(#${gradientId})`;
+    }
+    return fgColor;
+  }, [gradient, gradientColor, fgColor, gradientId]);
 
   // Calculate dimensions based on frame style
   const getFrameDimensions = () => {
@@ -76,6 +112,44 @@ export function QRFramePreview({
   };
 
   const dims = getFrameDimensions();
+
+  // Render logo - either custom, preset icon, or external element
+  const renderLogo = () => {
+    // Priority: external logoElement > custom logo URL > preset icon
+    if (logoElement) {
+      return logoElement;
+    }
+    
+    if (logo) {
+      return (
+        <img
+          src={logo}
+          alt="QR Logo"
+          className="w-10 h-10 object-contain"
+          style={{ maxWidth: size * 0.25, maxHeight: size * 0.25 }}
+        />
+      );
+    }
+    
+    if (logoPreset && presetLogoIcons[logoPreset]) {
+      const IconComponent = presetLogoIcons[logoPreset];
+      return (
+        <IconComponent
+          className="w-8 h-8"
+          style={{ 
+            color: fgColor,
+            width: size * 0.15,
+            height: size * 0.15,
+          }}
+        />
+      );
+    }
+    
+    return null;
+  };
+
+  const logoContent = renderLogo();
+  const hasLogo = !!logoContent;
 
   const renderFrame = () => {
     switch (frameStyle) {
@@ -236,6 +310,16 @@ export function QRFramePreview({
     }
   };
 
+  // Build image settings for logo if we have one
+  const imageSettings = hasLogo
+    ? {
+        src: "", // We'll overlay our own logo
+        height: 0,
+        width: 0,
+        excavate: true, // Create space in QR code for logo
+      }
+    : undefined;
+
   return (
     <div
       className="relative inline-block"
@@ -257,31 +341,166 @@ export function QRFramePreview({
         }}
       >
         <div className="relative">
+          {/* SVG gradient definition - needs to be in a separate SVG that wraps QRCodeSVG */}
+          {gradient && gradientColor && (
+            <svg width={0} height={0} style={{ position: 'absolute' }}>
+              <defs>
+                <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor={fgColor} />
+                  <stop offset="100%" stopColor={gradientColor} />
+                </linearGradient>
+              </defs>
+            </svg>
+          )}
+          
           <QRCodeSVG
-            value={value}
+            value={value || "https://example.com"}
             size={size}
             level="H"
-            fgColor={fgColor}
+            fgColor={gradient && gradientColor ? fgColor : fgColor}
             bgColor={effectiveBgColor === "transparent" ? "transparent" : bgColor}
-            imageSettings={
-              logoElement
-                ? {
-                    src: "",
-                    height: 0,
-                    width: 0,
-                    excavate: false,
-                  }
-                : undefined
-            }
+            imageSettings={imageSettings}
           />
+          
+          {/* Overlay gradient on QR code if enabled */}
+          {gradient && gradientColor && (
+            <svg
+              className="absolute inset-0 pointer-events-none"
+              width={size}
+              height={size}
+              style={{ mixBlendMode: 'multiply' }}
+            >
+              <defs>
+                <linearGradient id={`overlay-${gradientId}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor={fgColor} />
+                  <stop offset="100%" stopColor={gradientColor} />
+                </linearGradient>
+              </defs>
+              <rect
+                width={size}
+                height={size}
+                fill={`url(#overlay-${gradientId})`}
+                opacity={0.8}
+              />
+            </svg>
+          )}
+          
+          {/* Custom corner color overlay - draws colored squares over the finder patterns */}
+          {cornerColor && cornerColor !== fgColor && (
+            <svg
+              className="absolute inset-0 pointer-events-none"
+              width={size}
+              height={size}
+            >
+              {/* Top-left finder pattern */}
+              <rect
+                x={0}
+                y={0}
+                width={size * 0.27}
+                height={size * 0.27}
+                fill={effectiveBgColor === "transparent" ? "white" : bgColor}
+              />
+              <rect
+                x={size * 0.02}
+                y={size * 0.02}
+                width={size * 0.23}
+                height={size * 0.23}
+                fill={cornerColor}
+                rx={options.cornerStyle === "rounded" || options.cornerStyle === "rounded-dot" ? size * 0.02 : 0}
+              />
+              <rect
+                x={size * 0.05}
+                y={size * 0.05}
+                width={size * 0.17}
+                height={size * 0.17}
+                fill={effectiveBgColor === "transparent" ? "white" : bgColor}
+                rx={options.cornerStyle === "rounded" || options.cornerStyle === "rounded-dot" ? size * 0.02 : 0}
+              />
+              <rect
+                x={size * 0.08}
+                y={size * 0.08}
+                width={size * 0.11}
+                height={size * 0.11}
+                fill={cornerColor}
+                rx={options.cornerStyle === "circle" || options.cornerStyle === "dot" || options.cornerStyle === "rounded-dot" ? size * 0.055 : options.cornerStyle === "rounded" ? size * 0.01 : 0}
+              />
+              
+              {/* Top-right finder pattern */}
+              <rect
+                x={size * 0.73}
+                y={0}
+                width={size * 0.27}
+                height={size * 0.27}
+                fill={effectiveBgColor === "transparent" ? "white" : bgColor}
+              />
+              <rect
+                x={size * 0.75}
+                y={size * 0.02}
+                width={size * 0.23}
+                height={size * 0.23}
+                fill={cornerColor}
+                rx={options.cornerStyle === "rounded" || options.cornerStyle === "rounded-dot" ? size * 0.02 : 0}
+              />
+              <rect
+                x={size * 0.78}
+                y={size * 0.05}
+                width={size * 0.17}
+                height={size * 0.17}
+                fill={effectiveBgColor === "transparent" ? "white" : bgColor}
+                rx={options.cornerStyle === "rounded" || options.cornerStyle === "rounded-dot" ? size * 0.02 : 0}
+              />
+              <rect
+                x={size * 0.81}
+                y={size * 0.08}
+                width={size * 0.11}
+                height={size * 0.11}
+                fill={cornerColor}
+                rx={options.cornerStyle === "circle" || options.cornerStyle === "dot" || options.cornerStyle === "rounded-dot" ? size * 0.055 : options.cornerStyle === "rounded" ? size * 0.01 : 0}
+              />
+              
+              {/* Bottom-left finder pattern */}
+              <rect
+                x={0}
+                y={size * 0.73}
+                width={size * 0.27}
+                height={size * 0.27}
+                fill={effectiveBgColor === "transparent" ? "white" : bgColor}
+              />
+              <rect
+                x={size * 0.02}
+                y={size * 0.75}
+                width={size * 0.23}
+                height={size * 0.23}
+                fill={cornerColor}
+                rx={options.cornerStyle === "rounded" || options.cornerStyle === "rounded-dot" ? size * 0.02 : 0}
+              />
+              <rect
+                x={size * 0.05}
+                y={size * 0.78}
+                width={size * 0.17}
+                height={size * 0.17}
+                fill={effectiveBgColor === "transparent" ? "white" : bgColor}
+                rx={options.cornerStyle === "rounded" || options.cornerStyle === "rounded-dot" ? size * 0.02 : 0}
+              />
+              <rect
+                x={size * 0.08}
+                y={size * 0.81}
+                width={size * 0.11}
+                height={size * 0.11}
+                fill={cornerColor}
+                rx={options.cornerStyle === "circle" || options.cornerStyle === "dot" || options.cornerStyle === "rounded-dot" ? size * 0.055 : options.cornerStyle === "rounded" ? size * 0.01 : 0}
+              />
+            </svg>
+          )}
+
           {/* Logo overlay */}
-          {logoElement && (
+          {hasLogo && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div
-                className="p-2 rounded-lg"
+                className="p-2 rounded-lg flex items-center justify-center"
                 style={{ backgroundColor: bgColor }}
               >
-                {logoElement}
+                {logoContent}
               </div>
             </div>
           )}
