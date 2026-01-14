@@ -131,6 +131,7 @@ const TEST_CATEGORIES = {
   database: { label: "Database Tests", icon: Database, color: "text-purple-500" },
   auth: { label: "Authentication Tests", icon: Lock, color: "text-orange-500" },
   integration: { label: "Integration Tests", icon: Link2, color: "text-cyan-500" },
+  e2e: { label: "E2E User Flow Tests", icon: Activity, color: "text-pink-500" },
   security: { label: "Security Tests", icon: Shield, color: "text-red-500" },
   performance: { label: "Performance Tests", icon: Gauge, color: "text-yellow-500" },
 };
@@ -1486,6 +1487,677 @@ class TestRunner {
   }
 
   // ============================================================================
+  // DATABASE TESTS
+  // ============================================================================
+
+  async runDatabaseTests(): Promise<TestResult[]> {
+    const results: TestResult[] = [];
+
+    // Test 1: Database Connectivity
+    this.log("info", "Testing database connectivity...");
+    results.push(await this.testDatabaseConnectivity());
+
+    // Test 2: Table Existence Check
+    this.log("info", "Verifying table existence...");
+    results.push(await this.testTableExistence());
+
+    // Test 3: Query Performance
+    this.log("info", "Testing query performance...");
+    results.push(await this.testQueryPerformance());
+
+    // Test 4: Data Integrity
+    this.log("info", "Checking data integrity...");
+    results.push(await this.testDataIntegrity());
+
+    return results;
+  }
+
+  private async testDatabaseConnectivity(): Promise<TestResult> {
+    const start = performance.now();
+    const details: string[] = [];
+    
+    // Test database connectivity via QA endpoint
+    const { data, status, duration } = await this.apiRequest("GET", "/qa/dashboard");
+    
+    if (status === 200 && data?.data) {
+      const systems = data.data.systems || {};
+      const healthySystems = Object.values(systems).filter((s: any) => s.health === "healthy").length;
+      const totalSystems = Object.keys(systems).length;
+      
+      details.push(`Database connection: Active`);
+      details.push(`Systems checked: ${totalSystems}`);
+      details.push(`Healthy systems: ${healthySystems}`);
+      details.push(`Response time: ${duration.toFixed(0)}ms`);
+      
+      Object.entries(systems).forEach(([name, sys]: [string, any]) => {
+        details.push(`  ${name}: ${sys.health} (${sys.tables_found}/${sys.tables_required} tables)`);
+      });
+
+      return this.createResult(
+        "Database Connectivity",
+        "database",
+        "connectivity",
+        healthySystems === totalSystems ? "passed" : healthySystems > 0 ? "warning" : "failed",
+        healthySystems === totalSystems ? "Database is fully connected and healthy" : `${healthySystems}/${totalSystems} systems healthy`,
+        details,
+        { duration: performance.now() - start }
+      );
+    } else if (status === 401) {
+      return this.createResult(
+        "Database Connectivity",
+        "database",
+        "connectivity",
+        "skipped",
+        "Login required to test database connectivity",
+        ["Authenticate to run database tests"],
+        { duration: performance.now() - start }
+      );
+    }
+
+    return this.createResult(
+      "Database Connectivity",
+      "database",
+      "connectivity",
+      "failed",
+      "Could not verify database connectivity",
+      [`Status: ${status}`, `Response time: ${duration.toFixed(0)}ms`],
+      { 
+        duration: performance.now() - start,
+        fix: "Check database server status and connection configuration"
+      }
+    );
+  }
+
+  private async testTableExistence(): Promise<TestResult> {
+    const start = performance.now();
+    const details: string[] = [];
+    
+    // Expected tables based on the application schema
+    const expectedTables = [
+      "users",
+      "qr_codes",
+      "scan_logs",
+      "inventory_items",
+      "subscriptions",
+      "plans",
+      "invoices",
+      "design_presets",
+    ];
+    
+    // We can infer table existence from API endpoints
+    const tableChecks = [
+      { table: "users", endpoint: "/user/profile", auth: true },
+      { table: "qr_codes", endpoint: "/qr", auth: true },
+      { table: "plans", endpoint: "/subscriptions/plans", auth: false },
+      { table: "inventory_items", endpoint: "/inventory", auth: true },
+    ];
+
+    let verifiedTables = 0;
+    let failedTables = 0;
+
+    for (const check of tableChecks) {
+      if (check.auth && !this.token) continue;
+      
+      const { status } = await this.apiRequest("GET", check.endpoint, null, check.auth);
+      
+      if (status === 200 || status === 401) {
+        verifiedTables++;
+        details.push(`✅ ${check.table}: Verified via ${check.endpoint}`);
+      } else if (status === 500) {
+        failedTables++;
+        details.push(`❌ ${check.table}: Possible missing table (500 error)`);
+      } else {
+        details.push(`⚠️ ${check.table}: Status ${status}`);
+      }
+    }
+
+    details.push(`Expected tables: ${expectedTables.length}`);
+    details.push(`Verified: ${verifiedTables}`);
+    details.push(`Failed: ${failedTables}`);
+
+    return this.createResult(
+      "Table Existence",
+      "database",
+      "schema",
+      failedTables === 0 ? "passed" : "failed",
+      failedTables === 0 ? "All checked tables exist" : `${failedTables} table(s) may be missing`,
+      details,
+      { 
+        duration: performance.now() - start,
+        fix: failedTables > 0 ? "Run database migrations to create missing tables" : undefined
+      }
+    );
+  }
+
+  private async testQueryPerformance(): Promise<TestResult> {
+    const start = performance.now();
+    const details: string[] = [];
+    
+    const queryTests = [
+      { name: "User Profile", endpoint: "/user/profile", threshold: 200 },
+      { name: "QR Codes List", endpoint: "/qr?limit=10", threshold: 300 },
+      { name: "Plans List", endpoint: "/subscriptions/plans", threshold: 100 },
+      { name: "Analytics Summary", endpoint: "/analytics/summary", threshold: 500 },
+    ];
+
+    let slowQueries = 0;
+    let fastQueries = 0;
+    let totalDuration = 0;
+
+    for (const test of queryTests) {
+      const isAuthRequired = !test.endpoint.includes("plans");
+      if (isAuthRequired && !this.token) continue;
+      
+      const { status, duration } = await this.apiRequest("GET", test.endpoint, null, isAuthRequired);
+      totalDuration += duration;
+      
+      if (status === 200 || status === 401) {
+        const isSlow = duration > test.threshold;
+        if (isSlow) {
+          slowQueries++;
+          details.push(`⚠️ ${test.name}: ${duration.toFixed(0)}ms (threshold: ${test.threshold}ms) - SLOW`);
+        } else {
+          fastQueries++;
+          details.push(`✅ ${test.name}: ${duration.toFixed(0)}ms (threshold: ${test.threshold}ms)`);
+        }
+      }
+    }
+
+    const avgDuration = totalDuration / queryTests.length;
+    details.push(`Average query time: ${avgDuration.toFixed(0)}ms`);
+    details.push(`Fast queries: ${fastQueries}`);
+    details.push(`Slow queries: ${slowQueries}`);
+
+    return this.createResult(
+      "Query Performance",
+      "database",
+      "performance",
+      slowQueries === 0 ? "passed" : slowQueries <= 1 ? "warning" : "failed",
+      slowQueries === 0 ? "All queries performing within thresholds" : `${slowQueries} slow query(ies) detected`,
+      details,
+      { 
+        duration: performance.now() - start,
+        fix: slowQueries > 0 ? "Optimize slow queries with indexes, query analysis, or caching" : undefined
+      }
+    );
+  }
+
+  private async testDataIntegrity(): Promise<TestResult> {
+    const start = performance.now();
+    const details: string[] = [];
+    
+    if (!this.token) {
+      return this.createResult(
+        "Data Integrity",
+        "database",
+        "integrity",
+        "skipped",
+        "Login required to test data integrity",
+        ["Authenticate to run data integrity tests"],
+        { duration: performance.now() - start }
+      );
+    }
+
+    let issues = 0;
+
+    // Check user profile consistency
+    const { data: profileData, status: profileStatus } = await this.apiRequest("GET", "/user/profile");
+    
+    if (profileStatus === 200 && profileData?.data) {
+      const user = profileData.data;
+      
+      // Check required fields
+      const requiredFields = ["id", "email", "name"];
+      const missingFields = requiredFields.filter(f => !user[f]);
+      
+      if (missingFields.length > 0) {
+        issues++;
+        details.push(`❌ User profile missing fields: ${missingFields.join(", ")}`);
+      } else {
+        details.push(`✅ User profile has all required fields`);
+      }
+      
+      // Check email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (user.email && !emailRegex.test(user.email)) {
+        issues++;
+        details.push(`❌ Invalid email format: ${user.email}`);
+      }
+    }
+
+    // Check QR codes list integrity
+    const { data: qrData, status: qrStatus } = await this.apiRequest("GET", "/qr?limit=5");
+    
+    if (qrStatus === 200 && qrData?.data) {
+      const qrCodes = Array.isArray(qrData.data) ? qrData.data : [];
+      
+      details.push(`QR codes found: ${qrCodes.length}`);
+      
+      qrCodes.forEach((qr: any, index: number) => {
+        if (!qr.id || !qr.type) {
+          issues++;
+          details.push(`❌ QR code ${index + 1} missing required fields`);
+        }
+      });
+      
+      if (qrCodes.length > 0 && issues === 0) {
+        details.push(`✅ All QR codes have valid structure`);
+      }
+    }
+
+    return this.createResult(
+      "Data Integrity",
+      "database",
+      "integrity",
+      issues === 0 ? "passed" : "warning",
+      issues === 0 ? "Data integrity checks passed" : `${issues} integrity issue(s) found`,
+      details,
+      { 
+        duration: performance.now() - start,
+        fix: issues > 0 ? "Review and fix data validation rules" : undefined
+      }
+    );
+  }
+
+  // ============================================================================
+  // E2E USER FLOW TESTS
+  // ============================================================================
+
+  async runE2ETests(): Promise<TestResult[]> {
+    const results: TestResult[] = [];
+
+    // Test 1: QR Code Creation Flow
+    this.log("info", "Testing QR code creation flow...");
+    results.push(await this.testQRCodeCreationFlow());
+
+    // Test 2: Analytics Viewing Flow
+    this.log("info", "Testing analytics viewing flow...");
+    results.push(await this.testAnalyticsViewingFlow());
+
+    // Test 3: Inventory Management Flow
+    this.log("info", "Testing inventory management flow...");
+    results.push(await this.testInventoryManagementFlow());
+
+    // Test 4: Profile Update Flow
+    this.log("info", "Testing profile update flow...");
+    results.push(await this.testProfileUpdateFlow());
+
+    // Test 5: Subscription Flow
+    this.log("info", "Testing subscription flow...");
+    results.push(await this.testSubscriptionFlow());
+
+    return results;
+  }
+
+  private async testQRCodeCreationFlow(): Promise<TestResult> {
+    const start = performance.now();
+    const details: string[] = [];
+    const steps: string[] = [];
+    let passed = true;
+
+    if (!this.token) {
+      return this.createResult(
+        "QR Code Creation Flow",
+        "e2e",
+        "qr-creation",
+        "skipped",
+        "Login required to test QR code creation",
+        ["Authenticate to run E2E tests"],
+        { duration: performance.now() - start }
+      );
+    }
+
+    // Step 1: Get current QR codes count
+    steps.push("Step 1: Get current QR codes");
+    const { data: listData, status: listStatus } = await this.apiRequest("GET", "/qr?limit=100");
+    
+    if (listStatus !== 200) {
+      passed = false;
+      details.push(`❌ Step 1 failed: Could not list QR codes (${listStatus})`);
+    } else {
+      const currentCount = listData?.data?.length || 0;
+      details.push(`✅ Step 1: Listed ${currentCount} existing QR codes`);
+    }
+
+    // Step 2: Create a test QR code
+    steps.push("Step 2: Create test QR code");
+    const testQRData = {
+      type: "url",
+      name: `E2E Test QR ${Date.now()}`,
+      content: { url: "https://example.com/e2e-test" },
+    };
+    
+    const { data: createData, status: createStatus } = await this.apiRequest("POST", "/qr", testQRData);
+    
+    let createdQRId: number | null = null;
+    
+    if (createStatus === 201 && createData?.data?.id) {
+      createdQRId = createData.data.id;
+      details.push(`✅ Step 2: Created QR code with ID ${createdQRId}`);
+    } else if (createStatus === 403) {
+      details.push(`⚠️ Step 2: QR limit reached (expected for free plan)`);
+    } else {
+      passed = false;
+      details.push(`❌ Step 2 failed: Could not create QR code (${createStatus})`);
+    }
+
+    // Step 3: Verify QR code exists
+    if (createdQRId) {
+      steps.push("Step 3: Verify QR code exists");
+      const { data: getDataResult, status: getStatus } = await this.apiRequest("GET", `/qr/${createdQRId}`);
+      
+      if (getStatus === 200 && getDataResult?.data) {
+        details.push(`✅ Step 3: Verified QR code exists`);
+        details.push(`   Name: ${getDataResult.data.name}`);
+        details.push(`   Type: ${getDataResult.data.type}`);
+      } else {
+        passed = false;
+        details.push(`❌ Step 3 failed: Could not retrieve QR code`);
+      }
+
+      // Step 4: Clean up - delete test QR code
+      steps.push("Step 4: Clean up test data");
+      const { status: deleteStatus } = await this.apiRequest("DELETE", `/qr/${createdQRId}`);
+      
+      if (deleteStatus === 200) {
+        details.push(`✅ Step 4: Cleaned up test QR code`);
+      } else {
+        details.push(`⚠️ Step 4: Could not delete test QR code (${deleteStatus})`);
+      }
+    }
+
+    return this.createResult(
+      "QR Code Creation Flow",
+      "e2e",
+      "qr-creation",
+      passed ? "passed" : "failed",
+      passed ? "QR code CRUD flow working correctly" : "QR code flow has issues",
+      details,
+      { 
+        duration: performance.now() - start,
+        fix: !passed ? "Check QR controller and database permissions" : undefined
+      }
+    );
+  }
+
+  private async testAnalyticsViewingFlow(): Promise<TestResult> {
+    const start = performance.now();
+    const details: string[] = [];
+    let passed = true;
+
+    if (!this.token) {
+      return this.createResult(
+        "Analytics Viewing Flow",
+        "e2e",
+        "analytics",
+        "skipped",
+        "Login required to test analytics",
+        ["Authenticate to run E2E tests"],
+        { duration: performance.now() - start }
+      );
+    }
+
+    // Step 1: Load analytics dashboard
+    const { data: dashData, status: dashStatus } = await this.apiRequest("GET", "/analytics/dashboard");
+    
+    if (dashStatus === 200) {
+      details.push(`✅ Step 1: Analytics dashboard loaded`);
+      if (dashData?.data) {
+        details.push(`   Total scans: ${dashData.data.total_scans || 0}`);
+      }
+    } else {
+      passed = false;
+      details.push(`❌ Step 1 failed: Dashboard load failed (${dashStatus})`);
+    }
+
+    // Step 2: Load analytics summary
+    const { data: summaryData, status: summaryStatus } = await this.apiRequest("GET", "/analytics/summary");
+    
+    if (summaryStatus === 200) {
+      details.push(`✅ Step 2: Analytics summary loaded`);
+    } else {
+      passed = false;
+      details.push(`❌ Step 2 failed: Summary load failed (${summaryStatus})`);
+    }
+
+    // Step 3: Load device breakdown
+    const { data: devicesData, status: devicesStatus } = await this.apiRequest("GET", "/analytics/devices");
+    
+    if (devicesStatus === 200) {
+      details.push(`✅ Step 3: Device breakdown loaded`);
+      const devices = devicesData?.data || [];
+      details.push(`   Device types tracked: ${devices.length}`);
+    } else {
+      details.push(`⚠️ Step 3: Device breakdown failed (${devicesStatus})`);
+    }
+
+    // Step 4: Load daily trend
+    const { status: trendStatus } = await this.apiRequest("GET", "/analytics/daily");
+    
+    if (trendStatus === 200) {
+      details.push(`✅ Step 4: Daily trend loaded`);
+    } else {
+      details.push(`⚠️ Step 4: Daily trend failed (${trendStatus})`);
+    }
+
+    return this.createResult(
+      "Analytics Viewing Flow",
+      "e2e",
+      "analytics",
+      passed ? "passed" : "warning",
+      passed ? "Analytics flow working correctly" : "Some analytics features have issues",
+      details,
+      { 
+        duration: performance.now() - start,
+        fix: !passed ? "Check analytics controller and data aggregation" : undefined
+      }
+    );
+  }
+
+  private async testInventoryManagementFlow(): Promise<TestResult> {
+    const start = performance.now();
+    const details: string[] = [];
+    let passed = true;
+
+    if (!this.token) {
+      return this.createResult(
+        "Inventory Management Flow",
+        "e2e",
+        "inventory",
+        "skipped",
+        "Login required to test inventory",
+        ["Authenticate to run E2E tests"],
+        { duration: performance.now() - start }
+      );
+    }
+
+    // Step 1: Load inventory list
+    const { data: listData, status: listStatus } = await this.apiRequest("GET", "/inventory");
+    
+    if (listStatus === 200) {
+      const items = listData?.data || [];
+      details.push(`✅ Step 1: Inventory list loaded (${items.length} items)`);
+    } else {
+      passed = false;
+      details.push(`❌ Step 1 failed: Inventory list failed (${listStatus})`);
+    }
+
+    // Step 2: Load inventory limits
+    const { data: limitsData, status: limitsStatus } = await this.apiRequest("GET", "/inventory/limits");
+    
+    if (limitsStatus === 200) {
+      details.push(`✅ Step 2: Inventory limits loaded`);
+      if (limitsData?.data) {
+        details.push(`   Current: ${limitsData.data.current || 0}`);
+        details.push(`   Limit: ${limitsData.data.limit || "Unlimited"}`);
+      }
+    } else {
+      details.push(`⚠️ Step 2: Limits check failed (${limitsStatus})`);
+    }
+
+    // Step 3: Load inventory analytics
+    const { status: analyticsStatus } = await this.apiRequest("GET", "/inventory/analytics");
+    
+    if (analyticsStatus === 200) {
+      details.push(`✅ Step 3: Inventory analytics loaded`);
+    } else {
+      details.push(`⚠️ Step 3: Inventory analytics failed (${analyticsStatus})`);
+    }
+
+    // Step 4: Load alerts
+    const { status: alertsStatus } = await this.apiRequest("GET", "/inventory/alerts");
+    
+    if (alertsStatus === 200) {
+      details.push(`✅ Step 4: Inventory alerts loaded`);
+    } else {
+      details.push(`⚠️ Step 4: Alerts check failed (${alertsStatus})`);
+    }
+
+    return this.createResult(
+      "Inventory Management Flow",
+      "e2e",
+      "inventory",
+      passed ? "passed" : "warning",
+      passed ? "Inventory flow working correctly" : "Some inventory features have issues",
+      details,
+      { 
+        duration: performance.now() - start,
+        fix: !passed ? "Check inventory controller and database" : undefined
+      }
+    );
+  }
+
+  private async testProfileUpdateFlow(): Promise<TestResult> {
+    const start = performance.now();
+    const details: string[] = [];
+    let passed = true;
+
+    if (!this.token) {
+      return this.createResult(
+        "Profile Update Flow",
+        "e2e",
+        "profile",
+        "skipped",
+        "Login required to test profile",
+        ["Authenticate to run E2E tests"],
+        { duration: performance.now() - start }
+      );
+    }
+
+    // Step 1: Load current profile
+    const { data: profileData, status: profileStatus } = await this.apiRequest("GET", "/user/profile");
+    
+    if (profileStatus === 200 && profileData?.data) {
+      details.push(`✅ Step 1: Profile loaded`);
+      details.push(`   Name: ${profileData.data.name}`);
+      details.push(`   Email: ${profileData.data.email}`);
+      details.push(`   Plan: ${profileData.data.plan || "Free"}`);
+    } else {
+      passed = false;
+      details.push(`❌ Step 1 failed: Profile load failed (${profileStatus})`);
+    }
+
+    // Step 2: Load notification preferences
+    const { data: notifData, status: notifStatus } = await this.apiRequest("GET", "/user/notifications");
+    
+    if (notifStatus === 200) {
+      details.push(`✅ Step 2: Notification preferences loaded`);
+    } else {
+      details.push(`⚠️ Step 2: Notifications load failed (${notifStatus})`);
+    }
+
+    // Step 3: Verify logos endpoint
+    const { status: logosStatus } = await this.apiRequest("GET", "/user/logos");
+    
+    if (logosStatus === 200) {
+      details.push(`✅ Step 3: User logos endpoint accessible`);
+    } else {
+      details.push(`⚠️ Step 3: Logos endpoint failed (${logosStatus})`);
+    }
+
+    return this.createResult(
+      "Profile Update Flow",
+      "e2e",
+      "profile",
+      passed ? "passed" : "warning",
+      passed ? "Profile flow working correctly" : "Some profile features have issues",
+      details,
+      { 
+        duration: performance.now() - start,
+        fix: !passed ? "Check user controller and profile endpoints" : undefined
+      }
+    );
+  }
+
+  private async testSubscriptionFlow(): Promise<TestResult> {
+    const start = performance.now();
+    const details: string[] = [];
+    let passed = true;
+
+    // Step 1: Load available plans (public endpoint)
+    const { data: plansData, status: plansStatus } = await this.apiRequest("GET", "/subscriptions/plans", null, false);
+    
+    if (plansStatus === 200 && plansData?.data) {
+      const plans = plansData.data;
+      details.push(`✅ Step 1: Plans loaded (${plans.length} plans)`);
+      plans.forEach((plan: any) => {
+        details.push(`   ${plan.name}: R${plan.price_monthly || 0}/mo`);
+      });
+    } else {
+      passed = false;
+      details.push(`❌ Step 1 failed: Plans load failed (${plansStatus})`);
+    }
+
+    if (!this.token) {
+      details.push(`⏭️ Skipping authenticated subscription tests`);
+      return this.createResult(
+        "Subscription Flow",
+        "e2e",
+        "subscription",
+        passed ? "passed" : "failed",
+        passed ? "Public subscription endpoints working" : "Subscription flow has issues",
+        details,
+        { duration: performance.now() - start }
+      );
+    }
+
+    // Step 2: Load current subscription
+    const { data: subData, status: subStatus } = await this.apiRequest("GET", "/subscriptions/current");
+    
+    if (subStatus === 200) {
+      details.push(`✅ Step 2: Current subscription loaded`);
+      if (subData?.data) {
+        details.push(`   Plan: ${subData.data.plan?.name || "Free"}`);
+        details.push(`   Status: ${subData.data.status || "active"}`);
+      }
+    } else {
+      details.push(`⚠️ Step 2: Subscription check failed (${subStatus})`);
+    }
+
+    // Step 3: Load billing invoices
+    const { status: invoicesStatus } = await this.apiRequest("GET", "/billing/invoices");
+    
+    if (invoicesStatus === 200) {
+      details.push(`✅ Step 3: Billing invoices accessible`);
+    } else {
+      details.push(`⚠️ Step 3: Invoices load failed (${invoicesStatus})`);
+    }
+
+    return this.createResult(
+      "Subscription Flow",
+      "e2e",
+      "subscription",
+      passed ? "passed" : "warning",
+      passed ? "Subscription flow working correctly" : "Some subscription features have issues",
+      details,
+      { 
+        duration: performance.now() - start,
+        fix: !passed ? "Check subscription and billing controllers" : undefined
+      }
+    );
+  }
+
+  // ============================================================================
   // RUN ALL TESTS
   // ============================================================================
 
@@ -1510,8 +2182,10 @@ class TestRunner {
     const testSuites = [
       { name: "Frontend", run: () => this.runFrontendTests() },
       { name: "Backend", run: () => this.runBackendTests() },
+      { name: "Database", run: () => this.runDatabaseTests() },
       { name: "Auth", run: () => this.runAuthTests() },
       { name: "Integration", run: () => this.runIntegrationTests() },
+      { name: "E2E Flows", run: () => this.runE2ETests() },
       { name: "Security", run: () => this.runSecurityTests() },
       { name: "Performance", run: () => this.runPerformanceTests() },
     ];

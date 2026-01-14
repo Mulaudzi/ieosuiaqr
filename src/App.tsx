@@ -50,6 +50,7 @@ import AdminAuditLog from "./pages/AdminAuditLog";
 import AdminSubscriptions from "./pages/AdminSubscriptions";
 import Subscription from "./pages/Subscription";
 import QA from "./pages/QA";
+import TestDashboard from "./pages/TestDashboard";
 
 const queryClient = new QueryClient();
 
@@ -78,6 +79,7 @@ const App = () => (
             <Route path="/dashboard/inventory/analytics" element={<ProtectedRoute><InventoryAnalytics /></ProtectedRoute>} />
             <Route path="/dashboard/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
             <Route path="/dashboard/qa" element={<ProtectedRoute><QA /></ProtectedRoute>} />
+            <Route path="/dashboard/tests" element={<ProtectedRoute><TestDashboard /></ProtectedRoute>} />
             <Route path="/scan/:id" element={<Scan />} />
             <Route path="/scan/:id/history" element={<ItemHistory />} />
             <Route path="/billing/success" element={<ProtectedRoute><BillingSuccess /></ProtectedRoute>} />

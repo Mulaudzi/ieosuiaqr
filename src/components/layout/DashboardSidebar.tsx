@@ -20,6 +20,7 @@ import {
   Shield,
   User,
   QrCode,
+  TestTube2,
 } from "lucide-react";
 import { useState } from "react";
 import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
@@ -36,6 +37,7 @@ const navItems: NavItem[] = [
   { to: "/dashboard/inventory", icon: Package, label: "Inventory" },
   { to: "/dashboard/analytics", icon: BarChart3, label: "Analytics" },
   { to: "/dashboard/qa", icon: Shield, label: "QA & Debug" },
+  { to: "/dashboard/tests", icon: TestTube2, label: "Automated Tests" },
   { to: "/dashboard/profile", icon: User, label: "Profile" },
   { to: "/dashboard/settings", icon: Settings, label: "Settings" },
 ];
