@@ -21,20 +21,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAuthenticated = !!user;
 
-  // Initialize auth state from localStorage
+  // Initialize auth state from API (no sensitive data in localStorage)
   useEffect(() => {
     const initAuth = async () => {
-      const storedUser = authHelpers.getStoredUser();
       const token = authHelpers.getToken();
 
-      if (storedUser && token) {
-        setUser(storedUser);
-        // Optionally refresh user data from API
+      if (token) {
+        // SECURITY: Always fetch user data from API, never from localStorage
         try {
           const response = await authApi.getProfile();
           if (response.success && response.data) {
             setUser(response.data);
-            localStorage.setItem("user", JSON.stringify(response.data));
+          } else {
+            // Token invalid or profile fetch failed
+            authHelpers.clearAuth();
+            setUser(null);
           }
         } catch {
           // Token might be invalid, clear auth
@@ -88,16 +89,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateUser = useCallback((updatedUser: User) => {
+    // SECURITY: Only update React state, no localStorage persistence
     setUser(updatedUser);
-    localStorage.setItem("user", JSON.stringify(updatedUser));
   }, []);
 
   const refreshUser = useCallback(async () => {
     try {
       const response = await authApi.getProfile();
       if (response.success && response.data) {
+        // SECURITY: Only update React state, no localStorage persistence
         setUser(response.data);
-        localStorage.setItem("user", JSON.stringify(response.data));
       }
     } catch {
       // Silently fail
