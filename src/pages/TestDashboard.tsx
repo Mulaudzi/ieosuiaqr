@@ -1021,29 +1021,29 @@ class TestRunner {
     
     const details = [
       `Token in localStorage: ${token ? "Present" : "Missing"}`,
-      `User data in localStorage: ${user ? "Present" : "Missing"}`,
+      `User data in localStorage: ${user ? "SECURITY WARNING - Should not be stored!" : "Not stored (correct)"}`,
     ];
 
+    // SECURITY: User data should NOT be in localStorage anymore
     if (user) {
-      try {
-        const userData = JSON.parse(user);
-        details.push(`User email: ${userData.email || "Not found"}`);
-        details.push(`User plan: ${userData.plan || "Not found"}`);
-      } catch {
-        details.push("User data is not valid JSON");
-      }
+      details.push("⚠️ SECURITY: User data found in localStorage - this is a vulnerability");
+      details.push("User data should only exist in React state (memory)");
+    } else {
+      details.push("✅ SECURITY: User data correctly NOT stored in localStorage");
     }
 
-    const isValid = (token && user) || (!token && !user);
+    // Valid state: token present without user data, or no auth at all
+    const isSecure = !user;
+    const hasValidAuth = token && !user;
 
     return this.createResult(
-      "Token Storage",
+      "Token Storage Security",
       "auth",
       "storage",
-      isValid ? "passed" : "warning",
-      isValid 
-        ? (token ? "Auth data properly stored" : "No auth data (user not logged in)")
-        : "Inconsistent auth storage state",
+      !isSecure ? "failed" : (hasValidAuth ? "passed" : "warning"),
+      !isSecure 
+        ? "SECURITY ISSUE: Sensitive user data exposed in localStorage" 
+        : (hasValidAuth ? "Auth data properly stored (token only)" : "No auth data (user not logged in)"),
       details,
       { duration: performance.now() - start }
     );

@@ -28,7 +28,7 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor - handle errors
+// Response interceptor - handle errors with proper logging
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<{ message?: string; errors?: Record<string, string[]> }>) => {
@@ -38,11 +38,21 @@ apiClient.interceptors.response.use(
       status: error.response?.status || 500,
     };
 
+    // Log API errors for debugging (non-sensitive info only)
+    if (process.env.NODE_ENV === "development") {
+      console.warn("API Error:", {
+        status: apiError.status,
+        message: apiError.message,
+        url: error.config?.url,
+        method: error.config?.method?.toUpperCase(),
+      });
+    }
+
     // Handle specific status codes
     if (error.response?.status === 401) {
       // Clear auth and redirect to login
       localStorage.removeItem("auth_token");
-      localStorage.removeItem("user");
+      localStorage.removeItem("user"); // Clean up legacy data
       
       // Only redirect if not already on auth pages
       if (!window.location.pathname.includes("/login") && !window.location.pathname.includes("/signup")) {

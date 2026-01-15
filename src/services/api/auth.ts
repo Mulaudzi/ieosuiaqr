@@ -174,13 +174,16 @@ export const authApi = {
 };
 
 // Helper functions for auth state management
+// SECURITY: Only store the auth token in localStorage, NOT user data
+// User data should be fetched from API on demand to avoid PII exposure
 export const authHelpers = {
   /**
-   * Store auth tokens and user data
+   * Store auth token only (user data kept in memory via context)
    */
-  setAuth: (tokens: AuthTokens, user: User): void => {
+  setAuth: (tokens: AuthTokens, _user: User): void => {
     localStorage.setItem("auth_token", tokens.access_token);
-    localStorage.setItem("user", JSON.stringify(user));
+    // SECURITY: Do NOT store user object in localStorage
+    // User data is kept in React state (AuthContext) only
   },
 
   /**
@@ -188,21 +191,17 @@ export const authHelpers = {
    */
   clearAuth: (): void => {
     localStorage.removeItem("auth_token");
+    // Clean up any legacy user data that may exist
     localStorage.removeItem("user");
   },
 
   /**
-   * Get stored user
+   * Get stored user - DEPRECATED: Returns null, use AuthContext instead
+   * Kept for backward compatibility during transition
    */
   getStoredUser: (): User | null => {
-    const userStr = localStorage.getItem("user");
-    if (userStr) {
-      try {
-        return JSON.parse(userStr) as User;
-      } catch {
-        return null;
-      }
-    }
+    // SECURITY: No longer store/retrieve user from localStorage
+    // This returns null to force API fetch on app load
     return null;
   },
 
