@@ -15,6 +15,8 @@ export interface StoredQRCode {
   status: "active" | "paused";
 }
 
+// QR codes are cached in localStorage as a performance optimization
+// This is NOT sensitive data - just a cache of public QR metadata
 const STORAGE_KEY = "ieosuia_qr_codes";
 
 // Convert API QRCode to StoredQRCode format

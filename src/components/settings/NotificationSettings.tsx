@@ -48,16 +48,27 @@ export function NotificationSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [prefs, setPrefs] = useState<NotificationPreferences>(defaultPrefs);
 
-  // Load preferences on mount
+  // Load preferences from API on mount (no localStorage for security)
   useEffect(() => {
-    const savedPrefs = localStorage.getItem("notification_preferences");
-    if (savedPrefs) {
+    const loadPrefs = async () => {
       try {
-        setPrefs({ ...defaultPrefs, ...JSON.parse(savedPrefs) });
+        const response = await authApi.getNotificationPreferences();
+        if (response.success && response.data) {
+          setPrefs({
+            ...defaultPrefs,
+            emailNotifications: response.data.email_notifications ?? true,
+            scanAlerts: response.data.scan_alerts ?? true,
+            weeklyReport: response.data.weekly_report ?? false,
+            marketingEmails: response.data.marketing_emails ?? false,
+          });
+        }
       } catch {
-        // Use defaults
+        // Use defaults if API fails
       }
-    }
+    };
+    loadPrefs();
+    // Clean up any legacy localStorage data
+    localStorage.removeItem("notification_preferences");
   }, []);
 
   const updatePref = <K extends keyof NotificationPreferences>(
@@ -70,25 +81,24 @@ export function NotificationSettings() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Save to localStorage
-      localStorage.setItem("notification_preferences", JSON.stringify(prefs));
-      
-      // Also try to update server-side preferences
-      try {
-        await authApi.updateProfile({
-          notify_status_change: prefs.notifyStatusChange,
-          notify_low_activity: prefs.notifyLowActivity,
-          notify_maintenance: prefs.notifyMaintenance,
-          low_activity_days: prefs.lowActivityDays,
-        });
-      } catch (error) {
-        // Server update failed, but local save succeeded
-        console.warn("Failed to sync notification preferences to server:", error);
-      }
+      // Save to API only - no localStorage for security
+      await authApi.updateProfile({
+        notify_status_change: prefs.notifyStatusChange,
+        notify_low_activity: prefs.notifyLowActivity,
+        notify_maintenance: prefs.notifyMaintenance,
+        low_activity_days: prefs.lowActivityDays,
+      });
       
       toast({
         title: "Preferences saved",
         description: "Your notification preferences have been updated.",
+      });
+    } catch (error) {
+      console.warn("Failed to sync notification preferences to server:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to save",
+        description: "Could not update notification preferences. Please try again.",
       });
     } finally {
       setIsSaving(false);

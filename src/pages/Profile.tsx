@@ -222,7 +222,7 @@ export default function Profile() {
           </div>
         </header>
 
-        <div className="p-6 max-w-4xl">
+        <div className="p-6 w-full max-w-4xl mx-auto">
           {/* Profile Card */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}

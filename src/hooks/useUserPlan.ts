@@ -39,7 +39,7 @@ export function useUserPlan() {
   const { user, refreshUser } = useAuth();
   const [plan, setPlan] = useState<UserPlan>("free");
 
-  // Sync plan from user context
+  // Sync plan from user context - no localStorage storage for security
   useEffect(() => {
     if (user?.plan) {
       // Handle both string and Plan object types
@@ -47,19 +47,14 @@ export function useUserPlan() {
       const userPlan = planValue.toLowerCase() as UserPlan;
       if (["free", "pro", "enterprise"].includes(userPlan)) {
         setPlan(userPlan);
-        localStorage.setItem("userPlan", userPlan);
-      }
-    } else {
-      // Fallback to localStorage
-      const storedPlan = localStorage.getItem("userPlan") as UserPlan | null;
-      if (storedPlan && ["free", "pro", "enterprise"].includes(storedPlan)) {
-        setPlan(storedPlan);
       }
     }
+    // Clean up any legacy localStorage data
+    localStorage.removeItem("userPlan");
   }, [user?.plan]);
 
   const updatePlan = useCallback((newPlan: UserPlan) => {
-    localStorage.setItem("userPlan", newPlan);
+    // Only update state, don't persist to localStorage
     setPlan(newPlan);
   }, []);
 
