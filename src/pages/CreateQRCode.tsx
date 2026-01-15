@@ -460,6 +460,11 @@ export default function CreateQRCode() {
     } catch (error: unknown) {
       const err = error as { status?: number; message?: string };
       
+      // Log error for debugging (handled, so no console.error)
+      if (process.env.NODE_ENV === "development") {
+        console.warn("QR creation error:", { status: err.status, message: err.message });
+      }
+      
       if (err.status === 403) {
         // Plan limit reached
         setShowUpsell(true);
@@ -468,6 +473,13 @@ export default function CreateQRCode() {
           variant: "destructive",
           title: "Limit reached",
           description: err.message || "Upgrade your plan to create more QR codes.",
+        });
+      } else if (err.status === 500) {
+        // Server error - provide helpful feedback
+        toast({
+          variant: "destructive",
+          title: "Server error",
+          description: "The server encountered an issue. Please try again in a moment.",
         });
       } else {
         toast({

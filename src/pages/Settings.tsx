@@ -340,8 +340,8 @@ export default function Settings() {
           </div>
         </header>
 
-        <div className="p-6">
-          <Tabs defaultValue="profile" className="max-w-3xl">
+        <div className="p-6 w-full">
+          <Tabs defaultValue="profile" className="w-full max-w-4xl mx-auto">
             <TabsList className="mb-6">
               <TabsTrigger value="profile" className="gap-2">
                 <User className="w-4 h-4" />

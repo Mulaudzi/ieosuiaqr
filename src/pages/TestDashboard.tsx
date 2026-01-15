@@ -1111,50 +1111,62 @@ class TestRunner {
     const start = performance.now();
     const details: string[] = [];
     
-    // Check if user data flows correctly between frontend and backend
-    const storedUser = localStorage.getItem("user");
-    
-    if (!storedUser || !this.token) {
+    // NEW: Test data flow using API only (no localStorage user storage)
+    // This aligns with our security model where user data stays in memory
+    if (!this.token) {
       return this.createResult(
         "Data Flow Integrity",
         "integration",
         "dataflow",
         "skipped",
         "Login required to test data flow",
-        ["No user session available"],
+        ["No auth token available - user not logged in"],
         { duration: performance.now() - start }
       );
     }
 
     try {
-      const localUser = JSON.parse(storedUser);
-      const { data, status } = await this.apiRequest("GET", "/user/profile");
+      // Verify API returns consistent data
+      const { data: profileData, status: profileStatus } = await this.apiRequest("GET", "/user/profile");
       
-      if (status === 200 && data?.data) {
-        const apiUser = data.data;
-        const emailMatch = localUser.email === apiUser.email;
-        const nameMatch = localUser.name === apiUser.name;
+      if (profileStatus === 200 && profileData?.data) {
+        const apiUser = profileData.data;
         
-        details.push(`Email sync: ${emailMatch ? "Matched" : "Mismatch"}`);
-        details.push(`Name sync: ${nameMatch ? "Matched" : "Mismatch"}`);
-        details.push(`Local: ${localUser.email}`);
-        details.push(`API: ${apiUser.email}`);
+        // Verify user has expected fields
+        const hasEmail = !!apiUser.email;
+        const hasName = !!apiUser.name;
+        const hasId = !!apiUser.id;
+        
+        details.push(`User ID present: ${hasId ? "Yes" : "No"}`);
+        details.push(`User email present: ${hasEmail ? "Yes" : "No"}`);
+        details.push(`User name present: ${hasName ? "Yes" : "No"}`);
+        details.push(`User data correctly fetched from API (not localStorage)`);
+        
+        // Check that user is NOT in localStorage (security check)
+        const userInStorage = localStorage.getItem("user");
+        if (userInStorage) {
+          details.push("⚠️ SECURITY: User data found in localStorage - should be removed");
+        } else {
+          details.push("✅ SECURITY: User data correctly NOT in localStorage");
+        }
 
-        const isSync = emailMatch && nameMatch;
+        const isValid = hasEmail && hasName && hasId && !userInStorage;
 
         return this.createResult(
           "Data Flow Integrity",
           "integration",
           "dataflow",
-          isSync ? "passed" : "warning",
-          isSync ? "Local and API data are in sync" : "Data mismatch between local storage and API",
+          isValid ? "passed" : (userInStorage ? "warning" : "failed"),
+          isValid ? "Data flows correctly via API (secure model)" : "Data flow issues detected",
           details,
           { 
             duration: performance.now() - start,
-            fix: isSync ? undefined : "Refresh user data or re-login"
+            fix: !isValid ? "Ensure user data is fetched from API, not stored in localStorage" : undefined
           }
         );
       }
+      
+      details.push("Could not fetch user profile from API");
     } catch (error: any) {
       details.push(`Error: ${error.message}`);
     }
@@ -1281,15 +1293,26 @@ class TestRunner {
     
     // Check localStorage for sensitive data that shouldn't be there
     const sensitiveKeys = ["password", "secret", "private_key", "credit_card", "ssn"];
+    // Also check for PII that shouldn't be stored
+    const piiKeys = ["user", "userPlan", "notification_preferences"];
     let exposedCount = 0;
+    let piiCount = 0;
     
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key) {
         const lowerKey = key.toLowerCase();
+        
+        // Check for sensitive keys
         if (sensitiveKeys.some(sk => lowerKey.includes(sk))) {
           exposedCount++;
           details.push(`⚠️ Potentially sensitive key found: ${key}`);
+        }
+        
+        // Check for PII that should have been cleaned up
+        if (piiKeys.includes(key)) {
+          piiCount++;
+          details.push(`⚠️ PII/preference data found: ${key} (should be API-fetched only)`);
         }
       }
     }
@@ -1304,19 +1327,35 @@ class TestRunner {
       exposedCount += windowVars.length;
     }
 
+    const totalIssues = exposedCount + piiCount;
     details.push(`localStorage keys checked: ${localStorage.length}`);
     details.push(`Potentially sensitive items: ${exposedCount}`);
+    details.push(`PII/preference items: ${piiCount}`);
+    
+    // Allowed keys in localStorage (whitelist)
+    const allowedKeys = ["auth_token", "ieosuia_qr_codes", "dashboard-tutorial-seen", "vite-ui-theme"];
+    const allKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key) allKeys.push(key);
+    }
+    const unexpectedKeys = allKeys.filter(k => !allowedKeys.includes(k) && !k.startsWith("__"));
+    if (unexpectedKeys.length > 0) {
+      details.push(`Unexpected keys: ${unexpectedKeys.join(", ")}`);
+    } else {
+      details.push("✅ All localStorage keys are expected/allowed");
+    }
 
     return this.createResult(
       "Sensitive Data Exposure",
       "security",
       "data-exposure",
-      exposedCount === 0 ? "passed" : "warning",
-      exposedCount === 0 ? "No obvious sensitive data exposure detected" : `${exposedCount} potential exposure(s) found`,
+      totalIssues === 0 ? "passed" : "warning",
+      totalIssues === 0 ? "No sensitive data exposure detected" : `${totalIssues} potential exposure(s) found`,
       details,
       { 
         duration: performance.now() - start,
-        fix: exposedCount > 0 ? "Review and remove any sensitive data from client-side storage" : undefined
+        fix: totalIssues > 0 ? "Review and remove any sensitive data from client-side storage" : undefined
       }
     );
   }
