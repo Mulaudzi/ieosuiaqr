@@ -88,18 +88,6 @@ const handleResponse = async <T>(response: Response): Promise<ApiResponse<T>> =>
 
 export const adminApi = {
   /**
-   * Check if an email belongs to an admin user
-   */
-  checkAdminEmail: async (email: string): Promise<ApiResponse<{ is_admin: boolean }>> => {
-    const response = await fetch(`${getBaseUrl()}/admin/auth/check-email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email })
-    });
-    return handleResponse(response);
-  },
-
-  /**
    * Batch admin login - verify all 3 passwords at once
    */
   batchLogin: async (email: string, password1: string, password2: string, password3: string): Promise<ApiResponse<AdminBatchLoginResponse> & { remaining_attempts?: number; locked?: boolean; locked_minutes?: number }> => {
@@ -325,12 +313,14 @@ export const adminApi = {
   /**
    * Get audit export URL
    */
-  getAuditExportUrl: (fromDate?: string, toDate?: string): string => {
-    const adminToken = localStorage.getItem("admin_token");
+  exportAuditLog: async (fromDate?: string, toDate?: string): Promise<Blob> => {
     const params = new URLSearchParams();
     if (fromDate) params.append("from_date", fromDate);
     if (toDate) params.append("to_date", toDate);
-    params.append("token", adminToken || "");
-    return `${getBaseUrl()}/admin/audit/export?${params}`;
+    const response = await fetch(`${getBaseUrl()}/admin/audit/export?${params}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error("Audit export failed");
+    return response.blob();
   }
 };

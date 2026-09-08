@@ -12,10 +12,6 @@ class AnalyticsController
     {
         $user = Auth::check();
 
-        if ($user['plan'] === 'Free') {
-            Response::error('Analytics requires a Pro or Enterprise plan. Upgrade to track your QR code performance.', 403);
-        }
-
         $pdo = Database::getInstance();
         $period = $_GET['period'] ?? '30d';
         $interval = self::getInterval($period);
@@ -92,56 +88,51 @@ class AnalyticsController
             'top_qr_codes' => $topQrCodes
         ];
 
-        // Enterprise: Add geo data
-        if ($user['plan'] === 'Enterprise') {
-            // Countries
-            $stmt = $pdo->prepare("
-                SELECT 
-                    JSON_UNQUOTE(JSON_EXTRACT(sl.location, '$.country')) as country,
-                    JSON_UNQUOTE(JSON_EXTRACT(sl.location, '$.country_code')) as country_code,
-                    COUNT(*) as count
-                FROM scan_logs sl
-                JOIN qr_codes qr ON sl.qr_id = qr.id
-                WHERE qr.user_id = ? AND sl.location IS NOT NULL
-                GROUP BY JSON_EXTRACT(sl.location, '$.country'), JSON_EXTRACT(sl.location, '$.country_code')
-                ORDER BY count DESC
-                LIMIT 10
-            ");
-            $stmt->execute([$user['id']]);
-            $response['countries'] = $stmt->fetchAll();
+        // Location and browser detail are included for every account.
+        $stmt = $pdo->prepare(" 
+            SELECT 
+                JSON_UNQUOTE(JSON_EXTRACT(sl.location, '$.country')) as country,
+                JSON_UNQUOTE(JSON_EXTRACT(sl.location, '$.country_code')) as country_code,
+                COUNT(*) as count
+            FROM scan_logs sl
+            JOIN qr_codes qr ON sl.qr_id = qr.id
+            WHERE qr.user_id = ? AND sl.location IS NOT NULL
+            GROUP BY JSON_EXTRACT(sl.location, '$.country'), JSON_EXTRACT(sl.location, '$.country_code')
+            ORDER BY count DESC
+            LIMIT 10
+        ");
+        $stmt->execute([$user['id']]);
+        $response['countries'] = $stmt->fetchAll();
 
-            // Heatmap data (lat/long points)
-            $stmt = $pdo->prepare("
-                SELECT 
-                    JSON_EXTRACT(sl.location, '$.latitude') as lat,
-                    JSON_EXTRACT(sl.location, '$.longitude') as lng,
-                    COUNT(*) as intensity
-                FROM scan_logs sl
-                JOIN qr_codes qr ON sl.qr_id = qr.id
-                WHERE qr.user_id = ? 
-                    AND sl.location IS NOT NULL
-                    AND JSON_EXTRACT(sl.location, '$.latitude') IS NOT NULL
-                GROUP BY JSON_EXTRACT(sl.location, '$.latitude'), JSON_EXTRACT(sl.location, '$.longitude')
-                LIMIT 100
-            ");
-            $stmt->execute([$user['id']]);
-            $response['heatmap'] = $stmt->fetchAll();
+        $stmt = $pdo->prepare(" 
+            SELECT 
+                JSON_EXTRACT(sl.location, '$.latitude') as lat,
+                JSON_EXTRACT(sl.location, '$.longitude') as lng,
+                COUNT(*) as intensity
+            FROM scan_logs sl
+            JOIN qr_codes qr ON sl.qr_id = qr.id
+            WHERE qr.user_id = ? 
+                AND sl.location IS NOT NULL
+                AND JSON_EXTRACT(sl.location, '$.latitude') IS NOT NULL
+            GROUP BY JSON_EXTRACT(sl.location, '$.latitude'), JSON_EXTRACT(sl.location, '$.longitude')
+            LIMIT 100
+        ");
+        $stmt->execute([$user['id']]);
+        $response['heatmap'] = $stmt->fetchAll();
 
-            // Browser breakdown
-            $stmt = $pdo->prepare("
-                SELECT 
-                    JSON_UNQUOTE(JSON_EXTRACT(sl.device, '$.browser')) as browser,
-                    COUNT(*) as count
-                FROM scan_logs sl
-                JOIN qr_codes qr ON sl.qr_id = qr.id
-                WHERE qr.user_id = ? AND sl.device IS NOT NULL
-                GROUP BY JSON_EXTRACT(sl.device, '$.browser')
-                ORDER BY count DESC
-                LIMIT 5
-            ");
-            $stmt->execute([$user['id']]);
-            $response['browsers'] = $stmt->fetchAll();
-        }
+        $stmt = $pdo->prepare(" 
+            SELECT 
+                JSON_UNQUOTE(JSON_EXTRACT(sl.device, '$.browser')) as browser,
+                COUNT(*) as count
+            FROM scan_logs sl
+            JOIN qr_codes qr ON sl.qr_id = qr.id
+            WHERE qr.user_id = ? AND sl.device IS NOT NULL
+            GROUP BY JSON_EXTRACT(sl.device, '$.browser')
+            ORDER BY count DESC
+            LIMIT 5
+        ");
+        $stmt->execute([$user['id']]);
+        $response['browsers'] = $stmt->fetchAll();
 
         Response::success($response);
     }
@@ -149,7 +140,6 @@ class AnalyticsController
     public static function exportCsv(): void
     {
         $user = Auth::check();
-        Auth::requirePlan(['Pro', 'Enterprise']);
 
         $pdo = Database::getInstance();
         $period = $_GET['period'] ?? '30d';
@@ -393,7 +383,6 @@ class AnalyticsController
     public static function exportReport(): void
     {
         $user = Auth::check();
-        Auth::requirePlan(['Pro', 'Enterprise']);
         
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
         $format = $data['format'] ?? 'csv';

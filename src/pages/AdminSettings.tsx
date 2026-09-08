@@ -64,7 +64,9 @@ export default function AdminSettings() {
     if (!isValidSession || !adminToken) return;
     
     try {
-      const verifyRes = await fetch(`/api/admin/verify?admin_token=${adminToken}`);
+      const verifyRes = await fetch(`/api/admin/verify`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
       if (!verifyRes.ok) {
         clearAdminSession();
         navigate("/admin/login", { replace: true });
@@ -72,7 +74,7 @@ export default function AdminSettings() {
       }
 
       const response = await fetch("/api/admin/settings", {
-        headers: { Authorization: `Admin ${adminToken}` },
+        headers: { Authorization: `Bearer ${adminToken}` },
       });
 
       if (!response.ok) throw new Error("Failed to fetch settings");
@@ -108,7 +110,7 @@ export default function AdminSettings() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Admin ${adminToken}`,
+          Authorization: `Bearer ${adminToken}`,
         },
         body: JSON.stringify(payload),
       });
@@ -191,7 +193,7 @@ export default function AdminSettings() {
     try {
       await fetch("/api/admin/logout", {
         method: "POST",
-        headers: { Authorization: `Admin ${adminToken}` },
+        headers: { Authorization: `Bearer ${adminToken}` },
       });
     } catch { /* ignore */ }
     localStorage.removeItem("admin_token");

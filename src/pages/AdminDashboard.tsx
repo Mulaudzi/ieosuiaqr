@@ -22,7 +22,6 @@ import {
   LogOut,
   Loader2,
   ArrowRight,
-  FlaskConical,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -146,14 +145,6 @@ export default function AdminDashboard() {
       color: "text-yellow-500",
       bgColor: "bg-yellow-500/10"
     },
-    {
-      title: "QA Console",
-      description: "System diagnostics and testing",
-      icon: FlaskConical,
-      href: "/admin/qa",
-      color: "text-pink-500",
-      bgColor: "bg-pink-500/10"
-    }
   ];
 
   const getStatusIcon = (status: string) => {

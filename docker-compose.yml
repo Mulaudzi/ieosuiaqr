@@ -1,0 +1,59 @@
+services:
+  database:
+    image: mariadb:11.4
+    environment:
+      MARIADB_DATABASE: ieosuia_qr_local
+      MARIADB_USER: ieosuia_local
+      MARIADB_PASSWORD: ieosuia_local_only
+      MARIADB_ROOT_PASSWORD: ieosuia_root_local_only
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - local_database:/var/lib/mysql
+      - ./.private/ejetffbz_qr.sql:/docker-entrypoint-initdb.d/001-production-copy.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  mail:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    depends_on:
+      database:
+        condition: service_healthy
+      mail:
+        condition: service_started
+    ports:
+      - "127.0.0.1:8081:80"
+    volumes:
+      - ./api:/var/www/html
+      - ./.private/api.local.env:/var/www/html/.env:ro
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      - api
+    environment:
+      VITE_API_URL: http://localhost:8081/api
+      VITE_APP_URL: http://localhost:5173
+      VITE_API_PROXY_TARGET: http://api
+    ports:
+      - "127.0.0.1:5173:8080"
+    volumes:
+      - ./:/app
+      - frontend_node_modules:/app/node_modules
+
+volumes:
+  local_database:
+  frontend_node_modules:

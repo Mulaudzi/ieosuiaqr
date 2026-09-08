@@ -5,7 +5,7 @@ import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
 const footerLinks = {
   product: [
     { name: "Features", href: "/#features" },
-    { name: "Pricing", href: "/#pricing" },
+    { name: "Get Started", href: "/signup" },
     { name: "Solutions", href: "/solutions" },
   ],
   company: [

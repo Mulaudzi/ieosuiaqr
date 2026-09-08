@@ -44,8 +44,8 @@ const supportCategories = [
   },
   {
     icon: CreditCard,
-    title: "Billing & Plans",
-    description: "Subscriptions, payments, and invoices",
+    title: "Account Access",
+    description: "Access, account lifecycle, and service policies",
     articles: 10,
   },
   {
@@ -80,7 +80,7 @@ const faqs = [
       },
       {
         question: "What QR code types are available?",
-        answer: "We support URL, Text, vCard (contact cards), WiFi network sharing, Event/Calendar entries, and Location/Maps. Pro and Enterprise plans unlock all QR types including advanced options."
+        answer: "We support URL, Text, vCard (contact cards), WiFi network sharing, Event/Calendar entries, and Location/Maps, including advanced options."
       },
     ]
   },
@@ -101,11 +101,11 @@ const faqs = [
       },
       {
         question: "Can I add my logo to a QR code?",
-        answer: "Yes! Pro and Enterprise plans allow you to embed your logo in the center of your QR code. The logo is automatically sized to ensure the QR code remains scannable."
+        answer: "Yes! You can embed your logo in the center of your QR code. The logo is automatically sized to ensure the QR code remains scannable."
       },
       {
         question: "How do I create multiple QR codes at once?",
-        answer: "Use our Bulk CSV Import feature (Pro and Enterprise plans). Prepare a CSV file with your data, upload it, and we'll generate all your QR codes automatically."
+        answer: "Use our Bulk CSV Import feature. Prepare a CSV file with your data, upload it, and we'll generate all your QR codes automatically."
       },
       {
         question: "Can I use my QR codes commercially?",
@@ -143,7 +143,7 @@ const faqs = [
       },
       {
         question: "Can I export my analytics data?",
-        answer: "Yes! Pro and Enterprise plans can export analytics as CSV or PDF reports. Go to Analytics or Inventory Analytics and click the export button."
+        answer: "Yes! You can export analytics as CSV or PDF reports. Go to Analytics or Inventory Analytics and click the export button."
       },
       {
         question: "How accurate is the location data?",
@@ -152,27 +152,23 @@ const faqs = [
     ]
   },
   {
-    category: "Billing & Subscriptions",
+    category: "Account Access & Policies",
     questions: [
       {
-        question: "How do I upgrade or downgrade my plan?",
-        answer: "Go to Dashboard → Settings → Billing. Click 'Change Plan' to see available options. When upgrading, you'll be charged the prorated difference. When downgrading, changes take effect at your next billing cycle."
+        question: "Do I need a credit card to use IEOSUIA QR?",
+        answer: "No. IEOSUIA QR is free to use, and no credit card is required to create or manage QR codes."
       },
       {
-        question: "What payment methods do you accept?",
-        answer: "We accept payments through PayFast, which supports credit/debit cards, instant EFT, and other South African payment methods. All payments are processed securely."
+        question: "How is my account access managed?",
+        answer: "Use Dashboard → Settings to manage your profile, password, security options, and notifications."
       },
       {
-        question: "Is there a free trial?",
-        answer: "Yes! All paid plans come with a free trial period. Start your trial without a credit card and upgrade when you're ready."
-      },
-      {
-        question: "How do I cancel my subscription?",
-        answer: "Go to Dashboard → Settings → Billing and click 'Cancel Subscription'. Your access continues until the end of your current billing period."
+        question: "How do I close my account?",
+        answer: "Use Dashboard → Settings → Security and select Delete Account, or contact support@ieosuia.com for help."
       },
       {
         question: "Do you offer refunds?",
-        answer: "We offer refunds within 14 days of purchase if you're not satisfied. Contact support@ieosuia.com with your request."
+        answer: "If you were charged in error for a legacy transaction, contact support@ieosuia.com and we will assist."
       },
     ]
   },
@@ -190,10 +186,6 @@ const faqs = [
       {
         question: "Can I delete my account?",
         answer: "Yes. Contact support@ieosuia.com to request account deletion. We'll permanently delete all your data within 30 days."
-      },
-      {
-        question: "Do you support two-factor authentication?",
-        answer: "We're working on adding 2FA. Currently, we recommend using a strong, unique password and keeping your email account secure."
       },
     ]
   },

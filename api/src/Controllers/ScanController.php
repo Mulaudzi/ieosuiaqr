@@ -19,10 +19,10 @@ class ScanController
 
         // Find QR code by id or dynamic_id
         if ($dynamicId) {
-            $stmt = $pdo->prepare("SELECT id, content, is_active FROM qr_codes WHERE dynamic_id = ?");
+            $stmt = $pdo->prepare("SELECT id, type, content, is_active FROM qr_codes WHERE dynamic_id = ?");
             $stmt->execute([$dynamicId]);
         } elseif ($qrId) {
-            $stmt = $pdo->prepare("SELECT id, content, is_active FROM qr_codes WHERE id = ?");
+            $stmt = $pdo->prepare("SELECT id, type, content, is_active FROM qr_codes WHERE id = ?");
             $stmt->execute([$qrId]);
         } else {
             Response::error('QR code ID required', 400);
@@ -38,6 +38,16 @@ class ScanController
             Response::error('This QR code has been deactivated', 410);
         }
 
+        // Already-printed QR codes may still contain the former API address.
+        // Move browser GET requests onto the public, branded transition page;
+        // that page calls this endpoint with response=json to record the scan.
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && ($_GET['response'] ?? '') !== 'json') {
+            $appUrl = rtrim((string)($_ENV['APP_URL'] ?? 'https://qr.ieosuia.com'), '/');
+            header('Cache-Control: no-store, private');
+            header('Location: ' . $appUrl . '/go/' . rawurlencode((string)$qr['id']), true, 302);
+            exit;
+        }
+
         // Get client info
         $ip = self::getClientIp();
         $ipHash = md5($ip . ($_ENV['JWT_SECRET'] ?? 'salt')); // Anonymize IP
@@ -48,7 +58,7 @@ class ScanController
         $location = null;
         $geoDbPath = $_ENV['GEOIP_DB_PATH'] ?? __DIR__ . '/../../geoip/GeoLite2-City.mmdb';
         
-        if (file_exists($geoDbPath) && $ip !== '127.0.0.1') {
+        if (class_exists(Reader::class) && file_exists($geoDbPath) && $ip !== '127.0.0.1') {
             try {
                 $reader = new Reader($geoDbPath);
                 $record = $reader->city($ip);
@@ -59,14 +69,14 @@ class ScanController
                     'latitude' => $record->location->latitude ?? null,
                     'longitude' => $record->location->longitude ?? null
                 ];
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 error_log("GeoIP lookup failed: " . $e->getMessage());
             }
         }
 
         // Parse device info
         $device = null;
-        if ($userAgent) {
+        if ($userAgent && class_exists(UserAgentParser::class)) {
             try {
                 $parser = new UserAgentParser();
                 $ua = $parser->parse($userAgent);
@@ -76,45 +86,207 @@ class ScanController
                     'platform' => $ua->platform() ?? 'Unknown',
                     'is_mobile' => self::isMobile($userAgent)
                 ];
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 error_log("User agent parsing failed: " . $e->getMessage());
             }
         }
 
-        // Log scan
+        // Some camera/scanner apps resolve the same QR more than once before
+        // opening the destination. Count identical requests only once within a
+        // short window so one physical scan produces one analytics event.
         try {
+            $normalizedUserAgent = substr($userAgent, 0, 500);
             $stmt = $pdo->prepare("
-                INSERT INTO scan_logs (qr_id, ip_hash, location, device, user_agent, referer, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?, NOW())
+                SELECT id
+                FROM scan_logs
+                WHERE qr_id = ?
+                  AND ip_hash = ?
+                  AND user_agent = ?
+                  AND timestamp >= DATE_SUB(NOW(), INTERVAL 10 SECOND)
+                LIMIT 1
             ");
-            $stmt->execute([
-                $qr['id'],
-                $ipHash,
-                json_encode($location),
-                json_encode($device),
-                substr($userAgent, 0, 500),
-                $referer
-            ]);
+            $stmt->execute([$qr['id'], $ipHash, $normalizedUserAgent]);
 
-            // Update total scans
-            $stmt = $pdo->prepare("UPDATE qr_codes SET total_scans = total_scans + 1 WHERE id = ?");
-            $stmt->execute([$qr['id']]);
+            if (!$stmt->fetch()) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO scan_logs (qr_id, ip_hash, location, device, user_agent, referer, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?, NOW())
+                ");
+                $stmt->execute([
+                    $qr['id'],
+                    $ipHash,
+                    json_encode($location),
+                    json_encode($device),
+                    $normalizedUserAgent,
+                    $referer
+                ]);
 
-        } catch (\Exception $e) {
+                $stmt = $pdo->prepare("UPDATE qr_codes SET total_scans = total_scans + 1 WHERE id = ?");
+                $stmt->execute([$qr['id']]);
+            }
+
+        } catch (\Throwable $e) {
             error_log("Scan logging failed: " . $e->getMessage());
         }
 
-        // Redirect to content
-        $content = json_decode($qr['content'], true);
-        $redirectUrl = $content['value'] ?? $content['url'] ?? null;
+        // Keep any linked inventory item's activity timestamp synchronized with
+        // the canonical QR scan event, regardless of the QR's destination.
+        try {
+            $stmt = $pdo->prepare("UPDATE inventory_items SET last_scan_date = NOW(), updated_at = NOW() WHERE qr_id = ?");
+            $stmt->execute([$qr['id']]);
+        } catch (\Throwable $e) {
+            error_log("Inventory scan timestamp update failed: " . $e->getMessage());
+        }
 
-        if ($redirectUrl && filter_var($redirectUrl, FILTER_VALIDATE_URL)) {
+        // Resolve both current structured content and older/string records.
+        $redirectUrl = self::resolveRedirectUrl(
+            (string)($qr['type'] ?? ''),
+            $qr['content'],
+            $userAgent
+        );
+
+        // The public /go/:id page requests JSON in the background so visitors
+        // see a friendly transition instead of an API response or API URL.
+        if (($_GET['response'] ?? '') === 'json') {
+            header('Cache-Control: no-store, private');
+            Response::success([
+                'logged' => true,
+                'redirect_url' => $redirectUrl,
+                'type' => (string)($qr['type'] ?? ''),
+                'content' => self::decodeContent($qr['content']),
+            ]);
+        }
+
+        if ($redirectUrl !== null) {
+            header('Cache-Control: no-store, private');
             header("Location: {$redirectUrl}", true, 302);
             exit;
         }
 
         // If no redirect URL, return success
         Response::success(['logged' => true]);
+    }
+
+    /**
+     * Convert stored QR content into a safe browser destination.
+     *
+     * Content has existed in several shapes over the lifetime of the app:
+     * JSON objects, JSON-encoded strings, and nested `content` values. Keep
+     * this resolver tolerant so already-printed QR codes continue to work.
+     */
+    public static function resolveRedirectUrl(string $type, mixed $storedContent, string $userAgent = ''): ?string
+    {
+        $content = self::decodeContent($storedContent);
+        $type = strtolower(trim($type));
+
+        if (is_string($content)) {
+            return self::normalizeWebUrl($content);
+        }
+
+        if (!is_array($content)) {
+            return null;
+        }
+
+        // A nested `content` value is used by the current basic QR forms.
+        $primary = $content['url'] ?? $content['content'] ?? $content['value'] ?? null;
+        if (is_string($primary)) {
+            $decodedPrimary = self::decodeContent($primary);
+            if (is_array($decodedPrimary)) {
+                $content = array_merge($decodedPrimary, $content);
+                $primary = $decodedPrimary['url'] ?? $decodedPrimary['content'] ?? $decodedPrimary['value'] ?? null;
+            }
+        }
+
+        if ($type === 'email') {
+            $email = trim((string)($content['email'] ?? $primary ?? ''));
+            if ($email === '') { return null; }
+            $query = http_build_query(array_filter([
+                'subject' => $content['subject'] ?? null,
+                'body' => $content['body'] ?? $content['message'] ?? null,
+            ], static fn($value) => $value !== null && $value !== ''));
+            return 'mailto:' . rawurlencode($email) . ($query ? '?' . $query : '');
+        }
+
+        if ($type === 'phone') {
+            $phone = self::cleanPhone((string)($content['phoneNumber'] ?? $content['phone'] ?? $primary ?? ''));
+            return $phone !== '' ? 'tel:' . $phone : null;
+        }
+
+        if ($type === 'sms') {
+            $phone = self::cleanPhone((string)($content['phoneNumber'] ?? $content['phone'] ?? ''));
+            if ($phone === '') { return null; }
+            $message = trim((string)($content['message'] ?? ''));
+            return 'sms:' . $phone . ($message !== '' ? '?body=' . rawurlencode($message) : '');
+        }
+
+        if ($type === 'whatsapp') {
+            $phone = preg_replace('/\D+/', '', (string)($content['phoneNumber'] ?? $content['phone'] ?? ''));
+            if ($phone === '') { return null; }
+            $message = trim((string)($content['message'] ?? ''));
+            return 'https://wa.me/' . $phone . ($message !== '' ? '?text=' . rawurlencode($message) : '');
+        }
+
+        if ($type === 'location') {
+            $latitude = $content['latitude'] ?? null;
+            $longitude = $content['longitude'] ?? null;
+            $query = ($latitude !== null && $longitude !== null && $latitude !== '' && $longitude !== '')
+                ? $latitude . ',' . $longitude
+                : trim((string)($content['address'] ?? $content['locationName'] ?? $primary ?? ''));
+            return $query !== ''
+                ? 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($query)
+                : null;
+        }
+
+        if ($type === 'social') {
+            // Social QR codes are link hubs. The public scan page displays all
+            // profiles so the visitor can choose instead of being sent to the
+            // first entry automatically.
+            return null;
+        }
+
+        if ($type === 'app') {
+            $isApple = preg_match('/iPhone|iPad|iPod/i', $userAgent) === 1;
+            $candidate = $isApple
+                ? ($content['appStoreUrl'] ?? $content['playStoreUrl'] ?? null)
+                : ($content['playStoreUrl'] ?? $content['appStoreUrl'] ?? null);
+            return is_string($candidate) ? self::normalizeWebUrl($candidate) : null;
+        }
+
+        foreach ([$primary, $content['website'] ?? null, $content['websiteUrl'] ?? null] as $candidate) {
+            $url = is_string($candidate) ? self::normalizeWebUrl($candidate) : null;
+            if ($url !== null) { return $url; }
+        }
+
+        return null;
+    }
+
+    private static function decodeContent(mixed $value): mixed
+    {
+        for ($depth = 0; $depth < 3 && is_string($value); $depth++) {
+            $trimmed = trim($value);
+            if ($trimmed === '') { return ''; }
+            $decoded = json_decode($trimmed, true);
+            if (json_last_error() !== JSON_ERROR_NONE) { return $trimmed; }
+            $value = $decoded;
+        }
+        return $value;
+    }
+
+    private static function normalizeWebUrl(string $value): ?string
+    {
+        $value = trim(str_replace(["\r", "\n"], '', $value));
+        if ($value === '') { return null; }
+        if (preg_match('/^www\./i', $value)) { $value = 'https://' . $value; }
+        if (!filter_var($value, FILTER_VALIDATE_URL)) { return null; }
+        $scheme = strtolower((string)parse_url($value, PHP_URL_SCHEME));
+        return in_array($scheme, ['http', 'https'], true) ? $value : null;
+    }
+
+    private static function cleanPhone(string $value): string
+    {
+        $value = trim($value);
+        $prefix = str_starts_with($value, '+') ? '+' : '';
+        return $prefix . preg_replace('/\D+/', '', $value);
     }
 
     public static function getScans(int $qrId): void
@@ -129,11 +301,6 @@ class ScanController
 
         if (!$qr) {
             Response::error('QR code not found', 404);
-        }
-
-        // Free users cannot access scan data
-        if ($user['plan'] === 'Free') {
-            Response::error('Scan tracking requires a Pro or Enterprise plan. Upgrade to see who scans your QR codes.', 403);
         }
 
         $page = max(1, (int)($_GET['page'] ?? 1));
@@ -163,8 +330,7 @@ class ScanController
             }
         }
 
-        // Country filter (Enterprise only)
-        if (!empty($_GET['country']) && $user['plan'] === 'Enterprise') {
+        if (!empty($_GET['country'])) {
             $where[] = "JSON_EXTRACT(location, '$.country_code') = ?";
             $params[] = strtoupper($_GET['country']);
         }
@@ -176,13 +342,7 @@ class ScanController
         $stmt->execute($params);
         $total = (int)$stmt->fetch()['total'];
 
-        // Select fields based on plan
-        if ($user['plan'] === 'Enterprise') {
-            $fields = "id, ip_hash, location, device, user_agent, referer, timestamp";
-        } else {
-            // Pro: Limited data
-            $fields = "id, device, timestamp";
-        }
+        $fields = "id, ip_hash, location, device, user_agent, referer, timestamp";
 
         $params[] = $limit;
         $params[] = $offset;
@@ -222,10 +382,6 @@ class ScanController
             Response::error('QR code not found', 404);
         }
 
-        if ($user['plan'] === 'Free') {
-            Response::error('Analytics requires a Pro or Enterprise plan.', 403);
-        }
-
         // Total scans
         $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM scan_logs WHERE qr_id = ?");
         $stmt->execute([$qrId]);
@@ -262,8 +418,8 @@ class ScanController
             ]
         ];
 
-        // Enterprise: Add geo breakdown
-        if ($user['plan'] === 'Enterprise') {
+        // Add geographic breakdown for every account.
+        {
             $stmt = $pdo->prepare("
                 SELECT 
                     JSON_UNQUOTE(JSON_EXTRACT(location, '$.country')) as country,

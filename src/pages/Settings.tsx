@@ -1,49 +1,28 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import { PlanSelector } from "@/components/billing/PlanSelector";
-import { PlanChangeModal } from "@/components/billing/PlanChangeModal";
-import { PayFastCheckout } from "@/components/billing/PayFastCheckout";
-import { InvoiceHistory } from "@/components/billing/InvoiceHistory";
-import { PaymentHistory } from "@/components/billing/PaymentHistory";
-import { PaymentRetryStatus } from "@/components/billing/PaymentRetryStatus";
-import { useUserPlan, UserPlan } from "@/hooks/useUserPlan";
 import { authApi } from "@/services/api/auth";
 import { useAuth } from "@/contexts/AuthContext";
-import { TwoFactorSetup } from "@/components/auth/TwoFactorSetup";
-import { PasswordStrengthIndicator, getPasswordScore } from "@/components/auth/PasswordStrengthIndicator";
+import { PasswordStrengthIndicator } from "@/components/auth/PasswordStrengthIndicator";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
-import { useQRStorage } from "@/hooks/useQRStorage";
+import { AvatarCropper } from "@/components/profile/AvatarCropper";
+import { Badge } from "@/components/ui/badge";
 import {
-  QrCode,
-  BarChart3,
-  Settings as SettingsIcon,
-  LogOut,
-  ChevronDown,
-  Crown,
   User,
   Lock,
   Bell,
-  CreditCard,
-  Shield,
   Trash2,
   Eye,
   EyeOff,
   Check,
   Loader2,
+  Camera,
+  Shield,
+  Calendar,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,7 +40,6 @@ import { DashboardSidebar } from "@/components/layout/DashboardSidebar";
 
 export default function Settings() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -69,36 +47,33 @@ export default function Settings() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [scanAlerts, setScanAlerts] = useState(true);
-  const [weeklyReport, setWeeklyReport] = useState(false);
-  const [marketingEmails, setMarketingEmails] = useState(false);
-  
-  // Loading states
+
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
-  const [isSavingNotifications, setIsSavingNotifications] = useState(false);
-  
-  // Billing state
-  const [checkoutPlan, setCheckoutPlan] = useState<UserPlan | null>(null);
-  const [isAnnualBilling, setIsAnnualBilling] = useState(false);
-  const [showPlanChangeModal, setShowPlanChangeModal] = useState(false);
-  const [targetPlan, setTargetPlan] = useState<UserPlan>("pro");
+  const [showAvatarCropper, setShowAvatarCropper] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
-  // 2FA state
-  const [show2FASetup, setShow2FASetup] = useState(false);
-  
-  const { plan: currentPlan, limits, isPro } = useUserPlan();
   const { toast } = useToast();
-  const { user, logout, updateUser, refreshUser } = useAuth();
-  const { qrCodes, isLoading: isLoadingQRCodes } = useQRStorage();
-  
-  // Calculate real stats from QR codes
-  const qrCodesUsed = qrCodes.length;
-  const totalScans = qrCodes.reduce((sum, qr) => sum + (qr.scans || 0), 0);
+  const { user, updateUser } = useAuth();
 
-  // Initialize form with user data
+  const handleAvatarUpload = async (croppedImage: Blob) => {
+    setIsUploadingAvatar(true);
+    try {
+      const response = await authApi.uploadAvatar(croppedImage);
+      if (response.success && response.data && user) {
+        updateUser({ ...user, avatar_url: response.data.avatar_url });
+        toast({ title: "Avatar updated", description: "Your profile photo has been updated successfully." });
+        setShowAvatarCropper(false);
+      }
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      toast({ variant: "destructive", title: "Upload failed", description: err.message || "Failed to upload avatar." });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       setName(user.name || "");
@@ -107,35 +82,9 @@ export default function Settings() {
     }
   }, [user]);
 
-  // Handle payment callback
-  useEffect(() => {
-    const paymentStatus = searchParams.get("payment");
-    if (paymentStatus === "success") {
-      toast({
-        title: "Payment Successful!",
-        description: "Your plan has been upgraded.",
-      });
-    } else if (paymentStatus === "cancelled") {
-      toast({
-        title: "Payment Cancelled",
-        description: "Your payment was cancelled.",
-        variant: "destructive",
-      });
-    }
-  }, [searchParams, toast]);
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      navigate("/login");
-    } catch {
-      // Error already handled by logout
-    }
-  };
-
-  const validateEmail = (email: string): boolean => {
+  const validateEmail = (value: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+    return emailRegex.test(value);
   };
 
   const handleProfileSave = async () => {
@@ -161,7 +110,6 @@ export default function Settings() {
     try {
       const response = await authApi.updateProfile({ name, email });
       if (response.success && response.data) {
-        // Update user in auth context
         updateUser(response.data);
         toast({
           title: "Profile updated",
@@ -170,13 +118,7 @@ export default function Settings() {
       }
     } catch (error: unknown) {
       const err = error as { status?: number; message?: string };
-      if (err.status === 422) {
-        toast({
-          variant: "destructive",
-          title: "Validation error",
-          description: err.message || "Please check your input.",
-        });
-      } else if (err.status === 409) {
+      if (err.status === 409) {
         toast({
           variant: "destructive",
           title: "Email already in use",
@@ -233,7 +175,7 @@ export default function Settings() {
     if (newPassword !== confirmPassword) {
       toast({
         variant: "destructive",
-        title: "Passwords don't match",
+        title: "Passwords do not match",
         description: "Please make sure your new passwords match.",
       });
       return;
@@ -246,7 +188,7 @@ export default function Settings() {
         password: newPassword,
         password_confirmation: confirmPassword,
       });
-      
+
       if (response.success) {
         toast({
           title: "Password changed",
@@ -257,162 +199,108 @@ export default function Settings() {
         setConfirmPassword("");
       }
     } catch (error: unknown) {
-      const err = error as { status?: number; message?: string };
-      if (err.status === 401 || err.status === 422) {
-        toast({
-          variant: "destructive",
-          title: "Incorrect password",
-          description: "Your current password is incorrect.",
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Update failed",
-          description: err.message || "Something went wrong. Please try again.",
-        });
-      }
+      const err = error as { message?: string };
+      toast({
+        variant: "destructive",
+        title: "Update failed",
+        description: err.message || "Could not update password.",
+      });
     } finally {
       setIsSavingPassword(false);
     }
   };
 
-  const handleNotificationsSave = async () => {
-    setIsSavingNotifications(true);
-    try {
-      // Save to backend API
-      await authApi.updateNotificationPreferences({
-        email_notifications: emailNotifications,
-        scan_alerts: scanAlerts,
-        weekly_report: weeklyReport,
-        marketing_emails: marketingEmails,
-      });
-      
-      toast({
-        title: "Preferences saved",
-        description: "Your notification preferences have been updated.",
-      });
-    } catch (error: unknown) {
-      const apiError = error as { message?: string };
-      toast({
-        variant: "destructive",
-        title: "Failed to save",
-        description: apiError.message || "Could not update notification preferences.",
-      });
-    } finally {
-      setIsSavingNotifications(false);
-    }
-  };
-
-  // Load notification preferences from API
-  useEffect(() => {
-    const loadNotificationPrefs = async () => {
-      try {
-        const response = await authApi.getNotificationPreferences();
-        if (response.success && response.data) {
-          setEmailNotifications(response.data.email_notifications ?? true);
-          setScanAlerts(response.data.scan_alerts ?? true);
-          setWeeklyReport(response.data.weekly_report ?? false);
-          setMarketingEmails(response.data.marketing_emails ?? false);
-        }
-      } catch {
-        // Use defaults if API fails - could be that endpoint doesn't exist yet
-        console.log("Using default notification preferences");
-      }
-    };
-    
-    if (user) {
-      loadNotificationPrefs();
-    }
-  }, [user]);
-
   return (
     <div className="min-h-screen bg-background">
       <DashboardSidebar />
 
-      {/* Main Content */}
-      <main className="lg:ml-64">
+      <main className="pb-24 lg:ml-64 lg:pb-0">
         <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border">
-          <div className="px-6 py-4">
-            <h1 className="font-display text-2xl font-bold">Settings</h1>
-            <p className="text-sm text-muted-foreground">
-              Manage your account and preferences
-            </p>
+          <div className="px-4 py-3 sm:px-6 sm:py-4">
+            <h1 className="font-display text-xl sm:text-2xl font-bold">Settings</h1>
+            <p className="text-sm text-muted-foreground">Manage your account and preferences</p>
           </div>
         </header>
 
-        <div className="p-6 w-full">
+        <div className="p-4 sm:p-6 w-full">
           <Tabs defaultValue="profile" className="w-full max-w-4xl mx-auto">
-            <TabsList className="mb-6">
-              <TabsTrigger value="profile" className="gap-2">
+            <TabsList className="mb-6 grid h-auto w-full grid-cols-3">
+              <TabsTrigger value="profile" className="gap-1 px-2 sm:gap-2 sm:px-3">
                 <User className="w-4 h-4" />
                 Profile
               </TabsTrigger>
-              <TabsTrigger value="security" className="gap-2">
+              <TabsTrigger value="security" className="gap-1 px-2 sm:gap-2 sm:px-3">
                 <Lock className="w-4 h-4" />
                 Security
               </TabsTrigger>
-              <TabsTrigger value="notifications" className="gap-2">
+              <TabsTrigger value="notifications" className="gap-1 px-2 sm:gap-2 sm:px-3">
                 <Bell className="w-4 h-4" />
                 Notifications
               </TabsTrigger>
-              <TabsTrigger value="billing" className="gap-2">
-                <CreditCard className="w-4 h-4" />
-                Billing
-              </TabsTrigger>
             </TabsList>
 
-            {/* Profile Tab */}
             <TabsContent value="profile">
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-6"
-              >
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                <div className="p-6 rounded-2xl bg-card border border-border">
+                  <div className="flex flex-col sm:flex-row items-start gap-6">
+                    <div className="relative group shrink-0">
+                      {user?.avatar_url ? (
+                        <img src={user.avatar_url} alt={user.name} className="w-24 h-24 rounded-2xl object-cover" />
+                      ) : (
+                        <div className="w-24 h-24 rounded-2xl bg-primary/10 flex items-center justify-center">
+                          <span className="text-3xl font-display font-bold text-primary">
+                            {user?.name ? user.name.split(" ").map((part) => part[0]).join("").toUpperCase().slice(0, 2) : "U"}
+                          </span>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        aria-label="Change profile photo"
+                        onClick={() => setShowAvatarCropper(true)}
+                        className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                      >
+                        <Camera className="w-6 h-6 text-white" />
+                      </button>
+                    </div>
+                    <div className="flex-1">
+                      <h2 className="font-display text-xl font-bold">{user?.name || "User"}</h2>
+                      <p className="text-muted-foreground">{user?.email}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
+                        <Badge variant={user?.email_verified_at ? "default" : "secondary"}>
+                          <Shield className="w-3 h-3 mr-1" />
+                          {user?.email_verified_at ? "Verified" : "Unverified"}
+                        </Badge>
+                        <Badge variant="outline">Free Forever</Badge>
+                        <Badge variant="outline">
+                          <Calendar className="w-3 h-3 mr-1" />
+                          {user?.created_at
+                            ? `Member since ${new Date(user.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })}`
+                            : "Recently joined"}
+                        </Badge>
+                      </div>
+                      <Button variant="outline" size="sm" className="mt-4" onClick={() => setShowAvatarCropper(true)}>
+                        <Camera className="w-4 h-4 mr-2" />
+                        Change Photo
+                      </Button>
+                    </div>
+                  </div>
+                </div>
                 <div className="p-6 rounded-2xl bg-card border border-border">
                   <h3 className="font-display font-semibold mb-4">Profile Information</h3>
                   <div className="space-y-4">
-                    <div className="flex items-center gap-4 mb-6">
-                      <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
-                        <span className="text-2xl font-display font-bold text-primary">
-                          {name ? name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) : "U"}
-                        </span>
-                      </div>
-                      <div>
-                        <Button variant="outline" size="sm">
-                          Change Avatar
-                        </Button>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          JPG, PNG or GIF. Max 2MB.
-                        </p>
-                      </div>
-                    </div>
-
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="name">Full Name</Label>
-                        <Input
-                          id="name"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                        />
+                        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="email">Email Address</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                        />
+                        <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
                       </div>
                     </div>
 
                     <Button variant="hero" onClick={handleProfileSave} disabled={isSavingProfile || isLoadingProfile}>
-                      {isSavingProfile ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Check className="w-4 h-4 mr-2" />
-                      )}
+                      {isSavingProfile ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
                       {isSavingProfile ? "Saving..." : "Save Changes"}
                     </Button>
                   </div>
@@ -420,13 +308,8 @@ export default function Settings() {
               </motion.div>
             </TabsContent>
 
-            {/* Security Tab */}
             <TabsContent value="security">
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-6"
-              >
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                 <div className="p-6 rounded-2xl bg-card border border-border">
                   <h3 className="font-display font-semibold mb-4">Change Password</h3>
                   <div className="space-y-4 max-w-md">
@@ -445,11 +328,7 @@ export default function Settings() {
                           onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
                         >
-                          {showCurrentPassword ? (
-                            <EyeOff className="w-4 h-4" />
-                          ) : (
-                            <Eye className="w-4 h-4" />
-                          )}
+                          {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
                     </div>
@@ -469,11 +348,7 @@ export default function Settings() {
                           onClick={() => setShowNewPassword(!showNewPassword)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
                         >
-                          {showNewPassword ? (
-                            <EyeOff className="w-4 h-4" />
-                          ) : (
-                            <Eye className="w-4 h-4" />
-                          )}
+                          {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
                     </div>
@@ -501,221 +376,69 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <div className="p-6 rounded-2xl bg-card border border-border">
-                  <div className="flex items-center gap-3 mb-4">
-                    <Shield className="w-5 h-5 text-success" />
-                    <h3 className="font-display font-semibold">Two-Factor Authentication</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Add an extra layer of security to your account by enabling two-factor
-                    authentication.
-                  </p>
-                  <Button 
-                    variant="outline"
-                    onClick={() => setShow2FASetup(true)}
-                  >
-                    Enable 2FA
-                  </Button>
-                </div>
-
-                {/* Password Strength for new password */}
                 {newPassword && (
                   <div className="p-4 rounded-xl bg-muted/50">
                     <PasswordStrengthIndicator password={newPassword} />
                   </div>
                 )}
+
+                <div className="p-6 rounded-2xl bg-destructive/5 border border-destructive/20">
+                  <h3 className="font-display font-semibold text-destructive mb-2">Danger Zone</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Once you delete your account, there is no going back. Please be certain.
+                  </p>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive">
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Account
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete your account and all associated data.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          onClick={async () => {
+                            try {
+                              await authApi.deleteAccount(currentPassword || "");
+                              localStorage.clear();
+                              toast({ title: "Account deleted", description: "Your account has been permanently deleted." });
+                              navigate("/login");
+                            } catch {
+                              toast({ variant: "destructive", title: "Error", description: "Failed to delete account. Please try again." });
+                            }
+                          }}
+                        >
+                          Delete Account
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </motion.div>
             </TabsContent>
 
-            {/* 2FA Setup Modal */}
-            <TwoFactorSetup
-              open={show2FASetup}
-              onOpenChange={setShow2FASetup}
-              onSuccess={() => {
-                refreshUser();
-                toast({ title: "2FA Enabled!", description: "Your account is now more secure." });
-              }}
-            />
-
-            {/* Notifications Tab */}
             <TabsContent value="notifications">
               <NotificationSettings />
-            </TabsContent>
-
-            {/* Billing Tab */}
-            <TabsContent value="billing">
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-6"
-              >
-                {checkoutPlan ? (
-                  <PayFastCheckout
-                    selectedPlan={checkoutPlan}
-                    isAnnual={isAnnualBilling}
-                    onBack={() => setCheckoutPlan(null)}
-                    onSuccess={() => setCheckoutPlan(null)}
-                  />
-                ) : (
-                  <>
-                    {/* Payment Retry Warning Banner */}
-                    <PaymentRetryStatus />
-
-                    {/* Current Plan Summary */}
-                    <div className="p-6 rounded-2xl bg-card border border-border">
-                      <h3 className="font-display font-semibold mb-4">Current Plan</h3>
-                      <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50 mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-xl ${
-                            currentPlan === "enterprise" 
-                              ? "bg-accent/20" 
-                              : currentPlan === "pro" 
-                              ? "bg-primary/20" 
-                              : "bg-muted"
-                          }`}>
-                            <Crown className={`w-5 h-5 ${
-                              currentPlan === "enterprise"
-                                ? "text-accent"
-                                : currentPlan === "pro"
-                                ? "text-primary"
-                                : "text-muted-foreground"
-                            }`} />
-                          </div>
-                          <div>
-                            <p className="font-semibold capitalize">{currentPlan} Plan</p>
-                            <p className="text-sm text-muted-foreground">
-                              {limits.maxQRCodes === Infinity 
-                                ? "Unlimited" 
-                                : limits.maxQRCodes} QR codes • {
-                                  currentPlan === "enterprise" 
-                                    ? "All features" 
-                                    : currentPlan === "pro" 
-                                    ? "Premium features" 
-                                    : "Basic features"
-                                }
-                            </p>
-                          </div>
-                        </div>
-                        {currentPlan === "free" && (
-                          <span className="text-xs bg-warning/20 text-warning px-2 py-1 rounded-full">
-                            Free Forever
-                          </span>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-3 gap-4 text-center">
-                        <div className="p-3 rounded-xl bg-muted/30">
-                          <p className="text-2xl font-display font-bold">
-                            {isLoadingQRCodes ? "..." : qrCodesUsed}/{limits.maxQRCodes === Infinity ? "∞" : limits.maxQRCodes}
-                          </p>
-                          <p className="text-xs text-muted-foreground">QR Codes Used</p>
-                        </div>
-                        <div className="p-3 rounded-xl bg-muted/30">
-                          <p className="text-2xl font-display font-bold">
-                            {isLoadingQRCodes ? "..." : totalScans.toLocaleString()}
-                          </p>
-                          <p className="text-xs text-muted-foreground">Total Scans</p>
-                        </div>
-                        <div className="p-3 rounded-xl bg-muted/30">
-                          <p className="text-2xl font-display font-bold">∞</p>
-                          <p className="text-xs text-muted-foreground">Days Left</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Plan Selection */}
-                    <div className="p-6 rounded-2xl bg-card border border-border">
-                      <h3 className="font-display font-semibold mb-6">
-                        {currentPlan === "free" ? "Upgrade Your Plan" : "Change Plan"}
-                      </h3>
-                      <PlanSelector 
-                        onSelectPlan={(plan, isAnnual) => {
-                          setTargetPlan(plan);
-                          setIsAnnualBilling(isAnnual);
-                          setShowPlanChangeModal(true);
-                        }}
-                      />
-                    </div>
-
-                    {/* Plan Change Modal */}
-                    <PlanChangeModal
-                      open={showPlanChangeModal}
-                      onOpenChange={setShowPlanChangeModal}
-                      targetPlan={targetPlan}
-                      isAnnual={isAnnualBilling}
-                      onSuccess={() => {
-                        refreshUser();
-                      }}
-                    />
-
-                    {/* Invoice History */}
-                    <InvoiceHistory />
-
-                    {/* Payment History */}
-                    <PaymentHistory />
-
-                    {/* Danger Zone */}
-                    <div className="p-6 rounded-2xl bg-destructive/5 border border-destructive/20">
-                      <h3 className="font-display font-semibold text-destructive mb-2">
-                        Danger Zone
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Once you delete your account, there is no going back. Please be
-                        certain.
-                      </p>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="destructive">
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete Account
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. This will permanently delete your
-                              account and remove all your data including QR codes and
-                              analytics.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction 
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              onClick={async () => {
-                                try {
-                                  const response = await fetch('/api/user/delete', {
-                                    method: 'POST',
-                                    headers: {
-                                      'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-                                      'Content-Type': 'application/json'
-                                    }
-                                  });
-                                  if (response.ok) {
-                                    localStorage.clear();
-                                    toast({ title: "Account deleted", description: "Your account has been permanently deleted." });
-                                    navigate("/login");
-                                  } else {
-                                    throw new Error('Failed to delete');
-                                  }
-                                } catch {
-                                  toast({ variant: "destructive", title: "Error", description: "Failed to delete account. Please try again." });
-                                }
-                              }}
-                            >
-                              Delete Account
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </>
-                )}
-              </motion.div>
             </TabsContent>
           </Tabs>
         </div>
       </main>
+
+      <AvatarCropper
+        open={showAvatarCropper}
+        onClose={() => setShowAvatarCropper(false)}
+        onCropComplete={handleAvatarUpload}
+        isUploading={isUploadingAvatar}
+      />
+
     </div>
   );
 }

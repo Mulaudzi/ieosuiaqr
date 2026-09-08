@@ -29,8 +29,7 @@ export interface User {
   email_verified: boolean;
   email_verified_at: string | null;
   avatar_url: string | null;
-  plan_id?: number;
-  plan: Plan | string;
+  plan?: string;
   created_at: string;
   updated_at?: string;
 }
@@ -44,7 +43,6 @@ export interface AuthTokens {
 export interface LoginRequest {
   email: string;
   password: string;
-  captcha_token?: string | null;
 }
 
 export interface RegisterRequest {
@@ -52,7 +50,6 @@ export interface RegisterRequest {
   email: string;
   password: string;
   password_confirmation: string;
-  captcha_token?: string | null;
 }
 
 export interface ForgotPasswordRequest {
@@ -60,7 +57,7 @@ export interface ForgotPasswordRequest {
 }
 
 export interface ResetPasswordRequest {
-  email: string;
+  email?: string;
   token: string;
   password: string;
   password_confirmation: string;
@@ -77,60 +74,6 @@ export interface UpdateProfileRequest {
   notify_low_activity?: boolean;
   notify_maintenance?: boolean;
   low_activity_days?: number;
-}
-
-// Plan & Subscription Types
-export interface Plan {
-  id: number;
-  name: "free" | "pro" | "enterprise";
-  display_name: string;
-  price_monthly_zar: number;
-  price_annual_zar: number;
-  qr_limit: number | null; // null = unlimited
-  features: string[];
-  has_tracking: boolean;
-  has_advanced_analytics: boolean;
-  has_premium_types: boolean;
-  has_custom_branding: boolean;
-}
-
-export interface Subscription {
-  id: string;
-  user_id: string;
-  plan_id: number;
-  plan: Plan;
-  status: "active" | "trial" | "cancelled" | "past_due";
-  billing_cycle: "monthly" | "annual";
-  renewal_date: string;
-  payfast_token: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CheckoutRequest {
-  plan_id?: number;
-  plan?: string;
-  billing_cycle?: "monthly" | "annual";
-  frequency?: "monthly" | "annual";
-}
-
-export interface CheckoutResponse {
-  payment_url: string;
-  payment_id: string;
-}
-
-// Invoice Types
-export interface Invoice {
-  id: string;
-  user_id: string;
-  subscription_id: string;
-  invoice_number: string;
-  amount_zar: number;
-  status: "paid" | "pending" | "failed" | "refunded";
-  description: string;
-  invoice_date: string;
-  pdf_url: string | null;
-  created_at: string;
 }
 
 // QR Code Types

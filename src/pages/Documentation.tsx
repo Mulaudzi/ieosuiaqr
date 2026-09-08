@@ -86,7 +86,7 @@ const documentationSections = [
     description: "Manage your account preferences",
     articles: [
       { title: "Profile Settings", href: "#profile" },
-      { title: "Billing & Subscriptions", href: "#billing" },
+      { title: "Account Access", href: "#account-access" },
       { title: "Security Settings", href: "#security" },
       { title: "Notification Preferences", href: "#notification-prefs" },
     ]
@@ -234,7 +234,7 @@ const Documentation = () => {
                       <div>
                         <h3 className="font-semibold text-lg mb-2">Create Your Account</h3>
                         <p className="text-muted-foreground">
-                          Sign up for free at IEOSUIA QR. You can start with our Free plan which includes 5 QR codes and basic features.
+                          Sign up for free at IEOSUIA QR and start with full feature access right away.
                         </p>
                       </div>
                     </div>

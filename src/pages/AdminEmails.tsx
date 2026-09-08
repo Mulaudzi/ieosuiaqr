@@ -152,7 +152,7 @@ export default function AdminEmails() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("");
   const [readFilter, setReadFilter] = useState("");
   const [repliedFilter, setRepliedFilter] = useState("");
@@ -189,7 +189,9 @@ export default function AdminEmails() {
     if (!isValidSession || !adminToken) return;
     
     try {
-      const verifyRes = await fetch(`/api/admin/verify?admin_token=${adminToken}`);
+      const verifyRes = await fetch(`/api/admin/verify`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
       if (!verifyRes.ok) {
         clearAdminSession();
         navigate("/admin/login", { replace: true });
@@ -205,7 +207,7 @@ export default function AdminEmails() {
   const fetchChartData = async () => {
     try {
       const response = await fetch(`/api/admin/stats?days=30`, {
-        headers: { Authorization: `Admin ${adminToken}` },
+        headers: { Authorization: `Bearer ${adminToken}` },
       });
       if (response.ok) {
         const data = await response.json();
@@ -222,7 +224,7 @@ export default function AdminEmails() {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: "25",
-        ...(statusFilter && { status: statusFilter }),
+        ...(statusFilter !== "all" && { status: statusFilter }),
         ...(typeFilter && { type: typeFilter }),
         ...(search && { search }),
         ...(readFilter && { read: readFilter }),
@@ -231,7 +233,7 @@ export default function AdminEmails() {
       });
 
       const response = await fetch(`/api/admin/emails?${params}`, {
-        headers: { Authorization: `Admin ${adminToken}` },
+        headers: { Authorization: `Bearer ${adminToken}` },
       });
 
       if (!response.ok) throw new Error("Failed to fetch emails");
@@ -261,7 +263,7 @@ export default function AdminEmails() {
     try {
       await fetch("/api/admin/logout", {
         method: "POST",
-        headers: { Authorization: `Admin ${adminToken}` },
+        headers: { Authorization: `Bearer ${adminToken}` },
       });
     } catch { /* ignore */ }
     localStorage.removeItem("admin_token");
@@ -274,7 +276,7 @@ export default function AdminEmails() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Admin ${adminToken}`,
+          Authorization: `Bearer ${adminToken}`,
         },
         body: JSON.stringify({ id, is_read: isRead }),
       });
@@ -291,7 +293,7 @@ export default function AdminEmails() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Admin ${adminToken}`,
+          Authorization: `Bearer ${adminToken}`,
         },
         body: JSON.stringify({ id, is_replied: isReplied, notes }),
       });
@@ -309,7 +311,7 @@ export default function AdminEmails() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Admin ${adminToken}`,
+          Authorization: `Bearer ${adminToken}`,
         },
         body: JSON.stringify({ id, priority }),
       });
@@ -326,7 +328,7 @@ export default function AdminEmails() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Admin ${adminToken}`,
+          Authorization: `Bearer ${adminToken}`,
         },
         body: JSON.stringify({ id, is_archived: isArchived }),
       });
@@ -348,7 +350,7 @@ export default function AdminEmails() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Admin ${adminToken}`,
+          Authorization: `Bearer ${adminToken}`,
         },
         body: JSON.stringify({ ids: selectedIds, action }),
       });
@@ -393,12 +395,12 @@ export default function AdminEmails() {
       const params = new URLSearchParams({
         start_date: startDate.toISOString().split("T")[0],
         end_date: new Date().toISOString().split("T")[0],
-        ...(statusFilter && { status: statusFilter }),
+        ...(statusFilter !== "all" && { status: statusFilter }),
         ...(typeFilter && { type: typeFilter }),
       });
 
       const response = await fetch(`/api/admin/export/emails?${params}`, {
-        headers: { Authorization: `Admin ${adminToken}` },
+        headers: { Authorization: `Bearer ${adminToken}` },
       });
 
       if (!response.ok) throw new Error("Export failed");
@@ -425,7 +427,7 @@ export default function AdminEmails() {
     setIsExporting(true);
     try {
       const response = await fetch(`/api/admin/export/stats?days=30&format=json`, {
-        headers: { Authorization: `Admin ${adminToken}` },
+        headers: { Authorization: `Bearer ${adminToken}` },
       });
 
       if (!response.ok) throw new Error("Export failed");
@@ -841,7 +843,7 @@ export default function AdminEmails() {
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent className="bg-card">
-              <SelectItem value="">All Status</SelectItem>
+              <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="sent">Sent</SelectItem>
               <SelectItem value="failed">Failed</SelectItem>
               <SelectItem value="bounced">Bounced</SelectItem>

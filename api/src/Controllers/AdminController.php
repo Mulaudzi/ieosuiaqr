@@ -8,101 +8,16 @@ use App\Middleware\Auth;
 
 class AdminController
 {
-    // Admin credentials - hardcoded for security
-    private static string $adminUsername = 'I Am God In Human Form';
-    private static array $adminPasswords = ['billionaires', 'Mu1@udz!', '7211018830'];
-    
     // Admin email for notifications
     private static string $adminNotificationEmail = 'admin@ieosuia.com';
-    
-    /**
-     * Validate admin login step
-     * Step 1: Verify username and first password
-     * Step 2: Verify second password
-     * Step 3: Verify third password and grant access
-     */
-    public static function validateStep(): void
-    {
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
-        
-        $step = (int)($data['step'] ?? 1);
-        $username = $data['username'] ?? '';
-        $password = $data['password'] ?? '';
-        $sessionToken = $data['session_token'] ?? '';
-        
-        switch ($step) {
-            case 1:
-                // Validate username and first password
-                if ($username !== self::$adminUsername) {
-                    Response::error('Invalid credentials', 401);
-                }
-                if ($password !== self::$adminPasswords[0]) {
-                    Response::error('Invalid credentials', 401);
-                }
-                // Generate session token for next step
-                $token = bin2hex(random_bytes(32));
-                self::storeAdminSession($token, 1);
-                Response::success([
-                    'session_token' => $token,
-                    'next_step' => 2,
-                    'message' => 'Step 1 complete. Enter second password.'
-                ]);
-                break;
-                
-            case 2:
-                // Validate session and second password
-                if (!self::validateAdminSession($sessionToken, 1)) {
-                    Response::error('Session expired. Please start over.', 401);
-                }
-                if ($password !== self::$adminPasswords[1]) {
-                    self::clearAdminSession($sessionToken);
-                    Response::error('Invalid credentials', 401);
-                }
-                // Update session for next step
-                self::updateAdminSession($sessionToken, 2);
-                Response::success([
-                    'session_token' => $sessionToken,
-                    'next_step' => 3,
-                    'message' => 'Step 2 complete. Enter final password.'
-                ]);
-                break;
-                
-            case 3:
-                // Validate session and third password
-                if (!self::validateAdminSession($sessionToken, 2)) {
-                    Response::error('Session expired. Please start over.', 401);
-                }
-                if ($password !== self::$adminPasswords[2]) {
-                    self::clearAdminSession($sessionToken);
-                    Response::error('Invalid credentials', 401);
-                }
-                // Generate admin access token
-                $adminToken = bin2hex(random_bytes(64));
-                self::storeAdminAccessToken($adminToken);
-                self::clearAdminSession($sessionToken);
-                Response::success([
-                    'admin_token' => $adminToken,
-                    'message' => 'Admin access granted.'
-                ]);
-                break;
-                
-            default:
-                Response::error('Invalid step', 400);
-        }
-    }
     
     /**
      * Verify admin access token
      */
     public static function verifyAccess(): void
     {
-        $token = self::getAdminTokenFromRequest();
-        
-        if (!$token || !self::validateAdminAccessToken($token)) {
-            Response::error('Unauthorized', 401);
-        }
-        
-        Response::success(['valid' => true]);
+        $admin = AdminAuthController::validateAdminSession();
+        Response::success(['valid' => true, 'admin_id' => (int)$admin['id']]);
     }
     
     /**
@@ -547,10 +462,6 @@ class AdminController
      */
     public static function logout(): void
     {
-        $token = self::getAdminTokenFromRequest();
-        if ($token) {
-            self::clearAdminAccessToken($token);
-        }
         Response::success(['message' => 'Logged out']);
     }
     
@@ -558,85 +469,7 @@ class AdminController
     
     private static function requireAdmin(): void
     {
-        $token = self::getAdminTokenFromRequest();
-        
-        if (!$token || !self::validateAdminAccessToken($token)) {
-            Response::error('Unauthorized', 401);
-        }
-    }
-    
-    private static function getAdminTokenFromRequest(): ?string
-    {
-        $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-        if (preg_match('/^Admin\s+(.+)$/i', $authHeader, $matches)) {
-            return $matches[1];
-        }
-        return $_GET['admin_token'] ?? null;
-    }
-    
-    private static function storeAdminSession(string $token, int $step): void
-    {
-        $cacheDir = '/tmp/admin_sessions/';
-        if (!is_dir($cacheDir)) {
-            mkdir($cacheDir, 0755, true);
-        }
-        file_put_contents($cacheDir . md5($token), json_encode([
-            'step' => $step,
-            'expires' => time() + 300 // 5 minutes
-        ]));
-    }
-    
-    private static function validateAdminSession(string $token, int $expectedStep): bool
-    {
-        $cacheFile = '/tmp/admin_sessions/' . md5($token);
-        if (!file_exists($cacheFile)) {
-            return false;
-        }
-        $data = json_decode(file_get_contents($cacheFile), true);
-        return $data && $data['step'] === $expectedStep && $data['expires'] > time();
-    }
-    
-    private static function updateAdminSession(string $token, int $step): void
-    {
-        self::storeAdminSession($token, $step);
-    }
-    
-    private static function clearAdminSession(string $token): void
-    {
-        $cacheFile = '/tmp/admin_sessions/' . md5($token);
-        if (file_exists($cacheFile)) {
-            unlink($cacheFile);
-        }
-    }
-    
-    private static function storeAdminAccessToken(string $token): void
-    {
-        $cacheDir = '/tmp/admin_tokens/';
-        if (!is_dir($cacheDir)) {
-            mkdir($cacheDir, 0755, true);
-        }
-        file_put_contents($cacheDir . md5($token), json_encode([
-            'created' => time(),
-            'expires' => time() + 86400 // 24 hours
-        ]));
-    }
-    
-    private static function validateAdminAccessToken(string $token): bool
-    {
-        $cacheFile = '/tmp/admin_tokens/' . md5($token);
-        if (!file_exists($cacheFile)) {
-            return false;
-        }
-        $data = json_decode(file_get_contents($cacheFile), true);
-        return $data && $data['expires'] > time();
-    }
-    
-    private static function clearAdminAccessToken(string $token): void
-    {
-        $cacheFile = '/tmp/admin_tokens/' . md5($token);
-        if (file_exists($cacheFile)) {
-            unlink($cacheFile);
-        }
+        AdminAuthController::validateAdminSession();
     }
     
     /**
@@ -1048,136 +881,6 @@ class AdminController
         ]);
     }
 
-    /**
-     * Get subscription metrics for admin dashboard
-     */
-    public static function getSubscriptionMetrics(): void
-    {
-        self::requireAdmin();
-        
-        $pdo = Database::getInstance();
-        
-        // Get total and active subscribers
-        $stmt = $pdo->query("
-            SELECT 
-                COUNT(*) as total_subscribers,
-                SUM(CASE WHEN s.status = 'active' THEN 1 ELSE 0 END) as active_subscribers,
-                SUM(CASE WHEN s.status = 'canceled' AND s.updated_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as churned_this_month,
-                SUM(CASE WHEN s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as new_this_month
-            FROM subscriptions s
-        ");
-        $counts = $stmt->fetch();
-        
-        // Calculate MRR (Monthly Recurring Revenue)
-        $stmt = $pdo->query("
-            SELECT 
-                SUM(CASE 
-                    WHEN s.frequency = 'annual' THEN p.price_annual_zar / 12
-                    ELSE p.price_monthly_zar 
-                END) as mrr
-            FROM subscriptions s
-            JOIN plans p ON s.plan_id = p.id
-            WHERE s.status = 'active' AND p.name != 'Free'
-        ");
-        $mrrData = $stmt->fetch();
-        $mrr = (float)($mrrData['mrr'] ?? 0);
-        $arr = $mrr * 12;
-        
-        // Calculate churn rate
-        $activeCount = (int)($counts['active_subscribers'] ?? 0);
-        $churnedCount = (int)($counts['churned_this_month'] ?? 0);
-        $churnRate = $activeCount > 0 ? ($churnedCount / ($activeCount + $churnedCount)) * 100 : 0;
-        
-        // Calculate growth rate (comparing to previous month)
-        $stmt = $pdo->query("
-            SELECT 
-                COUNT(*) as last_month_subscribers
-            FROM subscriptions
-            WHERE status = 'active' 
-            AND created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)
-        ");
-        $lastMonthData = $stmt->fetch();
-        $lastMonthSubs = (int)($lastMonthData['last_month_subscribers'] ?? 0);
-        $growthRate = $lastMonthSubs > 0 ? (($activeCount - $lastMonthSubs) / $lastMonthSubs) * 100 : 0;
-        
-        // Plan breakdown
-        $stmt = $pdo->query("
-            SELECT 
-                p.name as plan,
-                COUNT(*) as count
-            FROM subscriptions s
-            JOIN plans p ON s.plan_id = p.id
-            WHERE s.status = 'active'
-            GROUP BY p.id, p.name
-            ORDER BY p.price_monthly_zar
-        ");
-        $planBreakdown = $stmt->fetchAll();
-        
-        $totalActive = $activeCount ?: 1;
-        foreach ($planBreakdown as &$item) {
-            $item['percentage'] = ($item['count'] / $totalActive) * 100;
-        }
-        
-        // MRR trend (last 6 months)
-        $mrrTrend = [];
-        for ($i = 5; $i >= 0; $i--) {
-            $monthStart = date('Y-m-01', strtotime("-{$i} months"));
-            $monthEnd = date('Y-m-t', strtotime("-{$i} months"));
-            $monthLabel = date('M Y', strtotime("-{$i} months"));
-            
-            $stmt = $pdo->prepare("
-                SELECT 
-                    SUM(CASE 
-                        WHEN s.frequency = 'annual' THEN p.price_annual_zar / 12
-                        ELSE p.price_monthly_zar 
-                    END) as mrr
-                FROM subscriptions s
-                JOIN plans p ON s.plan_id = p.id
-                WHERE s.status = 'active' 
-                AND p.name != 'Free'
-                AND s.created_at <= ?
-                AND (s.updated_at > ? OR s.status = 'active')
-            ");
-            $stmt->execute([$monthEnd, $monthStart]);
-            $monthMrr = $stmt->fetch();
-            
-            $mrrTrend[] = [
-                'month' => $monthLabel,
-                'mrr' => (float)($monthMrr['mrr'] ?? 0)
-            ];
-        }
-        
-        // Recent subscriptions
-        $stmt = $pdo->query("
-            SELECT 
-                s.id,
-                u.name as user_name,
-                u.email as user_email,
-                p.name as plan,
-                s.status,
-                s.frequency,
-                s.renewal_date,
-                s.created_at
-            FROM subscriptions s
-            JOIN users u ON s.user_id = u.id
-            JOIN plans p ON s.plan_id = p.id
-            ORDER BY s.created_at DESC
-            LIMIT 20
-        ");
-        $recentSubs = $stmt->fetchAll();
-        
-        Response::success([
-            'total_subscribers' => (int)$counts['total_subscribers'],
-            'active_subscribers' => $activeCount,
-            'churned_this_month' => $churnedCount,
-            'new_this_month' => (int)$counts['new_this_month'],
-            'mrr' => round($mrr, 2),
-            'arr' => round($arr, 2),
-            'churn_rate' => round($churnRate, 2),
-            'growth_rate' => round($growthRate, 2),
-            'plan_breakdown' => $planBreakdown,
-            'mrr_trend' => $mrrTrend,
-            'recent_subscriptions' => $recentSubs
-        ]);
-    }
+
 }
+

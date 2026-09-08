@@ -107,7 +107,9 @@ export default function AdminStats() {
     
     setIsLoading(true);
     try {
-      const verifyRes = await fetch(`/api/admin/verify?admin_token=${adminToken}`);
+      const verifyRes = await fetch(`/api/admin/verify`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
       if (!verifyRes.ok) {
         clearAdminSession();
         navigate("/admin/login", { replace: true });
@@ -115,7 +117,7 @@ export default function AdminStats() {
       }
 
       const response = await fetch(`/api/admin/stats?days=${period}`, {
-        headers: { Authorization: `Admin ${adminToken}` },
+        headers: { Authorization: `Bearer ${adminToken}` },
       });
 
       if (!response.ok) throw new Error("Failed to fetch stats");
@@ -137,7 +139,7 @@ export default function AdminStats() {
     try {
       await fetch("/api/admin/logout", {
         method: "POST",
-        headers: { Authorization: `Admin ${adminToken}` },
+        headers: { Authorization: `Bearer ${adminToken}` },
       });
     } catch { /* ignore */ }
     localStorage.removeItem("admin_token");

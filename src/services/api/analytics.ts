@@ -11,7 +11,7 @@ import {
 // Analytics & Scan Tracking endpoints - ready for Laravel backend
 export const analyticsApi = {
   /**
-   * Get scan logs for a QR code (Pro/Enterprise only)
+   * Get scan logs for a QR code
    * GET /api/v1/qr/:id/scans
    */
   getScans: async (
@@ -77,7 +77,7 @@ export const analyticsApi = {
   },
 
   /**
-   * Get geographic distribution (Enterprise only)
+   * Get geographic distribution
    * GET /api/v1/analytics/geo
    */
   getGeoDistribution: async (params?: {

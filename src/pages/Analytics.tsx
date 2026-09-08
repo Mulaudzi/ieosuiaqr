@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,7 +8,6 @@ import {
   Settings,
   LogOut,
   ChevronDown,
-  Crown,
   TrendingUp,
   TrendingDown,
   Users,
@@ -16,7 +15,6 @@ import {
   Smartphone,
   Monitor,
   Download,
-  Lock,
   Shield,
 } from "lucide-react";
 import {
@@ -51,7 +49,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { DashboardSidebar } from "@/components/layout/DashboardSidebar";
 import { DateRangePicker } from "@/components/analytics/DateRangePicker";
-import { useUserPlan } from "@/hooks/useUserPlan";
 
 // Stats type definition
 type StatItem = {
@@ -107,7 +104,7 @@ export default function Analytics() {
   const [analyticsData, setAnalyticsData] = useState<{
     scanTrend: Array<{ date: string; scans: number }>;
     devices: Array<{ name: string; value: number; color: string }>;
-    topQRCodes: Array<{ name: string; scans: number; change: number }>;
+    topQRCodes: Array<{ id: string; name: string; scans: number; change: number }>;
     countries: Array<{ country: string; scans: number; percentage: number }>;
     hourly: Array<{ hour: string; scans: number }>;
     stats: StatItem[];
@@ -119,7 +116,6 @@ export default function Analytics() {
     hourly: [],
     stats: emptyStats,
   });
-  const { isPro } = useUserPlan();
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -184,6 +180,7 @@ export default function Analytics() {
         setAnalyticsData((prev) => ({
           ...prev,
           topQRCodes: topQRRes.data!.map((qr) => ({
+            id: qr.qr_id,
             name: qr.qr_name,
             scans: qr.scan_count,
             change: qr.change_percent,
@@ -425,8 +422,8 @@ export default function Analytics() {
                 </ResponsiveContainer>
               </div>
               <div className="space-y-2 mt-4">
-                {analyticsData.devices.map((device) => (
-                  <div key={device.name} className="flex items-center justify-between text-sm">
+                {analyticsData.devices.map((device, index) => (
+                  <div key={`${device.name}-${index}`} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
                       <div
                         className="w-3 h-3 rounded-full"
@@ -454,7 +451,7 @@ export default function Analytics() {
               <div className="space-y-4">
                 {analyticsData.topQRCodes.map((qr, index) => (
                   <div
-                    key={qr.name}
+                    key={qr.id}
                     className="flex items-center justify-between p-3 rounded-xl bg-muted/50"
                   >
                     <div className="flex items-center gap-3">
@@ -481,55 +478,35 @@ export default function Analytics() {
               </div>
             </motion.div>
 
-            {/* Geographic Distribution - Premium */}
+            {/* Geographic Distribution */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
-              className="p-6 rounded-2xl bg-card border border-border relative"
+              className="p-6 rounded-2xl bg-card border border-border"
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-display font-semibold">Geographic Distribution</h3>
-                {!isPro && (
-                  <span className="text-xs bg-warning/10 text-warning px-2 py-1 rounded-full">
-                    Pro
-                  </span>
-                )}
               </div>
 
-              {isPro ? (
-                <div className="space-y-3">
-                  {analyticsData.countries.map((country) => (
-                    <div key={country.country}>
-                      <div className="flex items-center justify-between text-sm mb-1">
-                        <span>{country.country}</span>
-                        <span className="text-muted-foreground">
-                          {country.scans.toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-primary rounded-full"
-                          style={{ width: `${country.percentage}%` }}
-                        />
-                      </div>
+              <div className="space-y-3">
+                {analyticsData.countries.map((country) => (
+                  <div key={country.country}>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span>{country.country}</span>
+                      <span className="text-muted-foreground">
+                        {country.scans.toLocaleString()}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-2xl">
-                  <div className="text-center p-6">
-                    <Lock className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                    <p className="font-medium mb-2">Upgrade to Pro</p>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Unlock geographic insights and more
-                    </p>
-                    <Button variant="hero" size="sm" asChild>
-                      <Link to="/dashboard/settings?tab=billing">Upgrade Now</Link>
-                    </Button>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full"
+                        style={{ width: `${country.percentage}%` }}
+                      />
+                    </div>
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
             </motion.div>
           </div>
 

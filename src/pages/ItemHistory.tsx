@@ -13,6 +13,7 @@ import { get } from "@/services/api/client";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { format } from "date-fns";
+import { formatScanDate, normalizeScanLog, ScanLogView } from "@/lib/scanLogs";
 
 const statusConfig = {
   in_stock: { label: "In Stock", icon: CheckCircle, color: "bg-green-500/10 text-green-600 border-green-500/20" },
@@ -32,17 +33,6 @@ interface StatusChange {
   changed_at: string;
 }
 
-interface ScanLog {
-  id: string;
-  qr_id: string;
-  city: string | null;
-  country: string | null;
-  device_type: string;
-  browser: string;
-  os: string;
-  scanned_at: string;
-}
-
 const deviceIcons: Record<string, React.ElementType> = {
   mobile: Smartphone,
   tablet: Tablet,
@@ -53,7 +43,7 @@ export default function ItemHistory() {
   const { id } = useParams<{ id: string }>();
   const [item, setItem] = useState<InventoryItem | null>(null);
   const [statusHistory, setStatusHistory] = useState<StatusChange[]>([]);
-  const [scanHistory, setScanHistory] = useState<ScanLog[]>([]);
+  const [scanHistory, setScanHistory] = useState<ScanLogView[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -79,8 +69,8 @@ export default function ItemHistory() {
           
           // Fetch scan history
           try {
-            const scanResponse = await get<{ data: ScanLog[] }>(`/qr/${id}/scans`);
-            setScanHistory(scanResponse.data || []);
+            const scanResponse = await get<{ data: Parameters<typeof normalizeScanLog>[0][] }>(`/qr/${id}/scans`);
+            setScanHistory((scanResponse.data || []).map(normalizeScanLog));
           } catch (e) {
             console.log("No scan history available");
           }
@@ -310,10 +300,10 @@ export default function ItemHistory() {
                           <div className="text-right text-xs text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              {format(new Date(scan.scanned_at), "MMM d, yyyy")}
+                              {formatScanDate(scan.scanned_at, "MMM d, yyyy")}
                             </div>
                             <div className="mt-0.5">
-                              {format(new Date(scan.scanned_at), "h:mm a")}
+                              {formatScanDate(scan.scanned_at, "h:mm a")}
                             </div>
                           </div>
                         </div>

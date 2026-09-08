@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { QRCodeSVG } from "qrcode.react";
 import {
   QrCode,
   Plus,
@@ -38,14 +37,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useQRStorage, StoredQRCode } from "@/hooks/useQRStorage";
-import { useUserPlan } from "@/hooks/useUserPlan";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BulkCSVImport } from "@/components/qr/BulkCSVImport";
+import { QRFramePreview } from "@/components/qr/QRFramePreview";
 import { QRViewModal } from "@/components/qr/QRViewModal";
-import { QREditModal } from "@/components/qr/QREditModal";
 import { QRDeleteConfirmModal } from "@/components/qr/QRDeleteConfirmModal";
 import { useQRDownload } from "@/hooks/useQRDownload";
 import { InventoryTab } from "@/components/inventory/InventoryTab";
@@ -79,11 +77,9 @@ export default function Dashboard() {
   // Modal states
   const [selectedQR, setSelectedQR] = useState<StoredQRCode | null>(null);
   const [viewModalOpen, setViewModalOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   
   const { qrCodes, deleteQRCode, updateQRCode, getQRCodeCount, isLoading, error, refresh } = useQRStorage();
-  const { plan, limits } = useUserPlan();
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -93,20 +89,20 @@ export default function Dashboard() {
     qr.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const totalScans = qrCodes.reduce((sum, qr) => sum + qr.scans, 0);
+  const totalScans = qrCodes.reduce((sum, qr) => sum + Number(qr.scans || 0), 0);
   
   // Calculate unique scans based on actual QR code data
   // In production, this comes from the backend's unique IP/session tracking
   const uniqueScansEstimate = qrCodes.reduce((sum, qr) => {
     // Backend tracks unique scans per QR code, we aggregate them
     // Using scan count directly as unique count comes from backend
-    return sum + (qr.scans || 0);
+    return sum + Number(qr.scans || 0);
   }, 0);
   
   // Get unique countries from QR codes that have location data
   const uniqueCountries = new Set(
     qrCodes
-      .filter(qr => qr.scans > 0)
+        .filter(qr => Number(qr.scans || 0) > 0)
       .map(() => 1) // Each active QR represents potential reach
   ).size;
 
@@ -114,7 +110,7 @@ export default function Dashboard() {
     {
       label: "Total QR Codes",
       value: getQRCodeCount().toString(),
-      limit: limits.maxQRCodes === Infinity ? "∞" : limits.maxQRCodes.toString(),
+      limit: "Unlimited",
       icon: QrCode,
       color: "primary",
     },
@@ -127,8 +123,8 @@ export default function Dashboard() {
     },
     {
       label: "Active QR Codes",
-      value: qrCodes.filter(qr => qr.scans > 0).length.toString(),
-      change: qrCodes.length > 0 ? `${Math.round((qrCodes.filter(qr => qr.scans > 0).length / qrCodes.length) * 100)}%` : "",
+      value: qrCodes.filter(qr => Number(qr.scans || 0) > 0).length.toString(),
+      change: qrCodes.length > 0 ? `${Math.round((qrCodes.filter(qr => Number(qr.scans || 0) > 0).length / qrCodes.length) * 100)}%` : "",
       icon: Users,
       color: "accent",
     },
@@ -161,17 +157,17 @@ export default function Dashboard() {
   };
 
   const handleEdit = (qr: StoredQRCode) => {
-    setSelectedQR(qr);
-    setEditModalOpen(true);
+    navigate(`/dashboard/edit/${qr.id}`);
   };
 
   const handleDownload = async (qr: StoredQRCode) => {
     await downloadPNG({
-      value: qr.content,
+      value: qr.scanUrl || qr.content,
       fileName: qr.name.replace(/[^a-z0-9]/gi, '_'),
       fgColor: qr.fgColor,
       bgColor: qr.bgColor,
       size: 400,
+      designOptions: qr.designOptions,
     });
     toast({ title: "Downloaded", description: `${qr.name} saved as PNG` });
   };
@@ -203,8 +199,6 @@ export default function Dashboard() {
   const userName = user?.name || "User";
   const userInitials = userName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
 
-  const planLabel = plan === "free" ? "Free Plan" : plan === "pro" ? "Pro Plan" : "Enterprise";
-
   return (
     <TutorialProvider>
     <div className="min-h-screen bg-background">
@@ -217,31 +211,29 @@ export default function Dashboard() {
       {/* Main Content */}
       <main className="lg:ml-64">
         <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border" data-tutorial="header">
-          <div className="flex items-center justify-between px-6 py-4">
-            <div>
-              <h1 className="font-display text-2xl font-bold">
+          <div className="flex flex-col gap-3 px-4 py-3 sm:px-6 sm:py-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <h1 className="font-display text-xl font-bold leading-tight sm:text-2xl">
                 {activeTab === "qr" ? "My QR Codes" : "Inventory Tracking"}
               </h1>
-              <p className="text-sm text-muted-foreground">
+              <p className="mt-0.5 text-sm text-muted-foreground">
                 {activeTab === "qr" 
                   ? "Manage and track all your QR codes" 
                   : "Track products, assets, and equipment with smart QR codes"}
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <TutorialTrigger />
               {activeTab === "qr" && (
                 <>
-                  {plan === "enterprise" && (
-                    <Button variant="outline" onClick={() => setShowBulkImport(true)}>
-                      <FileSpreadsheet className="w-5 h-5 mr-2" />
-                      Bulk Import
-                    </Button>
-                  )}
-                  <Button variant="hero" asChild data-tutorial="create-button">
+                  <Button className="shrink-0" variant="outline" onClick={() => setShowBulkImport(true)}>
+                    <FileSpreadsheet className="w-5 h-5 sm:mr-2" />
+                    <span className="hidden sm:inline">Bulk Import</span>
+                  </Button>
+                  <Button className="shrink-0" variant="hero" asChild data-tutorial="create-button">
                     <Link to="/dashboard/create">
-                      <Plus className="w-5 h-5 mr-2" />
-                      Create QR Code
+                      <Plus className="w-5 h-5 sm:mr-2" />
+                      <span className="hidden sm:inline">Create QR Code</span><span className="sm:hidden">New</span>
                     </Link>
                   </Button>
                 </>
@@ -249,37 +241,22 @@ export default function Dashboard() {
             </div>
           </div>
           
-          {/* Mobile Tab Switcher */}
-          <div className="lg:hidden px-6 pb-4">
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "qr" | "inventory")}>
-              <TabsList className="w-full">
-                <TabsTrigger value="qr" className="flex-1">
-                  <QrCode className="w-4 h-4 mr-2" />
-                  QR Codes
-                </TabsTrigger>
-                <TabsTrigger value="inventory" className="flex-1">
-                  <Package className="w-4 h-4 mr-2" />
-                  Inventory
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
         </header>
 
-        <div className="p-6">
+        <div className="p-4 pb-24 sm:p-6 lg:pb-6">
           {activeTab === "inventory" ? (
-            <InventoryTab />
+            <InventoryTab showHeader={false} />
           ) : (
             <>
           {/* Stats Grid */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" data-tutorial="stats">
+          <div className="grid grid-cols-2 gap-3 mb-6 sm:gap-4 sm:mb-8 lg:grid-cols-4" data-tutorial="stats">
             {stats.map((stat, index) => (
               <motion.div
                 key={stat.label}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className="p-5 rounded-2xl bg-card border border-border"
+                className="min-w-0 p-4 sm:p-5 rounded-2xl bg-card border border-border"
               >
                 <div className="flex items-center justify-between mb-3">
                   <div
@@ -441,7 +418,7 @@ export default function Dashboard() {
                     </span>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-muted">
+                        <button aria-label={`Actions for ${qr.name}`} className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-muted">
                           <ChevronDown className="w-4 h-4" />
                         </button>
                       </DropdownMenuTrigger>
@@ -474,13 +451,10 @@ export default function Dashboard() {
                     className="rounded-xl p-4 mb-4 flex items-center justify-center"
                     style={{ backgroundColor: qr.bgColor }}
                   >
-                    <QRCodeSVG
-                      value={qr.content}
+                    <QRFramePreview
+                      value={qr.scanUrl || qr.content}
                       size={120}
-                      level="M"
-                      fgColor={qr.fgColor}
-                      bgColor={qr.bgColor}
-                      className="w-full h-auto max-w-[120px]"
+                      options={qr.designOptions}
                     />
                   </div>
 
@@ -492,7 +466,7 @@ export default function Dashboard() {
 
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">
-                      {qr.scans.toLocaleString()} scans
+                      {Number(qr.scans || 0).toLocaleString()} scans
                     </span>
                     <span className="text-muted-foreground">{qr.created}</span>
                   </div>
@@ -550,11 +524,10 @@ export default function Dashboard() {
                             className="w-12 h-12 rounded-lg flex items-center justify-center"
                             style={{ backgroundColor: qr.bgColor }}
                           >
-                            <QRCodeSVG
-                              value={qr.content}
+                            <QRFramePreview
+                              value={qr.scanUrl || qr.content}
                               size={40}
-                              fgColor={qr.fgColor}
-                              bgColor={qr.bgColor}
+                              options={{ ...qr.designOptions, frameStyle: "none" }}
                             />
                           </div>
                           <div>
@@ -575,25 +548,26 @@ export default function Dashboard() {
                         </span>
                       </td>
                       <td className="px-6 py-4 font-medium">
-                        {qr.scans.toLocaleString()}
+                        {Number(qr.scans || 0).toLocaleString()}
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
                         {qr.created}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => handleView(qr)}>
+                          <Button variant="ghost" size="icon" aria-label={`View ${qr.name}`} onClick={() => handleView(qr)}>
                             <Eye className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(qr)}>
+                          <Button variant="ghost" size="icon" aria-label={`Edit ${qr.name}`} onClick={() => handleEdit(qr)}>
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDownload(qr)}>
+                          <Button variant="ghost" size="icon" aria-label={`Download ${qr.name}`} onClick={() => handleDownload(qr)}>
                             <Download className="w-4 h-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
+                            aria-label={`Delete ${qr.name}`}
                             onClick={() => handleDelete(qr)}
                           >
                             <Trash2 className="w-4 h-4 text-destructive" />
@@ -631,17 +605,7 @@ export default function Dashboard() {
         onOpenChange={setViewModalOpen}
         onEdit={() => {
           setViewModalOpen(false);
-          setEditModalOpen(true);
-        }}
-      />
-
-      {/* QR Edit Modal */}
-      <QREditModal
-        qrCode={selectedQR}
-        open={editModalOpen}
-        onOpenChange={setEditModalOpen}
-        onSave={async (id, updates) => {
-          await updateQRCode(id, updates);
+          if (selectedQR) navigate(`/dashboard/edit/${selectedQR.id}`);
         }}
       />
 

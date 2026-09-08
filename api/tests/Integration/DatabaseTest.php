@@ -60,7 +60,7 @@ class DatabaseTest extends TestCase
         try {
             $pdo = Database::getInstance();
             
-            $requiredTables = ['users', 'plans', 'qr_codes', 'scan_logs', 'subscriptions'];
+            $requiredTables = ['users', 'qr_codes', 'scan_logs'];
             
             foreach ($requiredTables as $table) {
                 $stmt = $pdo->query("SHOW TABLES LIKE '{$table}'");

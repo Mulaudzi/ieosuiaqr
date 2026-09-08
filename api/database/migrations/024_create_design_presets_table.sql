@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS design_presets (
     id VARCHAR(36) PRIMARY KEY,
-    user_id VARCHAR(36) NOT NULL,
+    user_id INT UNSIGNED NOT NULL,
     name VARCHAR(100) NOT NULL,
     description TEXT NULL,
     design_options JSON NOT NULL COMMENT 'Stores QRDesignOptions object',

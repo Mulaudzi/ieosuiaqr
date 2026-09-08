@@ -25,10 +25,10 @@ export default function ResetPassword() {
   const email = searchParams.get("email");
 
   useEffect(() => {
-    if (!token || !email) {
+    if (!token) {
       setTokenError(true);
     }
-  }, [token, email]);
+  }, [token]);
 
   const validatePassword = (password: string): string | null => {
     if (password.length < 8) {
@@ -68,7 +68,7 @@ export default function ResetPassword() {
       return;
     }
 
-    if (!token || !email) {
+    if (!token) {
       toast({
         variant: "destructive",
         title: "Invalid reset link",
@@ -81,7 +81,7 @@ export default function ResetPassword() {
 
     try {
       await authApi.resetPassword({
-        email,
+        email: email || undefined,
         token,
         password,
         password_confirmation: confirmPassword,

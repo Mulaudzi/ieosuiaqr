@@ -122,22 +122,6 @@ export const authApi = {
   },
 
   /**
-   * Get Google OAuth URL
-   * GET /api/auth/google
-   */
-  getGoogleAuthUrl: async (): Promise<ApiResponse<{ url: string }>> => {
-    return get("/auth/google");
-  },
-
-  /**
-   * Sign in with Google ID token
-   * POST /api/auth/google/signin
-   */
-  googleSignIn: async (idToken: string): Promise<ApiResponse<{ user: User; tokens: AuthTokens }>> => {
-    return post("/auth/google/signin", { id_token: idToken });
-  },
-
-  /**
    * Get notification preferences
    * GET /api/user/notifications
    */

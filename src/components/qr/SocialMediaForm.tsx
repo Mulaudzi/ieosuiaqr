@@ -92,7 +92,7 @@ export function SocialMediaForm({ data, onChange }: SocialMediaFormProps) {
       )}
 
       <p className="text-xs text-muted-foreground">
-        Add up to 5 social media profiles. Users will see a page with all your links.
+        Add up to 5 profiles. Paste a full link or enter the username/handle; scanners will see a page where they can choose a link.
       </p>
     </div>
   );

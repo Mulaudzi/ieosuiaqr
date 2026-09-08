@@ -63,20 +63,6 @@ class ApiRoutesTest extends TestCase
         $this->assertStringContainsString("/qr/(\\d+)/scans", $this->indexContent);
     }
 
-    public function testSubscriptionRoutesExist(): void
-    {
-        $subscriptionRoutes = [
-            '/subscriptions/plans',
-            '/subscriptions/current',
-            '/subscriptions/cancel',
-            '/subscriptions/change',
-        ];
-
-        foreach ($subscriptionRoutes as $route) {
-            $this->assertStringContainsString($route, $this->indexContent, "Route {$route} should exist");
-        }
-    }
-
     public function testInventoryRoutesExist(): void
     {
         $inventoryRoutes = [
@@ -86,18 +72,6 @@ class ApiRoutesTest extends TestCase
         ];
 
         foreach ($inventoryRoutes as $route) {
-            $this->assertStringContainsString($route, $this->indexContent, "Route {$route} should exist");
-        }
-    }
-
-    public function testBillingRoutesExist(): void
-    {
-        $billingRoutes = [
-            '/billing/invoices',
-            '/billing/payments',
-        ];
-
-        foreach ($billingRoutes as $route) {
             $this->assertStringContainsString($route, $this->indexContent, "Route {$route} should exist");
         }
     }
@@ -113,9 +87,6 @@ class ApiRoutesTest extends TestCase
             'AuthController',
             'QrController',
             'ScanController',
-            'SubscriptionController',
-            'PaymentController',
-            'BillingController',
             'InventoryController',
         ];
 

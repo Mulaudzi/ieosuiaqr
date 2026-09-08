@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { inventoryApi, InventoryStatus } from "@/services/api/inventory";
 import { qrCodeApi } from "@/services/api";
+import { parseApiError } from "@/services/api/client";
 import {
   Upload,
   FileSpreadsheet,
@@ -150,14 +151,42 @@ export function BulkInventoryImport({ open, onOpenChange, onSuccess }: BulkInven
         // Auto-generate QR code if enabled
         if (autoGenerateQR) {
           try {
-            const qrResponse = await qrCodeApi.create({
+            const appUrl = import.meta.env.VITE_APP_URL || "https://qr.ieosuia.com";
+            const qrPayload = {
               name: `${row.name} QR`,
               type: "url",
-              content: { url: `https://qr.ieosuia.com/scan/${row.name.replace(/\s/g, "-").toLowerCase()}` },
-            });
+              content: { url: appUrl },
+            };
+            const qrResponse = await qrCodeApi.create(qrPayload);
+
+            if (import.meta.env.DEV) {
+              console.debug("[BulkInventoryImport] QR create payload", qrPayload);
+              console.debug("[BulkInventoryImport] QR create response", qrResponse);
+            }
+
             qrId = qrResponse.data.id;
-          } catch {
-            // QR creation failed, continue without linking
+            await qrCodeApi.update(qrId, { content: { url: `${appUrl}/scan/${qrId}` } });
+          } catch (error: unknown) {
+            const parsed = parseApiError(error, "Failed to generate QR code");
+            if (import.meta.env.DEV) {
+              console.warn("[BulkInventoryImport] QR create error", {
+                status: parsed.status,
+                message: parsed.message,
+                errors: parsed.details,
+                data: parsed.data,
+                row: row.name,
+              });
+            }
+
+            // QR creation failed, continue without linking but record detail for this row.
+            importResults.push({
+              name: row.name,
+              success: false,
+              error: `QR generation failed: ${parsed.message}`,
+              qrCreated: false,
+            });
+            setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
+            continue;
           }
         }
 
@@ -172,8 +201,15 @@ export function BulkInventoryImport({ open, onOpenChange, onSuccess }: BulkInven
 
         importResults.push({ name: row.name, success: true, qrCreated: !!qrId });
       } catch (error: unknown) {
-        const err = error as { message?: string };
-        importResults.push({ name: row.name, success: false, error: err.message || "Failed to import" });
+        if (qrId) {
+          try {
+            await qrCodeApi.delete(qrId);
+          } catch {
+            // Preserve the row's original error if cleanup also fails.
+          }
+        }
+        const parsed = parseApiError(error, "Failed to import");
+        importResults.push({ name: row.name, success: false, error: parsed.message });
       }
 
       setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
@@ -226,7 +262,7 @@ export function BulkInventoryImport({ open, onOpenChange, onSuccess }: BulkInven
             Bulk Import Inventory
           </DialogTitle>
           <DialogDescription>
-            Import multiple inventory items from a CSV file. Enterprise users can auto-generate QR codes.
+            Import multiple inventory items from a CSV file and optionally generate QR codes automatically.
           </DialogDescription>
         </DialogHeader>
 
@@ -292,7 +328,7 @@ export function BulkInventoryImport({ open, onOpenChange, onSuccess }: BulkInven
                 />
                 <Label htmlFor="auto-qr" className="cursor-pointer flex items-center gap-2">
                   <QrCode className="w-4 h-4 text-primary" />
-                  Auto-generate QR codes for each item (Enterprise)
+                  Auto-generate QR codes for each item — free forever
                 </Label>
               </div>
 

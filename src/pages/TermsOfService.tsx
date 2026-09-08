@@ -27,6 +27,7 @@ const TermsOfService = () => {
           <p className="text-muted-foreground mb-8">Last updated: January 13, 2025</p>
 
           <div className="prose prose-invert max-w-none space-y-8">
+            <section><h2 className="text-2xl font-semibold text-foreground mb-4">Service provider</h2><p className="text-muted-foreground leading-relaxed">IEOSUIA, 26 Rock Alder, Naturena, Johannesburg, 2095, South Africa.</p></section>
             <section>
               <h2 className="text-2xl font-semibold text-foreground mb-4">1. Acceptance of Terms</h2>
               <p className="text-muted-foreground leading-relaxed">
@@ -81,16 +82,15 @@ const TermsOfService = () => {
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold text-foreground mb-4">5. Subscription and Payments</h2>
+              <h2 className="text-2xl font-semibold text-foreground mb-4">5. Service Availability and Changes</h2>
               <p className="text-muted-foreground leading-relaxed">
-                Some features of the Service require a paid subscription. By subscribing:
+                We provide the Service as an online platform and may improve, update, or maintain features over time.
               </p>
               <ul className="list-disc list-inside text-muted-foreground mt-4 space-y-2">
-                <li>You authorize us to charge your payment method on a recurring basis</li>
-                <li>Subscriptions automatically renew unless cancelled before the renewal date</li>
-                <li>All prices are in South African Rand (ZAR) unless otherwise stated</li>
-                <li>Refunds are provided in accordance with our refund policy and the Consumer Protection Act</li>
-                <li>Prices may change with 30 days notice</li>
+                <li>Feature updates may be released to improve reliability and security</li>
+                <li>Temporary maintenance windows may be required for system updates</li>
+                <li>We will communicate major service changes through official channels</li>
+                <li>Service availability may vary due to factors outside our control</li>
               </ul>
             </section>
 
@@ -100,8 +100,6 @@ const TermsOfService = () => {
                 In accordance with the Consumer Protection Act 68 of 2008 (CPA) of South Africa:
               </p>
               <ul className="list-disc list-inside text-muted-foreground mt-4 space-y-2">
-                <li>You have the right to cancel your subscription within 5 business days of initial sign-up for a full refund</li>
-                <li>All pricing includes VAT where applicable</li>
                 <li>You have the right to receive services that are of good quality and fit for purpose</li>
                 <li>You have the right to fair and honest dealing</li>
                 <li>You have access to our complaints process (contact support@ieosuia.com)</li>

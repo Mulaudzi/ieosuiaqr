@@ -132,7 +132,7 @@ export function QRTypesExplainedSection() {
               <div className="flex flex-wrap gap-2">
                 <span className="px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium">No Tracking</span>
                 <span className="px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium">Fixed Content</span>
-                <span className="px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium">Free Forever</span>
+
               </div>
             </div>
           </motion.div>

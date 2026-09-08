@@ -41,7 +41,7 @@ const features = [
   },
   {
     icon: Shield,
-    title: "Enterprise Security",
+    title: "Advanced Security",
     description:
       "GDPR compliant with encrypted data, role-based access, and audit logs.",
     color: "primary",

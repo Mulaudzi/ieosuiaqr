@@ -15,7 +15,6 @@ import {
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { useToast } from "@/hooks/use-toast";
-import { useRecaptcha } from "@/hooks/useRecaptcha";
 import {
   Mail,
   Phone,
@@ -53,9 +52,9 @@ const purposeConfig: Record<InquiryPurpose, {
   },
   sales: {
     label: "Sales / Quotes / Partnerships",
-    email: "sales@ieosuia.com",
+    email: "hello@ieosuia.com",
     icon: Briefcase,
-    description: "Pricing, quotes, and business inquiries",
+    description: "Custom implementation and partnership inquiries",
   },
 };
 
@@ -68,7 +67,6 @@ export default function Contact() {
   const [purpose, setPurpose] = useState<InquiryPurpose>("general");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
-  const { executeRecaptcha, isLoaded: recaptchaLoaded } = useRecaptcha();
 
   // Handle preselected purpose from URL parameter
   useEffect(() => {
@@ -102,9 +100,6 @@ export default function Contact() {
 
     setIsSubmitting(true);
     try {
-      // Get reCAPTCHA token
-      const captchaToken = await executeRecaptcha("contact");
-      
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -118,7 +113,6 @@ export default function Contact() {
           targetEmail: purposeConfig[purpose].email,
           originUrl: window.location.href,
           source: "IEOSUIA QR - Contact Form",
-          captcha_token: captchaToken,
         }),
       });
 
@@ -167,7 +161,7 @@ export default function Contact() {
                 <span className="gradient-text">QR Needs</span>
               </h1>
               <p className="text-lg text-muted-foreground">
-                Whether you need a custom enterprise solution or have questions about our plans,
+                Whether you need implementation support or a custom rollout for your team,
                 we're here to help.
               </p>
             </motion.div>
@@ -311,7 +305,7 @@ export default function Contact() {
                           support@ieosuia.com <span className="text-xs">(Support)</span>
                         </p>
                         <p className="text-muted-foreground text-sm">
-                          sales@ieosuia.com <span className="text-xs">(Sales)</span>
+                          hello@ieosuia.com <span className="text-xs">(Sales)</span>
                         </p>
                       </div>
                     </div>
@@ -346,11 +340,11 @@ export default function Contact() {
 
                 <div className="p-8 rounded-3xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20">
                   <h3 className="font-display text-xl font-bold mb-4">
-                    Enterprise Solutions
+                    Custom Solutions
                   </h3>
                   <p className="text-muted-foreground mb-6">
-                    Need a custom solution for your organization? Our enterprise team can help
-                    with bulk QR codes, API access, and dedicated support.
+                    Need a tailored setup for your organization? Our team can help
+                    with bulk onboarding, API integration, and dedicated support.
                   </p>
                   <div className="space-y-3">
                     <div className="flex items-center gap-3 text-sm">
@@ -370,10 +364,10 @@ export default function Contact() {
 
                 <div className="p-6 rounded-2xl bg-muted/50 text-center">
                   <p className="text-sm text-muted-foreground mb-2">
-                    Looking for pricing information?
+                    Want a quick product walkthrough?
                   </p>
                   <Button variant="outline" asChild>
-                    <Link to="/#pricing">View Pricing Plans</Link>
+                    <Link to="/docs">Read Documentation</Link>
                   </Button>
                 </div>
               </motion.div>

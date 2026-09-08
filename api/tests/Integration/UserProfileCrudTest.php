@@ -234,18 +234,4 @@ class UserProfileCrudTest extends TestCase
         $this->assertEquals(0, (int)$prefs['marketing_emails']);
     }
 
-    public function testUserPlanUpgrade(): void
-    {
-        $user = $this->createTestUser(['plan' => 'Free']);
-        $this->createdUsers[] = $user['id'];
-        
-        // Upgrade to Pro
-        $stmt = self::$pdo->prepare("UPDATE users SET plan = 'Pro', updated_at = NOW() WHERE id = ?");
-        $stmt->execute([$user['id']]);
-        
-        $this->assertDatabaseHas('users', [
-            'id' => $user['id'],
-            'plan' => 'Pro'
-        ]);
-    }
 }

@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { QRCodeSVG } from "qrcode.react";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { qrCodeApi } from "@/services/api/qrcodes";
 import { StoredQRCode } from "@/hooks/useQRStorage";
 import { useQRDownload } from "@/hooks/useQRDownload";
+import { QRFramePreview } from "@/components/qr/QRFramePreview";
 
 interface QRViewModalProps {
   qrCode: StoredQRCode | null;
@@ -86,11 +86,12 @@ export function QRViewModal({ qrCode, open, onOpenChange, onEdit }: QRViewModalP
   const handleDownload = async (format: "png" | "svg") => {
     if (!qrCode) return;
     const options = {
-      value: qrCode.content,
+      value: qrCode.scanUrl || qrCode.content,
       fileName: qrCode.name.replace(/[^a-z0-9]/gi, '_'),
       fgColor: qrCode.fgColor,
       bgColor: qrCode.bgColor,
       size: 400,
+      designOptions: qrCode.designOptions,
     };
     if (format === "png") {
       await downloadPNG(options);
@@ -133,12 +134,10 @@ export function QRViewModal({ qrCode, open, onOpenChange, onEdit }: QRViewModalP
               className="p-6 rounded-2xl"
               style={{ backgroundColor: qrCode.bgColor }}
             >
-              <QRCodeSVG
-                value={qrCode.content}
+              <QRFramePreview
+                value={qrCode.scanUrl || qrCode.content}
                 size={200}
-                level="H"
-                fgColor={qrCode.fgColor}
-                bgColor={qrCode.bgColor}
+                options={qrCode.designOptions}
               />
             </div>
             <div className="flex gap-2 mt-4">
@@ -205,13 +204,13 @@ export function QRViewModal({ qrCode, open, onOpenChange, onEdit }: QRViewModalP
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-2xl font-bold text-primary">
-                      {stats.total_scans.toLocaleString()}
+                      {Number(stats.total_scans || 0).toLocaleString()}
                     </p>
                     <p className="text-xs text-muted-foreground">Total Scans</p>
                   </div>
                   <div>
                     <p className="text-2xl font-bold">
-                      {stats.unique_scans.toLocaleString()}
+                      {Number(stats.unique_scans || 0).toLocaleString()}
                     </p>
                     <p className="text-xs text-muted-foreground">Unique Visitors</p>
                   </div>

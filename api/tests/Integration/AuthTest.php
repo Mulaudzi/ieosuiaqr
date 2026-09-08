@@ -45,21 +45,13 @@ class AuthTest extends TestCase
         $this->assertNotEquals($token1, $token2);
     }
 
-    public function testDifferentPlansGetDifferentTokens(): void
-    {
-        $token1 = Auth::generateToken(1, 'Free');
-        $token2 = Auth::generateToken(1, 'Pro');
-        
-        $this->assertNotEquals($token1, $token2);
-    }
-
     public function testFormatUserForFrontendStructure(): void
     {
         $mockUser = [
             'id' => 1,
             'email' => 'test@example.com',
             'name' => 'Test User',
-            'plan' => 'Pro',
+            'plan' => 'Free Forever',
             'email_verified_at' => '2024-01-01 00:00:00',
             'avatar_url' => 'https://example.com/avatar.jpg',
             'created_at' => '2024-01-01 00:00:00',

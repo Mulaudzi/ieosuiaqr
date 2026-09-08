@@ -20,6 +20,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { inventoryApi, InventoryStatus } from "@/services/api/inventory";
 import { qrCodeApi } from "@/services/api";
+import { publicScanUrl } from "@/lib/publicScanUrl";
+import { parseApiError } from "@/services/api/client";
 import { QRCodeSVG } from "qrcode.react";
 import {
   QrCode,
@@ -77,19 +79,30 @@ export function CreateQRAndItemModal({ open, onOpenChange, onSuccess }: CreateQR
     }
 
     setIsCreating(true);
+    let createdId: string | null = null;
 
     try {
       // Step 1: Create QR Code
-      const qrUrl = `https://qr.ieosuia.com/scan/${name.replace(/\s/g, "-").toLowerCase()}-${Date.now()}`;
-      setQrContent(qrUrl);
+      const appUrl = import.meta.env.VITE_APP_URL || "https://qr.ieosuia.com";
 
-      const qrResponse = await qrCodeApi.create({
+      const qrPayload = {
         name: `${name} QR`,
         type: "url",
-        content: { url: qrUrl },
-      });
+        content: { url: appUrl },
+      };
+
+      const qrResponse = await qrCodeApi.create(qrPayload);
+
+      if (import.meta.env.DEV) {
+        console.debug("[CreateQRAndItem] QR create payload", qrPayload);
+        console.debug("[CreateQRAndItem] QR create response", qrResponse);
+      }
 
       const qrId = qrResponse.data.id;
+      createdId = qrId;
+      const itemUrl = `${appUrl}/scan/${qrId}`;
+      await qrCodeApi.update(qrId, { content: { url: itemUrl } });
+      setQrContent(publicScanUrl(qrId));
       setCreatedQRId(qrId);
       setStep(2);
 
@@ -110,11 +123,28 @@ export function CreateQRAndItemModal({ open, onOpenChange, onSuccess }: CreateQR
       });
       onSuccess();
     } catch (error: unknown) {
-      const err = error as { message?: string };
+      if (createdId) {
+        try {
+          await qrCodeApi.delete(createdId);
+        } catch {
+          // Preserve the original failure; server-side cleanup can be retried later.
+        }
+      }
+      const parsed = parseApiError(error, "Failed to create QR and item.");
+
+      if (import.meta.env.DEV) {
+        console.warn("[CreateQRAndItem] create error", {
+          status: parsed.status,
+          message: parsed.message,
+          errors: parsed.details,
+          data: parsed.data,
+        });
+      }
+
       toast({
         variant: "destructive",
         title: "Error",
-        description: err.message || "Failed to create QR and item.",
+        description: parsed.message,
       });
       setIsCreating(false);
     }

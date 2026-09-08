@@ -29,7 +29,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: "create",
     title: "Create New QR Codes",
-    description: "Click here to create a new QR code. Choose from URLs, vCards, WiFi, events, and more. Pro users get access to advanced customization!",
+    description: "Click here to create a new QR code. Choose from URLs, vCards, WiFi, events, and more with full customization.",
     targetSelector: "[data-tutorial='create-button']",
     position: "bottom",
   },
@@ -66,13 +66,6 @@ const tutorialSteps: TutorialStep[] = [
     title: "Deep Analytics",
     description: "View detailed scan analytics including locations, devices, browsers, and time patterns. Make data-driven decisions!",
     targetSelector: "[data-tutorial='analytics-nav']",
-    position: "right",
-  },
-  {
-    id: "upgrade",
-    title: "Unlock More Features",
-    description: "Upgrade to Pro for unlimited QR codes, custom branding, bulk import, advanced analytics, and priority support.",
-    targetSelector: "[data-tutorial='upgrade']",
     position: "right",
   },
 ];

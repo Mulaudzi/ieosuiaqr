@@ -19,7 +19,6 @@ Fast tests that don't require database:
 | `ValidatorTest.php` | Input validation rules |
 | `ResponseTest.php` | API response structure |
 | `QrControllerTest.php` | QR code type constants |
-| `InventoryControllerTest.php` | Plan limit definitions |
 
 Run only unit tests:
 ```bash
@@ -39,9 +38,7 @@ Full workflow tests using test database:
 | `QrCodeCrudTest.php` | QR code CRUD operations |
 | `InventoryCrudTest.php` | Inventory CRUD operations |
 | `UserProfileCrudTest.php` | User profile CRUD operations |
-| `SubscriptionCrudTest.php` | Subscription CRUD operations |
 | `ScanLogTest.php` | QR scan logging and analytics |
-| `BillingTest.php` | Invoice and payment operations |
 
 Run only integration tests:
 ```bash

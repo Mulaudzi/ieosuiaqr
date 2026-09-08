@@ -20,20 +20,7 @@ import {
   History,
   QrCode,
 } from "lucide-react";
-import { format } from "date-fns";
-
-interface ScanLog {
-  id: string;
-  qr_id: string;
-  ip_hash: string;
-  location: string | null;
-  city: string | null;
-  country: string | null;
-  device_type: string;
-  browser: string;
-  os: string;
-  scanned_at: string;
-}
+import { formatScanDate, normalizeScanLog, ScanLogView } from "@/lib/scanLogs";
 
 interface ScanHistoryModalProps {
   item: InventoryItem | null;
@@ -48,7 +35,7 @@ const deviceIcons: Record<string, React.ElementType> = {
 };
 
 export function ScanHistoryModal({ item, open, onOpenChange }: ScanHistoryModalProps) {
-  const [scans, setScans] = useState<ScanLog[]>([]);
+  const [scans, setScans] = useState<ScanLogView[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -62,8 +49,8 @@ export function ScanHistoryModal({ item, open, onOpenChange }: ScanHistoryModalP
     
     setIsLoading(true);
     try {
-      const response = await get<{ data: ScanLog[] }>(`/qr/${item.qr_id}/scans`);
-      setScans(response.data || []);
+      const response = await get<{ data: Parameters<typeof normalizeScanLog>[0][] }>(`/qr/${item.qr_id}/scans`);
+      setScans((response.data || []).map(normalizeScanLog));
     } catch (error) {
       console.error("Failed to fetch scan history:", error);
       setScans([]);
@@ -161,10 +148,10 @@ export function ScanHistoryModal({ item, open, onOpenChange }: ScanHistoryModalP
                       <div className="text-right text-xs text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          {format(new Date(scan.scanned_at), "MMM d, yyyy")}
+                          {formatScanDate(scan.scanned_at, "MMM d, yyyy")}
                         </div>
                         <div className="mt-0.5">
-                          {format(new Date(scan.scanned_at), "h:mm a")}
+                          {formatScanDate(scan.scanned_at, "h:mm a")}
                         </div>
                       </div>
                     </div>

@@ -17,12 +17,10 @@ import {
   MapPin,
   ChevronRight,
   Download,
-  Crown,
   Check,
   FileImage,
   FileText,
   FileCode,
-  Lock,
   Loader2,
   Share2,
   Smartphone,
@@ -45,9 +43,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQRDownload, DownloadFormat } from "@/hooks/useQRDownload";
-import { useUserPlan } from "@/hooks/useUserPlan";
 import { useQRStorage } from "@/hooks/useQRStorage";
-import { UpsellModal } from "@/components/qr/UpsellModal";
 import { LogoUploader } from "@/components/qr/LogoUploader";
 import { WiFiForm, WiFiData, generateWiFiString } from "@/components/qr/WiFiForm";
 import { VCardForm, VCardData, generateVCardString } from "@/components/qr/VCardForm";
@@ -66,14 +62,14 @@ const qrTypes = [
   { id: "text", name: "Text", icon: MessageSquare, description: "Plain text message" },
   { id: "email", name: "Email", icon: Mail, description: "Email with subject & body" },
   { id: "phone", name: "Phone", icon: Phone, description: "Phone number to call" },
-  { id: "sms", name: "SMS", icon: MessageSquare, description: "Text message", premium: true },
-  { id: "whatsapp", name: "WhatsApp", icon: Share2, description: "WhatsApp chat", premium: true },
-  { id: "wifi", name: "WiFi", icon: Wifi, description: "WiFi network credentials", premium: true },
-  { id: "vcard", name: "vCard", icon: User, description: "Contact information", premium: true },
-  { id: "event", name: "Event", icon: Calendar, description: "Calendar event", premium: true },
-  { id: "location", name: "Location", icon: MapPin, description: "Geographic location", premium: true },
-  { id: "social", name: "Social Media", icon: Share2, description: "Social profiles", premium: true },
-  { id: "app", name: "App Store", icon: Smartphone, description: "App download links", premium: true },
+  { id: "sms", name: "SMS", icon: MessageSquare, description: "Text message" },
+  { id: "whatsapp", name: "WhatsApp", icon: Share2, description: "WhatsApp chat" },
+  { id: "wifi", name: "WiFi", icon: Wifi, description: "WiFi network credentials" },
+  { id: "vcard", name: "vCard", icon: User, description: "Contact information" },
+  { id: "event", name: "Event", icon: Calendar, description: "Calendar event" },
+  { id: "location", name: "Location", icon: MapPin, description: "Geographic location" },
+  { id: "social", name: "Social Media", icon: Share2, description: "Social profiles" },
+  { id: "app", name: "App Store", icon: Smartphone, description: "App download links" },
 ];
 
 const defaultWiFiData: WiFiData = { ssid: "", password: "", encryption: "WPA" };
@@ -112,8 +108,6 @@ export default function CreateQRCode() {
   const [qrName, setQrName] = useState("");
   const [qrContent, setQrContent] = useState("");
   const [designOptions, setDesignOptions] = useState<QRDesignOptions>(defaultDesignOptions);
-  const [showUpsell, setShowUpsell] = useState(false);
-  const [upsellFeature, setUpsellFeature] = useState("");
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [selectedLogo, setSelectedLogo] = useState<string | null>(null);
@@ -131,48 +125,58 @@ export default function CreateQRCode() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { download } = useQRDownload();
-  const { canUsePremiumTypes, limits, isPro } = useUserPlan();
-  const { saveQRCode, getQRCodeCount, refresh } = useQRStorage();
+  const { refresh } = useQRStorage();
+  const defaultPreviewUrl = "https://ieosuia.com";
 
   const handleDownload = async (format: DownloadFormat) => {
-    await download(format, {
-      value: getQRValue(),
-      fileName: qrName || "qr-code",
-      fgColor: designOptions.fgColor,
-      bgColor: designOptions.transparentBg ? "transparent" : designOptions.bgColor,
-      size: 400,
-      designOptions: {
-        ...designOptions,
-        logo: selectedLogo || designOptions.logo,
-      },
-    });
-    toast({
-      title: "Downloaded!",
-      description: `QR code saved as ${format.toUpperCase()}`,
-    });
+    try {
+      await download(format, {
+        value: getQRValue(),
+        fileName: qrName || "qr-code",
+        fgColor: designOptions.fgColor,
+        bgColor: designOptions.transparentBg ? "transparent" : designOptions.bgColor,
+        size: 400,
+        designOptions: {
+          ...designOptions,
+          logo: selectedLogo || designOptions.logo,
+        },
+      });
+      toast({
+        title: "Downloaded!",
+        description: `QR code saved as ${format.toUpperCase()}`,
+      });
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn("[QR Create] download error", error);
+      }
+      toast({
+        variant: "destructive",
+        title: "Download failed",
+        description: "Could not export this QR. Please try again.",
+      });
+    }
   };
 
   const selectedTypeInfo = qrTypes.find((t) => t.id === selectedType);
+  const previewOptions: QRDesignOptions = {
+    ...designOptions,
+    logo: selectedLogo || designOptions.logo,
+  };
 
-  const handleTypeSelect = (typeId: string, isPremium: boolean) => {
-    if (isPremium && !canUsePremiumTypes) {
-      setUpsellFeature(qrTypes.find((t) => t.id === typeId)?.name || "This feature");
-      setShowUpsell(true);
-      return;
-    }
+  const handleTypeSelect = (typeId: string) => {
     setSelectedType(typeId);
   };
 
   const getQRValue = (): string => {
     switch (selectedType) {
       case "url":
-        return qrContent || "https://example.com";
+        return qrContent || defaultPreviewUrl;
       case "email":
         return `mailto:${qrContent}`;
       case "phone":
         return `tel:${qrContent}`;
       case "text":
-        return qrContent || "Hello World";
+        return qrContent || defaultPreviewUrl;
       case "wifi":
         return generateWiFiString(wifiData);
       case "vcard":
@@ -190,7 +194,7 @@ export default function CreateQRCode() {
       case "app":
         return generateAppString(appData);
       default:
-        return qrContent || "https://qr.ieosuia.com";
+        return qrContent || defaultPreviewUrl;
     }
   };
 
@@ -273,7 +277,7 @@ export default function CreateQRCode() {
           return false;
         }
         break;
-      case "event":
+      case "event": {
         if (!eventData.title.trim()) {
           toast({
             title: "Title required",
@@ -301,6 +305,7 @@ export default function CreateQRCode() {
           return false;
         }
         break;
+      }
       case "location":
         if (locationData.inputMode === "coordinates") {
           const lat = parseFloat(locationData.latitude);
@@ -396,18 +401,6 @@ export default function CreateQRCode() {
   };
 
   const handleCreate = async () => {
-    // Check QR code limit locally first
-    if (getQRCodeCount() >= limits.maxQRCodes) {
-      toast({
-        title: "Limit reached",
-        description: `You've reached your limit of ${limits.maxQRCodes} QR codes. Upgrade to create more!`,
-        variant: "destructive",
-      });
-      setShowUpsell(true);
-      setUpsellFeature("More QR codes");
-      return;
-    }
-
     setIsCreating(true);
 
     try {
@@ -444,6 +437,16 @@ export default function CreateQRCode() {
         custom_options: customOptions,
       });
 
+      if (import.meta.env.DEV) {
+        console.debug("[QR Create] Request payload", {
+          type: selectedType,
+          name: qrName,
+          content: contentData,
+          custom_options: customOptions,
+        });
+        console.debug("[QR Create] API response", response);
+      }
+
       if (response.success) {
         toast({
           title: "QR Code created!",
@@ -458,34 +461,46 @@ export default function CreateQRCode() {
         throw new Error(response.message || "Failed to create QR code");
       }
     } catch (error: unknown) {
-      const err = error as { status?: number; message?: string };
+      const err = error as {
+        status?: number;
+        message?: string;
+        errors?: Record<string, string[] | string>;
+        data?: unknown;
+      };
+
+      const details = err.errors
+        ? Object.entries(err.errors)
+            .map(([field, messages]) => {
+              const joined = Array.isArray(messages) ? messages.join(", ") : String(messages);
+              return `${field}: ${joined}`;
+            })
+            .join(" | ")
+        : undefined;
+
+      const exactMessage = details || err.message || "Could not create QR code. Please try again.";
       
       // Log error for debugging (handled, so no console.error)
-      if (process.env.NODE_ENV === "development") {
-        console.warn("QR creation error:", { status: err.status, message: err.message });
+      if (import.meta.env.DEV) {
+        console.warn("[QR Create] API error", {
+          status: err.status,
+          message: err.message,
+          errors: err.errors,
+          data: err.data,
+        });
       }
       
-      if (err.status === 403) {
-        // Plan limit reached
-        setShowUpsell(true);
-        setUpsellFeature("More QR codes");
-        toast({
-          variant: "destructive",
-          title: "Limit reached",
-          description: err.message || "Upgrade your plan to create more QR codes.",
-        });
-      } else if (err.status === 500) {
+      if (err.status === 500) {
         // Server error - provide helpful feedback
         toast({
           variant: "destructive",
           title: "Server error",
-          description: "The server encountered an issue. Please try again in a moment.",
+          description: exactMessage,
         });
       } else {
         toast({
           variant: "destructive",
           title: "Creation failed",
-          description: err.message || "Could not create QR code. Please try again.",
+          description: exactMessage,
         });
       }
     } finally {
@@ -533,15 +548,15 @@ export default function CreateQRCode() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between gap-2 px-3 py-3 sm:px-6 sm:py-4">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-4">
             <Button variant="ghost" size="icon" asChild>
               <Link to="/dashboard">
                 <ArrowLeft className="w-5 h-5" />
               </Link>
             </Button>
             <div>
-              <h1 className="font-display text-xl font-bold">Create QR Code</h1>
+              <h1 className="font-display text-lg font-bold sm:text-xl">Create QR Code</h1>
               <p className="text-sm text-muted-foreground">Step {step} of 3</p>
             </div>
           </div>
@@ -558,7 +573,7 @@ export default function CreateQRCode() {
               </Button>
             ) : (
               <Button variant="hero" onClick={handleCreate}>
-                Create QR Code
+                <span className="hidden sm:inline">Create QR Code</span><span className="sm:hidden">Create</span>
                 <Check className="w-4 h-4 ml-1" />
               </Button>
             )}
@@ -597,34 +612,20 @@ export default function CreateQRCode() {
 
                   <div className="grid sm:grid-cols-2 gap-4">
                     {qrTypes.map((type) => {
-                      const isLocked = type.premium && !canUsePremiumTypes;
                       return (
                         <button
                           key={type.id}
-                          onClick={() => handleTypeSelect(type.id, !!type.premium)}
+                          onClick={() => handleTypeSelect(type.id)}
                           className={`relative p-5 rounded-2xl border text-left transition-all ${
                             selectedType === type.id
                               ? "border-primary bg-primary/5"
-                              : isLocked
-                              ? "border-border hover:border-warning/50 cursor-pointer"
                               : "border-border hover:border-primary/50"
                           }`}
                         >
-                          {type.premium && (
-                            <div className="absolute top-3 right-3">
-                              {isLocked ? (
-                                <Lock className="w-4 h-4 text-warning" />
-                              ) : (
-                                <Crown className="w-4 h-4 text-primary" />
-                              )}
-                            </div>
-                          )}
                           <div
                             className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${
                               selectedType === type.id
                                 ? "bg-primary text-primary-foreground"
-                                : isLocked
-                                ? "bg-warning/10 text-warning"
                                 : "bg-muted"
                             }`}
                           >
@@ -634,11 +635,6 @@ export default function CreateQRCode() {
                           <p className="text-sm text-muted-foreground">
                             {type.description}
                           </p>
-                          {type.premium && (
-                            <p className={`text-xs mt-2 ${isLocked ? "text-warning" : "text-primary"}`}>
-                              {isLocked ? "Pro feature - Click to upgrade" : "Pro feature ✓"}
-                            </p>
-                          )}
                         </button>
                       );
                     })}
@@ -786,14 +782,10 @@ export default function CreateQRCode() {
                     <QRDesignCustomizer
                       options={designOptions}
                       onChange={setDesignOptions}
-                      isPro={isPro}
-                      onUpgradeClick={() => {
-                        setUpsellFeature("Advanced Design Options");
-                        setShowUpsell(true);
-                      }}
+                      isPro={true}
                     />
 
-                    {/* Logo Uploader - Pro/Enterprise only */}
+                    {/* Logo uploader is included free forever. */}
                     <div className="pt-4 border-t border-border">
                       <LogoUploader
                         selectedLogo={selectedLogo}
@@ -838,7 +830,7 @@ export default function CreateQRCode() {
               <div className="rounded-2xl p-6 flex items-center justify-center mb-6 bg-muted/30">
                 <QRFramePreview
                   value={getQRValue()}
-                  options={designOptions}
+                  options={previewOptions}
                   size={180}
                 />
               </div>
@@ -846,11 +838,8 @@ export default function CreateQRCode() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Type</span>
-                  <span className="font-medium flex items-center gap-2">
+                  <span className="font-medium">
                     {selectedTypeInfo?.name}
-                    {selectedTypeInfo?.premium && (
-                      <Crown className="w-3 h-3 text-primary" />
-                    )}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
@@ -875,12 +864,6 @@ export default function CreateQRCode() {
         </div>
       </div>
 
-      {/* Upsell Modal */}
-      <UpsellModal
-        open={showUpsell}
-        onOpenChange={setShowUpsell}
-        feature={upsellFeature}
-      />
     </div>
   );
 }

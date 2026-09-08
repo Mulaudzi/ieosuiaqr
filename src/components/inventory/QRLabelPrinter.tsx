@@ -17,6 +17,7 @@ import { Printer, Download, Package } from "lucide-react";
 import { InventoryItem } from "@/services/api/inventory";
 import { useState } from "react";
 import ieosuiaLogo from "@/assets/ieosuia-logo.png";
+import { publicScanUrl } from "@/lib/publicScanUrl";
 
 interface QRLabelPrinterProps {
   items: InventoryItem[];
@@ -40,7 +41,7 @@ export function QRLabelPrinter({ items, open, onOpenChange }: QRLabelPrinterProp
   const [showLogo, setShowLogo] = useState(true);
   const [columns, setColumns] = useState(3);
 
-  const appUrl = import.meta.env.VITE_APP_URL || "https://qr.ieosuia.com";
+  const scanUrl = (qrId: string) => publicScanUrl(qrId);
 
   const handlePrint = () => {
     const printContent = printRef.current;
@@ -137,7 +138,7 @@ export function QRLabelPrinter({ items, open, onOpenChange }: QRLabelPrinterProp
     tempDiv.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg"></svg>`;
     
     // Return a placeholder - the actual QR will be rendered via QRCodeSVG
-    const url = `${appUrl}/scan/${qrId}`;
+    const url = scanUrl(qrId);
     return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}`;
   };
 
@@ -241,7 +242,7 @@ export function QRLabelPrinter({ items, open, onOpenChange }: QRLabelPrinterProp
               >
                 {item.qr_id ? (
                   <QRCodeSVG
-                    value={`${appUrl}/scan/${item.qr_id}`}
+                    value={scanUrl(item.qr_id)}
                     size={size.qrSize * 2.5}
                     level="M"
                     imageSettings={showLogo ? {

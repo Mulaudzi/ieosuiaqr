@@ -10,13 +10,6 @@ use App\Services\MailService;
 
 class InventoryController
 {
-    // Plan limits
-    private static $planLimits = [
-        'Free' => ['max_items' => 3, 'can_edit' => false],
-        'Pro' => ['max_items' => 100, 'can_edit' => true],
-        'Enterprise' => ['max_items' => PHP_INT_MAX, 'can_edit' => true],
-    ];
-
     /**
      * Get inventory analytics dashboard data
      */
@@ -38,7 +31,7 @@ class InventoryController
             SELECT 
                 COUNT(*) as total,
                 SUM(CASE WHEN status = 'in_stock' THEN 1 ELSE 0 END) as in_stock,
-                SUM(CASE WHEN status = 'out' THEN 1 ELSE 0 END) as out,
+                SUM(CASE WHEN status = 'out' THEN 1 ELSE 0 END) as out_count,
                 SUM(CASE WHEN status = 'maintenance' THEN 1 ELSE 0 END) as maintenance,
                 SUM(CASE WHEN status = 'checked_out' THEN 1 ELSE 0 END) as checked_out
             FROM inventory_items 
@@ -146,7 +139,7 @@ class InventoryController
             ],
             'status_distribution' => [
                 ['status' => 'in_stock', 'count' => (int)($statusCounts['in_stock'] ?? 0), 'label' => 'In Stock'],
-                ['status' => 'out', 'count' => (int)($statusCounts['out'] ?? 0), 'label' => 'Out'],
+                ['status' => 'out', 'count' => (int)($statusCounts['out_count'] ?? 0), 'label' => 'Out'],
                 ['status' => 'maintenance', 'count' => (int)($statusCounts['maintenance'] ?? 0), 'label' => 'Maintenance'],
                 ['status' => 'checked_out', 'count' => (int)($statusCounts['checked_out'] ?? 0), 'label' => 'Checked Out'],
             ],
@@ -164,7 +157,6 @@ class InventoryController
     public static function exportAnalyticsCsv(): void
     {
         $user = Auth::check();
-        Auth::requirePlan(['Pro', 'Enterprise']);
         
         $pdo = Database::getInstance();
         $period = $_GET['period'] ?? '30d';
@@ -273,7 +265,6 @@ class InventoryController
     public static function setMaintenanceReminder(): void
     {
         $user = Auth::check();
-        Auth::requirePlan(['Pro', 'Enterprise']);
         
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
         $pdo = Database::getInstance();
@@ -318,7 +309,6 @@ class InventoryController
     public static function checkLowActivityAlerts(): void
     {
         $user = Auth::check();
-        Auth::requirePlan(['Pro', 'Enterprise']);
         
         $pdo = Database::getInstance();
 
@@ -528,16 +518,10 @@ class InventoryController
             ->validate();
 
         $pdo = Database::getInstance();
-
-        // Check plan limits
-        $limits = self::$planLimits[$user['plan']] ?? self::$planLimits['Free'];
-        
-        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM inventory_items WHERE user_id = ?");
-        $stmt->execute([$user['id']]);
-        $currentCount = (int)$stmt->fetch()['count'];
-
-        if ($currentCount >= $limits['max_items']) {
-            Response::error('You have reached your inventory limit. Upgrade your plan to add more items.', 403);
+        $allowedStatuses = ['in_stock', 'out', 'maintenance', 'checked_out'];
+        $status = $data['status'] ?? 'in_stock';
+        if (!in_array($status, $allowedStatuses, true)) {
+            Response::error('Invalid status', 400);
         }
 
         // Validate QR ownership if provided
@@ -547,6 +531,11 @@ class InventoryController
             $stmt->execute([$data['qr_id'], $user['id']]);
             if (!$stmt->fetch()) {
                 Response::error('QR code not found or not owned by you', 400);
+            }
+            $stmt = $pdo->prepare("SELECT id FROM inventory_items WHERE qr_id = ? LIMIT 1");
+            $stmt->execute([$data['qr_id']]);
+            if ($stmt->fetch()) {
+                Response::error('This QR code is already linked to another inventory item', 409);
             }
             $qrId = $data['qr_id'];
         }
@@ -562,7 +551,7 @@ class InventoryController
             trim($data['name']),
             $data['category'] ?? 'Other',
             $data['notes'] ?? null,
-            $data['status'] ?? 'in_stock',
+            $status,
             $data['location'] ?? null,
         ]);
 
@@ -581,18 +570,13 @@ class InventoryController
         $user = Auth::check();
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
-        // Check edit permission
-        $limits = self::$planLimits[$user['plan']] ?? self::$planLimits['Free'];
-        if (!$limits['can_edit']) {
-            Response::error('Upgrade to Pro to edit inventory items.', 403);
-        }
-
         $pdo = Database::getInstance();
 
         // Check ownership
-        $stmt = $pdo->prepare("SELECT id FROM inventory_items WHERE id = ? AND user_id = ?");
+        $stmt = $pdo->prepare("SELECT * FROM inventory_items WHERE id = ? AND user_id = ?");
         $stmt->execute([$id, $user['id']]);
-        if (!$stmt->fetch()) {
+        $existingItem = $stmt->fetch();
+        if (!$existingItem) {
             Response::error('Item not found', 404);
         }
 
@@ -612,12 +596,33 @@ class InventoryController
             $params[] = $data['notes'];
         }
         if (isset($data['status'])) {
+            $allowedStatuses = ['in_stock', 'out', 'maintenance', 'checked_out'];
+            if (!in_array($data['status'], $allowedStatuses, true)) {
+                Response::error('Invalid status', 400);
+            }
             $updates[] = "status = ?";
             $params[] = $data['status'];
         }
         if (isset($data['location'])) {
             $updates[] = "location = ?";
             $params[] = $data['location'];
+        }
+        if (array_key_exists('qr_id', $data)) {
+            $qrId = !empty($data['qr_id']) ? $data['qr_id'] : null;
+            if ($qrId !== null) {
+                $stmt = $pdo->prepare("SELECT id FROM qr_codes WHERE id = ? AND user_id = ?");
+                $stmt->execute([$qrId, $user['id']]);
+                if (!$stmt->fetch()) {
+                    Response::error('QR code not found or not owned by you', 400);
+                }
+                $stmt = $pdo->prepare("SELECT id FROM inventory_items WHERE qr_id = ? AND id <> ? LIMIT 1");
+                $stmt->execute([$qrId, $id]);
+                if ($stmt->fetch()) {
+                    Response::error('This QR code is already linked to another inventory item', 409);
+                }
+            }
+            $updates[] = "qr_id = ?";
+            $params[] = $qrId;
         }
 
         if (empty($updates)) {
@@ -628,6 +633,25 @@ class InventoryController
         $sql = "UPDATE inventory_items SET " . implode(', ', $updates) . ", updated_at = NOW() WHERE id = ?";
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
+
+        $newStatus = $data['status'] ?? $existingItem['status'];
+        $newLocation = array_key_exists('location', $data) ? $data['location'] : $existingItem['location'];
+        if ($newStatus !== $existingItem['status'] || $newLocation !== $existingItem['location']) {
+            $stmt = $pdo->prepare("
+                INSERT INTO inventory_status_history
+                (item_id, old_status, new_status, old_location, new_location, changed_by, changed_by_name, changed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+            ");
+            $stmt->execute([
+                $id,
+                $existingItem['status'],
+                $newStatus,
+                $existingItem['location'],
+                $newLocation,
+                $user['id'],
+                $user['name']
+            ]);
+        }
 
         // Fetch updated item
         $stmt = $pdo->prepare("SELECT * FROM inventory_items WHERE id = ?");
@@ -698,16 +722,14 @@ class InventoryController
         $user = Auth::check();
         $pdo = Database::getInstance();
 
-        $limits = self::$planLimits[$user['plan']] ?? self::$planLimits['Free'];
-
         $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM inventory_items WHERE user_id = ?");
         $stmt->execute([$user['id']]);
         $currentCount = (int)$stmt->fetch()['count'];
 
         Response::success([
-            'max_items' => $limits['max_items'],
+            'max_items' => null,
             'current_count' => $currentCount,
-            'can_edit' => $limits['can_edit'],
+            'can_edit' => true,
         ]);
     }
 
@@ -756,7 +778,7 @@ class InventoryController
             if ($user && $user['id'] == $item['owner_id']) {
                 $isOwner = true;
             }
-            // Check shared access for Enterprise
+            // Check shared access.
             if ($user && !empty($item['shared_access'])) {
                 $sharedAccess = json_decode($item['shared_access'], true) ?? [];
                 if (in_array($user['id'], $sharedAccess)) {
@@ -803,17 +825,11 @@ class InventoryController
 
         // Check authorization
         $user = Auth::check(); // Requires auth
-        $limits = self::$planLimits[$user['plan']] ?? self::$planLimits['Free'];
-        
-        if (!$limits['can_edit']) {
-            Response::error('Upgrade to Pro to update item status.', 403);
-        }
-
         $canUpdate = false;
         if ($user['id'] == $item['owner_id']) {
             $canUpdate = true;
         }
-        // Check shared access for Enterprise
+        // Check shared access.
         if (!empty($item['shared_access'])) {
             $sharedAccess = json_decode($item['shared_access'], true) ?? [];
             if (in_array($user['id'], $sharedAccess)) {

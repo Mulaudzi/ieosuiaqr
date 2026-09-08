@@ -1,15 +1,20 @@
 import { useState, useEffect, useCallback } from "react";
 import { qrCodeApi } from "@/services/api";
 import { QRCode, QRCodeContent } from "@/services/api/types";
+import { parseApiError } from "@/services/api/client";
+import { QRDesignOptions, defaultDesignOptions } from "@/components/qr/QRDesignCustomizer";
+import { publicScanUrl } from "@/lib/publicScanUrl";
 
 export interface StoredQRCode {
   id: string;
   name: string;
   type: string;
-  content: string;
+  content: string;          // raw destination (used for display/editing)
+  scanUrl?: string;         // the URL encoded in the actual QR image (routes through scan logger)
   contentData?: Record<string, string>;
   fgColor: string;
   bgColor: string;
+  designOptions: QRDesignOptions;
   scans: number;
   created: string;
   status: "active" | "paused";
@@ -20,7 +25,7 @@ export interface StoredQRCode {
 const STORAGE_KEY = "ieosuia_qr_codes";
 
 // Convert API QRCode to StoredQRCode format
-const apiToStored = (qr: QRCode): StoredQRCode => {
+const apiToStored = (qr: QRCode & { total_scans?: number; custom_options?: Record<string, unknown> }): StoredQRCode => {
   // Build content string from QRCodeContent
   const content = qr.content;
   let contentStr = "";
@@ -35,15 +40,25 @@ const apiToStored = (qr: QRCode): StoredQRCode => {
   else if (content.locationName) contentStr = content.locationName;
   else contentStr = JSON.stringify(content);
 
+  const scanCount = Number(qr.scan_count ?? qr.total_scans ?? 0);
+  const customOptions = (qr as unknown as { custom_options?: Record<string, unknown> }).custom_options ?? {};
+  const designOptions: QRDesignOptions = {
+    ...defaultDesignOptions,
+    ...customOptions,
+    logo: (customOptions.logo_path as string | undefined) ?? (customOptions.logo as string | undefined) ?? null,
+  } as QRDesignOptions;
+
   return {
     id: qr.id,
     name: qr.name,
     type: qr.type,
     content: contentStr,
+    scanUrl: publicScanUrl(qr.id),
     contentData: content as unknown as Record<string, string>,
-    fgColor: qr.customization?.foreground_color || "#000000",
-    bgColor: qr.customization?.background_color || "#FFFFFF",
-    scans: qr.scan_count,
+    fgColor: designOptions.fgColor || qr.customization?.foreground_color || "#000000",
+    bgColor: designOptions.bgColor || qr.customization?.background_color || "#FFFFFF",
+    designOptions,
+    scans: Number.isFinite(scanCount) ? scanCount : 0,
     created: new Date(qr.created_at).toISOString().split("T")[0],
     status: "active",
   };
@@ -83,6 +98,10 @@ const storedToApi = (qr: Omit<StoredQRCode, "id" | "scans" | "created" | "status
     customization: {
       foreground_color: qr.fgColor,
       background_color: qr.bgColor,
+    },
+    custom_options: {
+      ...qr.designOptions,
+      ...(qr.designOptions.logo ? { logo_path: qr.designOptions.logo } : {}),
     },
   };
 };
@@ -163,7 +182,17 @@ export function useQRStorage() {
         return newQR;
       }
     } catch (err) {
-      console.error("Failed to save QR code:", err);
+      const parsed = parseApiError(err, "Failed to save QR code");
+      if (import.meta.env.DEV) {
+        console.warn("[useQRStorage] QR create error", {
+          status: parsed.status,
+          message: parsed.message,
+          errors: parsed.details,
+          data: parsed.data,
+          payload: storedToApi(qr),
+        });
+      }
+
       // Fallback to localStorage
       const newQR: StoredQRCode = {
         ...qr,
@@ -175,7 +204,7 @@ export function useQRStorage() {
       const updated = [...qrCodes, newQR];
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       setQRCodes(updated);
-      setError("Saved locally. Will sync when connection is restored.");
+      setError(`Saved locally. Server sync failed: ${parsed.message}`);
       return newQR;
     }
   };

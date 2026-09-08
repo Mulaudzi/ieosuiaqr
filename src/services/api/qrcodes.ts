@@ -58,7 +58,7 @@ export const qrCodeApi = {
   },
 
   /**
-   * Bulk create QR codes (Enterprise only)
+   * Bulk create QR codes
    * POST /api/qr/bulk
    */
   bulkCreate: async (data: BulkCreateQRCodeRequest): Promise<ApiResponse<{ created: number; failed: number; qr_codes: QRCode[] }>> => {
@@ -66,7 +66,7 @@ export const qrCodeApi = {
   },
 
   /**
-   * Bulk create from CSV file (Enterprise only)
+   * Bulk create from CSV file
    * POST /api/qr/bulk
    */
   bulkImportCSV: async (file: File): Promise<ApiResponse<{ created: number; failed: number; errors: string[] }>> => {

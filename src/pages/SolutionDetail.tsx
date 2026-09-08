@@ -853,9 +853,9 @@ export default function SolutionDetail() {
                     <ArrowRight className="w-4 h-4" />
                   </Button>
                 </Link>
-                <Link to="/#pricing">
+                <Link to="/docs">
                   <Button size="lg" variant="outline">
-                    View Pricing
+                    View Docs
                   </Button>
                 </Link>
               </div>

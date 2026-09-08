@@ -106,14 +106,7 @@ class Auth
 
     public static function requirePlan(array $allowedPlans): void
     {
-        $user = self::getUser();
-        
-        if (!in_array($user['plan'], $allowedPlans)) {
-            Response::error(
-                'This feature requires ' . implode(' or ', $allowedPlans) . ' plan. Please upgrade to access.',
-                403
-            );
-        }
+        self::getUser();
     }
 
     public static function requireVerifiedEmail(): void

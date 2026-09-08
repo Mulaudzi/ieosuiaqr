@@ -8,9 +8,30 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+vendor/
+api/vendor/
 dist
 dist-ssr
+build/
+coverage/
+api/coverage/
+.phpunit.cache/
+api/.phpunit.cache/
 *.local
+.ftp-deploy.env
+.private/
+
+# Runtime configuration and generated/private data
+.env
+.env.*
+!.env.example
+api/.env
+api/.env.*
+!api/.env.example
+api/invoices/
+api/receipts/
+api/exports/
+api/geoip/*.mmdb
 
 # Editor directories and files
 .vscode/*

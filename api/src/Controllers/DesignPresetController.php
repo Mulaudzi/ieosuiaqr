@@ -10,12 +10,16 @@ use App\Middleware\Auth;
 class DesignPresetController
 {
     private $db;
-    private $userId;
 
     public function __construct()
     {
         $this->db = Database::getInstance();
-        $this->userId = Auth::getUserId();
+    }
+
+    private function requireUserId(): int
+    {
+        $user = Auth::check();
+        return (int)$user['id'];
     }
 
     /**
@@ -24,9 +28,7 @@ class DesignPresetController
      */
     public function index()
     {
-        if (!$this->userId) {
-            return Response::error('Unauthorized', 401);
-        }
+        $userId = $this->requireUserId();
 
         try {
             $stmt = $this->db->prepare("
@@ -36,7 +38,7 @@ class DesignPresetController
                 WHERE user_id = ?
                 ORDER BY is_default DESC, created_at DESC
             ");
-            $stmt->execute([$this->userId]);
+            $stmt->execute([$userId]);
             $presets = $stmt->fetchAll();
 
             // Parse JSON design_options
@@ -57,16 +59,14 @@ class DesignPresetController
      */
     public function show($id)
     {
-        if (!$this->userId) {
-            return Response::error('Unauthorized', 401);
-        }
+        $userId = $this->requireUserId();
 
         try {
             $stmt = $this->db->prepare("
                 SELECT * FROM design_presets
                 WHERE id = ? AND user_id = ?
             ");
-            $stmt->execute([$id, $this->userId]);
+            $stmt->execute([$id, $userId]);
             $preset = $stmt->fetch();
 
             if (!$preset) {
@@ -88,26 +88,25 @@ class DesignPresetController
      */
     public function store()
     {
-        if (!$this->userId) {
-            return Response::error('Unauthorized', 401);
-        }
+        $userId = $this->requireUserId();
 
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
-        // Validate required fields
-        $validation = Validator::validate($data, [
-            'name' => 'required|string|max:100',
-            'design_options' => 'required|array',
-        ]);
+        $validator = new Validator($data);
+        $validator
+            ->required('name', 'Preset name is required')
+            ->maxLength('name', 100, 'Preset name must not exceed 100 characters')
+            ->required('design_options', 'Design options are required')
+            ->validate();
 
-        if (!$validation['valid']) {
-            return Response::error($validation['errors'], 422);
+        if (!is_array($data['design_options'] ?? null)) {
+            return Response::error('Design options must be an object', 422);
         }
 
         try {
             // Check preset limit (max 20 per user)
             $stmt = $this->db->prepare("SELECT COUNT(*) FROM design_presets WHERE user_id = ?");
-            $stmt->execute([$this->userId]);
+            $stmt->execute([$userId]);
             $count = $stmt->fetchColumn();
 
             if ($count >= 20) {
@@ -117,7 +116,7 @@ class DesignPresetController
             // If this is set as default, unset other defaults
             if (!empty($data['is_default'])) {
                 $stmt = $this->db->prepare("UPDATE design_presets SET is_default = 0 WHERE user_id = ?");
-                $stmt->execute([$this->userId]);
+                $stmt->execute([$userId]);
             }
 
             $id = $this->generateUuid();
@@ -131,7 +130,7 @@ class DesignPresetController
 
             $stmt->execute([
                 $id,
-                $this->userId,
+                $userId,
                 $data['name'],
                 $data['description'] ?? null,
                 json_encode($data['design_options']),
@@ -159,16 +158,14 @@ class DesignPresetController
      */
     public function update($id)
     {
-        if (!$this->userId) {
-            return Response::error('Unauthorized', 401);
-        }
+        $userId = $this->requireUserId();
 
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
         try {
             // Check ownership
             $stmt = $this->db->prepare("SELECT * FROM design_presets WHERE id = ? AND user_id = ?");
-            $stmt->execute([$id, $this->userId]);
+            $stmt->execute([$id, $userId]);
             $preset = $stmt->fetch();
 
             if (!$preset) {
@@ -196,7 +193,7 @@ class DesignPresetController
             if (isset($data['is_default']) && $data['is_default']) {
                 // Unset other defaults first
                 $stmt = $this->db->prepare("UPDATE design_presets SET is_default = 0 WHERE user_id = ?");
-                $stmt->execute([$this->userId]);
+                $stmt->execute([$userId]);
                 $updates[] = "is_default = 1";
             }
 
@@ -230,13 +227,11 @@ class DesignPresetController
      */
     public function destroy($id)
     {
-        if (!$this->userId) {
-            return Response::error('Unauthorized', 401);
-        }
+        $userId = $this->requireUserId();
 
         try {
             $stmt = $this->db->prepare("SELECT * FROM design_presets WHERE id = ? AND user_id = ?");
-            $stmt->execute([$id, $this->userId]);
+            $stmt->execute([$id, $userId]);
             $preset = $stmt->fetch();
 
             if (!$preset) {
@@ -258,13 +253,11 @@ class DesignPresetController
      */
     public function setDefault($id)
     {
-        if (!$this->userId) {
-            return Response::error('Unauthorized', 401);
-        }
+        $userId = $this->requireUserId();
 
         try {
             $stmt = $this->db->prepare("SELECT * FROM design_presets WHERE id = ? AND user_id = ?");
-            $stmt->execute([$id, $this->userId]);
+            $stmt->execute([$id, $userId]);
             $preset = $stmt->fetch();
 
             if (!$preset) {
@@ -273,7 +266,7 @@ class DesignPresetController
 
             // Unset all defaults
             $stmt = $this->db->prepare("UPDATE design_presets SET is_default = 0 WHERE user_id = ?");
-            $stmt->execute([$this->userId]);
+            $stmt->execute([$userId]);
 
             // Set this one as default
             $stmt = $this->db->prepare("UPDATE design_presets SET is_default = 1, updated_at = ? WHERE id = ?");

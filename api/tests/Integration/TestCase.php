@@ -75,9 +75,6 @@ abstract class TestCase extends BaseTestCase
             "DELETE h FROM inventory_status_history h INNER JOIN inventory_items i ON h.item_id = i.id WHERE i.user_id = ?",
             "DELETE FROM inventory_alerts WHERE user_id = ?",
             "DELETE FROM inventory_items WHERE user_id = ?",
-            "DELETE FROM subscriptions WHERE user_id = ?",
-            "DELETE FROM invoices WHERE user_id = ?",
-            "DELETE FROM payments WHERE user_id = ?",
             "DELETE FROM users WHERE id = ?"
         ];
 

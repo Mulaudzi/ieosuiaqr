@@ -28,13 +28,13 @@ export function CTASection() {
           >
             <Sparkles className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium text-primary">
-              Start for free, upgrade anytime
+              100% free with full features
             </span>
           </motion.div>
 
           <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold mb-6">
             Start Tracking Your First Items{" "}
-            <span className="gradient-text">Free</span>
+            <span className="gradient-text">Today</span>
           </h2>
           <p className="text-lg sm:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
             Join businesses, churches, and schools using IEOSUIA to create smart QR codes and track inventory. No hardware or credit card required.
@@ -48,7 +48,7 @@ export function CTASection() {
               </Link>
             </Button>
             <Button variant="outline" size="lg" asChild>
-              <Link to="/contact">Talk to Sales</Link>
+              <Link to="/docs">Read Documentation</Link>
             </Button>
           </div>
 

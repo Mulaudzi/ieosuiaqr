@@ -42,7 +42,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { inventoryApi, InventoryAnalytics } from "@/services/api/inventory";
-import { useUserPlan } from "@/hooks/useUserPlan";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
@@ -76,7 +75,6 @@ export default function InventoryAnalyticsPage() {
   const [analytics, setAnalytics] = useState<InventoryAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [period, setPeriod] = useState("30d");
-  const { isPro, isEnterprise } = useUserPlan();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -97,13 +95,19 @@ export default function InventoryAnalyticsPage() {
     fetchAnalytics();
   }, [period]);
 
-  const handleExportCSV = () => {
-    const url = inventoryApi.exportAnalyticsCsv(period);
-    window.open(url, "_blank");
-    toast({
-      title: "Export Started",
-      description: "Your CSV report is being downloaded.",
-    });
+  const handleExportCSV = async () => {
+    try {
+      const blob = await inventoryApi.exportAnalyticsCsv(period);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `inventory-analytics-${period}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast({ title: "Export complete", description: "Your CSV report has been downloaded." });
+    } catch {
+      toast({ title: "Export failed", description: "Please try again.", variant: "destructive" });
+    }
   };
 
   const handleExportPDF = () => {
@@ -273,8 +277,7 @@ export default function InventoryAnalyticsPage() {
           </Select>
           
           {/* Export Dropdown */}
-          {(isPro || isEnterprise) && (
-            <DropdownMenu>
+          <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="gap-2">
                   <Download className="h-4 w-4" />
@@ -291,8 +294,7 @@ export default function InventoryAnalyticsPage() {
                   Download PDF
                 </DropdownMenuItem>
               </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          </DropdownMenu>
         </div>
 
         {/* Summary Cards */}

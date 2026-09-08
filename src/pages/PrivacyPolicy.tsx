@@ -27,6 +27,7 @@ const PrivacyPolicy = () => {
           <p className="text-muted-foreground mb-8">Last updated: January 13, 2025</p>
 
           <div className="prose prose-invert max-w-none space-y-8">
+            <section><h2 className="text-2xl font-semibold text-foreground mb-4">Responsible party</h2><p className="text-muted-foreground leading-relaxed">IEOSUIA, 26 Rock Alder, Naturena, Johannesburg, 2095, South Africa.</p></section>
             <section>
               <h2 className="text-2xl font-semibold text-foreground mb-4">1. Introduction</h2>
               <p className="text-muted-foreground leading-relaxed">
@@ -75,7 +76,6 @@ const PrivacyPolicy = () => {
               <ul className="list-disc list-inside text-muted-foreground mt-4 space-y-2">
                 <li>Name and email address</li>
                 <li>Account credentials</li>
-                <li>Payment information (processed securely through third-party providers)</li>
                 <li>Profile information and preferences</li>
                 <li>Company name and contact details (if provided)</li>
               </ul>
@@ -174,8 +174,7 @@ const PrivacyPolicy = () => {
               <h2 className="text-2xl font-semibold text-foreground mb-4">8. Data Retention</h2>
               <p className="text-muted-foreground leading-relaxed">
                 We retain your personal information only for as long as necessary to fulfill the purposes 
-                outlined in this Privacy Policy, unless a longer retention period is required by law. 
-                QR code scan analytics are retained for the duration of your subscription plus 30 days.
+                outlined in this Privacy Policy, unless a longer retention period is required by law.
                 Upon account deletion, we will securely delete your personal information within 30 days.
               </p>
             </section>

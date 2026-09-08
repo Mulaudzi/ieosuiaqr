@@ -143,9 +143,18 @@ export default function AdminAuditLog() {
     fetchData();
   };
 
-  const handleExport = () => {
-    const url = adminApi.getAuditExportUrl(fromDate, toDate);
-    window.open(url, "_blank");
+  const handleExport = async () => {
+    try {
+      const blob = await adminApi.exportAuditLog(fromDate, toDate);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `admin-audit-${fromDate}-${toDate}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ variant: "destructive", title: "Export failed", description: "Please try again." });
+    }
   };
 
   const resetFilters = () => {

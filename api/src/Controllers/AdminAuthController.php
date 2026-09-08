@@ -724,9 +724,28 @@ class AdminAuthController
 
     // ===== Helper Methods =====
 
+    private static function jwtSecret(): string
+    {
+        $secret = $_ENV['JWT_SECRET'] ?? '';
+        if (strlen($secret) < 32) {
+            throw new \RuntimeException('JWT_SECRET must contain at least 32 characters');
+        }
+        return $secret;
+    }
+
+    private static function base64UrlEncode(string $value): string
+    {
+        return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+    }
+
+    private static function base64UrlDecode(string $value): string|false
+    {
+        return base64_decode(strtr($value, '-_', '+/'), true);
+    }
+
     private static function generateStepToken(int $adminId, int $step): string
     {
-        $secret = $_ENV['JWT_SECRET'] ?? 'your-secret-key';
+        $secret = self::jwtSecret();
         $payload = [
             'admin_id' => $adminId,
             'step' => $step,
@@ -734,8 +753,8 @@ class AdminAuthController
             'iat' => time()
         ];
         
-        $header = base64_encode(json_encode(['typ' => 'JWT', 'alg' => 'HS256']));
-        $payload = base64_encode(json_encode($payload));
+        $header = self::base64UrlEncode(json_encode(['typ' => 'JWT', 'alg' => 'HS256']));
+        $payload = self::base64UrlEncode(json_encode($payload));
         $signature = hash_hmac('sha256', "$header.$payload", $secret);
         
         return "$header.$payload.$signature";
@@ -743,7 +762,7 @@ class AdminAuthController
 
     private static function validateStepToken(string $token, int $expectedStep): ?array
     {
-        $secret = $_ENV['JWT_SECRET'] ?? 'your-secret-key';
+        $secret = self::jwtSecret();
         $parts = explode('.', $token);
         
         if (count($parts) !== 3) {
@@ -757,7 +776,8 @@ class AdminAuthController
             return null;
         }
 
-        $data = json_decode(base64_decode($payload), true);
+        $decodedPayload = self::base64UrlDecode($payload);
+        $data = $decodedPayload === false ? null : json_decode($decodedPayload, true);
         
         if (!$data || $data['exp'] < time() || $data['step'] !== $expectedStep) {
             return null;
@@ -766,9 +786,9 @@ class AdminAuthController
         return $data;
     }
 
-    private static function generateAdminToken(int $adminId): string
+    public static function generateAdminToken(int $adminId): string
     {
-        $secret = $_ENV['JWT_SECRET'] ?? 'your-secret-key';
+        $secret = self::jwtSecret();
         $payload = [
             'admin_id' => $adminId,
             'type' => 'admin_session',
@@ -776,22 +796,19 @@ class AdminAuthController
             'iat' => time()
         ];
         
-        $header = base64_encode(json_encode(['typ' => 'JWT', 'alg' => 'HS256']));
-        $payload = base64_encode(json_encode($payload));
+        $header = self::base64UrlEncode(json_encode(['typ' => 'JWT', 'alg' => 'HS256']));
+        $payload = self::base64UrlEncode(json_encode($payload));
         $signature = hash_hmac('sha256', "$header.$payload", $secret);
         
-        return "$header.$payload.$payload.$signature";
+        return "$header.$payload.$signature";
     }
 
     private static function decodeAdminToken(string $token): ?array
     {
-        $secret = $_ENV['JWT_SECRET'] ?? 'your-secret-key';
+        $secret = self::jwtSecret();
         $parts = explode('.', $token);
         
-        // Handle both 3-part and 4-part tokens (legacy fix)
-        if (count($parts) === 4) {
-            [$header, $payload, , $signature] = $parts;
-        } elseif (count($parts) === 3) {
+        if (count($parts) === 3) {
             [$header, $payload, $signature] = $parts;
         } else {
             return null;
@@ -802,7 +819,8 @@ class AdminAuthController
             return null;
         }
 
-        $data = json_decode(base64_decode($payload), true);
+        $decodedPayload = self::base64UrlDecode($payload);
+        $data = $decodedPayload === false ? null : json_decode($decodedPayload, true);
         
         if (!$data || ($data['type'] ?? '') !== 'admin_session') {
             return null;

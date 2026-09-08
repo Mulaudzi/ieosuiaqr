@@ -13,6 +13,8 @@ interface DownloadOptions {
   designOptions?: QRDesignOptions;
 }
 
+const DEFAULT_QR_VALUE = "https://ieosuia.com";
+
 // Generate SVG string with custom styling
 const generateStyledSVG = async (
   value: string,
@@ -40,7 +42,7 @@ const generateStyledSVG = async (
   const effectiveCornerColor = cornerColor || fgColor;
 
   // Generate QR matrix
-  const qr = QRCodeGenerator.create(value || "https://example.com", {
+  const qr = QRCodeGenerator.create(value || DEFAULT_QR_VALUE, {
     errorCorrectionLevel: "H",
   });
   const moduleCount = qr.modules.size;
@@ -182,7 +184,7 @@ const generateStyledSVG = async (
     svgContent += `<rect x="${logoX - 4}" y="${logoY - 4}" width="${logoSize + 8}" height="${logoSize + 8}" fill="${effectiveBgColor === 'transparent' ? '#FFFFFF' : effectiveBgColor}" rx="8"/>`;
     
     if (logo) {
-      svgContent += `<image x="${logoX}" y="${logoY}" width="${logoSize}" height="${logoSize}" href="${logo}"/>`;
+      svgContent += `<image x="${logoX}" y="${logoY}" width="${logoSize}" height="${logoSize}" href="${logo}" preserveAspectRatio="xMidYMid meet"/>`;
     }
   }
 
@@ -307,54 +309,73 @@ const svgToCanvas = async (svgString: string, width: number, height: number): Pr
 
 export function useQRDownload() {
   const downloadPNG = async ({ value, fileName, fgColor, bgColor, size = 400, designOptions }: DownloadOptions) => {
+    const qrValue = value?.trim() || DEFAULT_QR_VALUE;
     if (designOptions) {
-      const svgString = await generateStyledSVG(value, size, designOptions);
-      
-      // Parse SVG to get dimensions
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(svgString, "image/svg+xml");
-      const svgElement = doc.querySelector("svg");
-      const width = parseInt(svgElement?.getAttribute("width") || String(size));
-      const height = parseInt(svgElement?.getAttribute("height") || String(size));
-      
-      const canvas = await svgToCanvas(svgString, width, height);
-      
-      const link = document.createElement("a");
-      link.download = `${fileName}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-    } else {
-      // Fallback to basic QR code
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
+      try {
+        const svgString = await generateStyledSVG(qrValue, size, designOptions);
 
-      const QRCode = await import("qrcode");
-      
-      await QRCode.toCanvas(canvas, value, {
-        width: size,
-        margin: 2,
-        color: {
-          dark: fgColor,
-          light: bgColor,
-        },
-      });
+        // Parse SVG to get dimensions
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(svgString, "image/svg+xml");
+        const svgElement = doc.querySelector("svg");
+        const width = parseInt(svgElement?.getAttribute("width") || String(size));
+        const height = parseInt(svgElement?.getAttribute("height") || String(size));
 
-      const link = document.createElement("a");
-      link.download = `${fileName}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
+        const canvas = await svgToCanvas(svgString, width, height);
+
+        const link = document.createElement("a");
+        link.download = `${fileName}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        return;
+      } catch {
+        // Fall through to basic export when styled export fails (e.g. cross-origin logo image).
+      }
     }
+
+    // Fallback to basic QR code
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const QRCode = await import("qrcode");
+
+    await QRCode.toCanvas(canvas, qrValue, {
+      width: size,
+      margin: 2,
+      color: {
+        dark: fgColor,
+        light: bgColor,
+      },
+    });
+
+    const link = document.createElement("a");
+    link.download = `${fileName}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
   };
 
   const downloadSVG = async ({ value, fileName, fgColor, bgColor, size = 400, designOptions }: DownloadOptions) => {
+    const qrValue = value?.trim() || DEFAULT_QR_VALUE;
     let svgString: string;
     
     if (designOptions) {
-      svgString = await generateStyledSVG(value, size, designOptions);
+      try {
+        svgString = await generateStyledSVG(qrValue, size, designOptions);
+      } catch {
+        const QRCode = await import("qrcode");
+        svgString = await QRCode.toString(qrValue, {
+          type: "svg",
+          margin: 2,
+          color: {
+            dark: fgColor,
+            light: bgColor,
+          },
+        });
+      }
     } else {
       const QRCode = await import("qrcode");
-      svgString = await QRCode.toString(value, {
+      svgString = await QRCode.toString(qrValue, {
         type: "svg",
         margin: 2,
         color: {
@@ -366,34 +387,54 @@ export function useQRDownload() {
 
     const blob = new Blob([svgString], { type: "image/svg+xml" });
     const link = document.createElement("a");
+    const objectUrl = URL.createObjectURL(blob);
     link.download = `${fileName}.svg`;
-    link.href = URL.createObjectURL(blob);
+    link.href = objectUrl;
     link.click();
-    URL.revokeObjectURL(link.href);
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
   };
 
   const downloadPDF = async ({ value, fileName, fgColor, bgColor, size = 400, designOptions }: DownloadOptions) => {
+    const qrValue = value?.trim() || DEFAULT_QR_VALUE;
     let imgData: string;
     let imgWidth: number;
     let imgHeight: number;
     
     if (designOptions) {
-      const svgString = await generateStyledSVG(value, size, designOptions);
-      
-      // Parse SVG to get dimensions
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(svgString, "image/svg+xml");
-      const svgElement = doc.querySelector("svg");
-      imgWidth = parseInt(svgElement?.getAttribute("width") || String(size));
-      imgHeight = parseInt(svgElement?.getAttribute("height") || String(size));
-      
-      const canvas = await svgToCanvas(svgString, imgWidth, imgHeight);
-      imgData = canvas.toDataURL("image/png");
+      try {
+        const svgString = await generateStyledSVG(qrValue, size, designOptions);
+
+        // Parse SVG to get dimensions
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(svgString, "image/svg+xml");
+        const svgElement = doc.querySelector("svg");
+        imgWidth = parseInt(svgElement?.getAttribute("width") || String(size));
+        imgHeight = parseInt(svgElement?.getAttribute("height") || String(size));
+
+        const canvas = await svgToCanvas(svgString, imgWidth, imgHeight);
+        imgData = canvas.toDataURL("image/png");
+      } catch {
+        const canvas = document.createElement("canvas");
+        const QRCode = await import("qrcode");
+
+        await QRCode.toCanvas(canvas, qrValue, {
+          width: size,
+          margin: 2,
+          color: {
+            dark: fgColor,
+            light: bgColor,
+          },
+        });
+
+        imgData = canvas.toDataURL("image/png");
+        imgWidth = size;
+        imgHeight = size;
+      }
     } else {
       const canvas = document.createElement("canvas");
       const QRCode = await import("qrcode");
-      
-      await QRCode.toCanvas(canvas, value, {
+
+      await QRCode.toCanvas(canvas, qrValue, {
         width: size,
         margin: 2,
         color: {

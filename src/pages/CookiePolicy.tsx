@@ -30,6 +30,7 @@ const CookiePolicy = () => {
           <p className="text-muted-foreground mb-8">Last updated: January 10, 2025</p>
 
           <div className="prose prose-invert max-w-none space-y-8">
+            <section><h2 className="text-2xl font-semibold text-foreground mb-4">Who operates this service</h2><p className="text-muted-foreground leading-relaxed">IEOSUIA, 26 Rock Alder, Naturena, Johannesburg, 2095, South Africa.</p></section>
             <section>
               <h2 className="text-2xl font-semibold text-foreground mb-4">1. What Are Cookies?</h2>
               <p className="text-muted-foreground leading-relaxed">
@@ -169,8 +170,6 @@ const CookiePolicy = () => {
               </p>
               <ul className="list-disc list-inside text-muted-foreground mt-4 space-y-2">
                 <li><strong className="text-foreground">Google Analytics:</strong> For website traffic analysis</li>
-                <li><strong className="text-foreground">Google reCAPTCHA:</strong> For spam protection and security</li>
-                <li><strong className="text-foreground">PayFast:</strong> For payment processing (only during checkout)</li>
               </ul>
             </section>
 

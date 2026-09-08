@@ -18,10 +18,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Image, Loader2, X, Info, Lock } from "lucide-react";
+import { Upload, Image, Loader2, X, Info } from "lucide-react";
 import { uploadFile, get } from "@/services/api/client";
-import { useUserPlan } from "@/hooks/useUserPlan";
-import { Link } from "react-router-dom";
 
 interface UserLogo {
   id: string;
@@ -39,16 +37,11 @@ export function LogoUploader({ selectedLogo, onSelectLogo }: LogoUploaderProps) 
   const [logos, setLogos] = useState<UserLogo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragActive, setIsDragActive] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const { toast } = useToast();
-  const { isPro, isEnterprise, plan } = useUserPlan();
-
-  const canUseLogo = isPro || isEnterprise;
-  const maxLogos = isEnterprise ? Infinity : 10;
 
   const fetchLogos = useCallback(async () => {
-    if (!canUseLogo) return;
-    
     setIsLoading(true);
     try {
       const response = await get<{ success: boolean; data: UserLogo[] }>("/user/logos");
@@ -60,10 +53,9 @@ export function LogoUploader({ selectedLogo, onSelectLogo }: LogoUploaderProps) 
     } finally {
       setIsLoading(false);
     }
-  }, [canUseLogo]);
+  }, []);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const uploadLogoFile = async (file: File | null) => {
     if (!file) return;
 
     // Validate file type
@@ -76,22 +68,12 @@ export function LogoUploader({ selectedLogo, onSelectLogo }: LogoUploaderProps) 
       return;
     }
 
-    // Validate file size (max 1MB)
-    if (file.size > 1024 * 1024) {
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
       toast({
         variant: "destructive",
         title: "File too large",
-        description: "Logo must be less than 1MB.",
-      });
-      return;
-    }
-
-    // Check logo limit
-    if (logos.length >= maxLogos) {
-      toast({
-        variant: "destructive",
-        title: "Logo limit reached",
-        description: `You can only save ${maxLogos} logos. Delete an existing logo first.`,
+        description: "Logo must be less than 2MB.",
       });
       return;
     }
@@ -127,30 +109,33 @@ export function LogoUploader({ selectedLogo, onSelectLogo }: LogoUploaderProps) 
     }
   };
 
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    await uploadLogoFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    if (isUploading) return;
+    setIsDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    setIsDragActive(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    setIsDragActive(false);
+    if (isUploading) return;
+    const file = e.dataTransfer.files?.[0] || null;
+    await uploadLogoFile(file);
+  };
+
   const handleRemoveLogo = () => {
     onSelectLogo(null);
   };
-
-  // If user is on free plan, show upgrade prompt
-  if (!canUseLogo) {
-    return (
-      <div className="p-4 rounded-2xl bg-muted/50 border border-dashed border-border">
-        <div className="flex items-center gap-3 mb-3">
-          <Lock className="w-5 h-5 text-warning" />
-          <span className="font-medium">Add Custom Logo</span>
-          <span className="text-xs bg-warning/10 text-warning px-2 py-0.5 rounded-full">
-            Pro
-          </span>
-        </div>
-        <p className="text-sm text-muted-foreground mb-3">
-          Upgrade to Pro to add your logo to QR codes and maintain brand consistency.
-        </p>
-        <Button variant="outline" size="sm" asChild>
-          <Link to="/dashboard/settings?tab=billing">Upgrade Now</Link>
-        </Button>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-4">
@@ -168,7 +153,14 @@ export function LogoUploader({ selectedLogo, onSelectLogo }: LogoUploaderProps) 
       </div>
 
       {selectedLogo ? (
-        <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/50 border border-border">
+        <div
+          className={`flex items-center gap-4 p-4 rounded-xl border transition-colors ${
+            isDragActive ? "border-primary bg-primary/5" : "bg-muted/50 border-border"
+          }`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           <div className="w-16 h-16 rounded-lg bg-white flex items-center justify-center overflow-hidden">
             <img
               src={selectedLogo}
@@ -179,7 +171,7 @@ export function LogoUploader({ selectedLogo, onSelectLogo }: LogoUploaderProps) 
           <div className="flex-1">
             <p className="font-medium text-sm">Logo selected</p>
             <p className="text-xs text-muted-foreground">
-              Will be centered on your QR code
+              Will be centered on your QR code. Drag and drop a PNG here to replace it.
             </p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -215,11 +207,14 @@ export function LogoUploader({ selectedLogo, onSelectLogo }: LogoUploaderProps) 
               variant="outline"
               className="w-full h-24 border-dashed"
               onClick={fetchLogos}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
             >
               <div className="flex flex-col items-center gap-2">
                 <Upload className="w-6 h-6 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">
-                  Click to add logo
+                  {isDragActive ? "Drop PNG logo here" : "Click or drag a PNG logo here"}
                 </span>
               </div>
             </Button>
@@ -321,7 +316,7 @@ function LogoSelector({
             <>
               <Upload className="w-5 h-5 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                Upload new logo (PNG, max 1MB)
+                  Upload new logo (PNG, max 2MB)
               </span>
             </>
           )}

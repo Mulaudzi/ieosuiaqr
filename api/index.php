@@ -9,6 +9,11 @@ error_reporting(E_ALL);
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 
+$composerAutoload = __DIR__ . '/vendor/autoload.php';
+if (is_file($composerAutoload)) {
+    require_once $composerAutoload;
+}
+
 // Manual class loading (no composer)
 spl_autoload_register(function ($class) {
     // Convert namespace to file path
@@ -56,16 +61,13 @@ use App\Helpers\Response;
 use App\Controllers\AuthController;
 use App\Controllers\QrController;
 use App\Controllers\ScanController;
-use App\Controllers\SubscriptionController;
-use App\Controllers\PaymentController;
 use App\Controllers\ContactController;
-use App\Controllers\BillingController;
 use App\Controllers\AnalyticsController;
 use App\Controllers\InventoryController;
 use App\Controllers\AdminController;
-use App\Controllers\QAController;
 use App\Controllers\AdminAuthController;
 use App\Controllers\DesignPresetController;
+use App\Controllers\IeosuiaAuthController;
 
 // Handle CORS
 Cors::handle();
@@ -77,10 +79,25 @@ $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 // Remove /api prefix if present
 $uri = preg_replace('#^/api#', '', $uri);
 
+// QA endpoints can seed and delete test data and must never be exposed in production.
+if (preg_match('#^/(admin/)?qa(?:/|$)#', $uri) && ($_ENV['APP_ENV'] ?? 'production') === 'production') {
+    Response::error('Endpoint not found', 404);
+}
+
 // Route matching
 try {
+    $legacyAuthRoutes = ['/auth/register','/auth/login','/auth/verify-email','/auth/forgot-password','/auth/reset-password','/auth/resend-verification','/admin/auth/batch','/admin/auth/step1','/admin/auth/step2','/admin/auth/step3','/admin/auth/create','/admin/auth/passwords'];
+    if (in_array($uri, $legacyAuthRoutes, true)) {
+        IeosuiaAuthController::disabled();
+    }
+    if ($uri === '/auth/ieosuia/start' && $method === 'GET') {
+        IeosuiaAuthController::start();
+    }
+    elseif ($uri === '/auth/ieosuia/callback' && $method === 'GET') {
+        IeosuiaAuthController::callback();
+    }
     // Auth routes (no auth required)
-    if ($uri === '/auth/register' && $method === 'POST') {
+    elseif ($uri === '/auth/register' && $method === 'POST') {
         AuthController::register();
     }
     elseif ($uri === '/auth/login' && $method === 'POST') {
@@ -101,17 +118,6 @@ try {
     elseif ($uri === '/auth/resend-verification' && $method === 'POST') {
         AuthController::resendVerification();
     }
-    // Google OAuth routes
-    elseif ($uri === '/auth/google' && $method === 'GET') {
-        AuthController::googleAuthUrl();
-    }
-    elseif ($uri === '/auth/google/callback' && $method === 'GET') {
-        AuthController::googleCallback();
-    }
-    elseif ($uri === '/auth/google/signin' && $method === 'POST') {
-        AuthController::googleSignIn();
-    }
-
     // Admin Auth routes (multi-step authentication)
     elseif ($uri === '/admin/auth/batch' && $method === 'POST') {
         AdminAuthController::batchLogin();
@@ -133,9 +139,6 @@ try {
     }
     elseif ($uri === '/admin/auth/passwords' && $method === 'PUT') {
         AdminAuthController::updatePasswords();
-    }
-    elseif ($uri === '/admin/auth/check-email' && $method === 'POST') {
-        AdminAuthController::checkAdminEmail();
     }
     // Admin management routes
     elseif ($uri === '/admin/users' && $method === 'GET') {
@@ -220,70 +223,6 @@ try {
         ScanController::log(); // Also support GET for redirects
     }
 
-    // Subscriptions
-    elseif ($uri === '/subscriptions/plans' && $method === 'GET') {
-        SubscriptionController::getPlans();
-    }
-    elseif ($uri === '/subscriptions/current' && $method === 'GET') {
-        SubscriptionController::getCurrentSubscription();
-    }
-    elseif ($uri === '/subscriptions/cancel' && $method === 'POST') {
-        SubscriptionController::cancel();
-    }
-    elseif ($uri === '/subscriptions/proration-preview' && $method === 'POST') {
-        SubscriptionController::getProrationPreview();
-    }
-    elseif ($uri === '/subscriptions/change' && $method === 'POST') {
-        SubscriptionController::changePlan();
-    }
-
-    // Payments
-    elseif ($uri === '/payments/checkout' && $method === 'POST') {
-        PaymentController::checkout();
-    }
-    elseif ($uri === '/webhooks/payfast' && $method === 'POST') {
-        PaymentController::handleWebhook();
-    }
-    elseif ($uri === '/webhooks/paystack' && $method === 'POST') {
-        PaymentController::handlePaystackWebhook();
-    }
-    // Subscription sync
-    elseif ($uri === '/subscriptions/status' && $method === 'GET') {
-        PaymentController::getSubscriptionStatus();
-    }
-    elseif ($uri === '/subscriptions/sync' && $method === 'POST') {
-        PaymentController::syncSubscription();
-    }
-    // Renewal reminders (cron job endpoint)
-    elseif ($uri === '/cron/renewal-reminders' && $method === 'POST') {
-        PaymentController::sendRenewalReminders();
-    }
-    // Payment retry cron endpoints
-    elseif ($uri === '/cron/process-retries' && $method === 'POST') {
-        PaymentController::processPaymentRetries();
-    }
-    elseif ($uri === '/cron/process-grace-periods' && $method === 'POST') {
-        PaymentController::processExpiredGracePeriods();
-    }
-    // Retry status endpoint
-    elseif ($uri === '/billing/retry-status' && $method === 'GET') {
-        PaymentController::getRetryStatus();
-    }
-
-    // Billing/Invoices
-    elseif ($uri === '/billing/invoices' && $method === 'GET') {
-        BillingController::getInvoices();
-    }
-    elseif (preg_match('#^/billing/invoices/(\d+)$#', $uri, $matches) && $method === 'GET') {
-        BillingController::getInvoice((int)$matches[1]);
-    }
-    elseif (preg_match('#^/billing/invoices/(\d+)/receipt$#', $uri, $matches) && $method === 'GET') {
-        BillingController::downloadReceipt((int)$matches[1]);
-    }
-    elseif ($uri === '/billing/payments' && $method === 'GET') {
-        BillingController::getPayments();
-    }
-
     // Analytics
     elseif ($uri === '/analytics/dashboard' && $method === 'GET') {
         AnalyticsController::getDashboard();
@@ -313,22 +252,6 @@ try {
     // Contact form
     elseif ($uri === '/contact' && $method === 'POST') {
         ContactController::submit();
-    }
-
-    // User account deletion
-    elseif ($uri === '/user/delete' && $method === 'POST') {
-        AuthController::deleteAccount();
-    }
-
-    // 2FA endpoints
-    elseif ($uri === '/user/2fa/enable' && $method === 'POST') {
-        AuthController::enable2FA();
-    }
-    elseif ($uri === '/user/2fa/disable' && $method === 'POST') {
-        AuthController::disable2FA();
-    }
-    elseif ($uri === '/user/2fa/verify' && $method === 'POST') {
-        AuthController::verify2FA();
     }
 
     // User logos
@@ -391,9 +314,6 @@ try {
     }
 
     // Admin routes
-    elseif ($uri === '/admin/login' && $method === 'POST') {
-        AdminController::validateStep();
-    }
     elseif ($uri === '/admin/verify' && $method === 'GET') {
         AdminController::verifyAccess();
     }
@@ -448,53 +368,6 @@ try {
     elseif ($uri === '/admin/export/stats' && $method === 'GET') {
         AdminController::exportStatsReport();
     }
-    // QA/Debug Console endpoints (admin routes - keep for backward compatibility)
-    elseif ($uri === '/admin/qa/dashboard' && $method === 'GET') {
-        QAController::getDashboard();
-    }
-    elseif ($uri === '/admin/qa/run' && $method === 'POST') {
-        QAController::runQA();
-    }
-    elseif ($uri === '/admin/qa/seed' && $method === 'POST') {
-        QAController::seedTestData();
-    }
-    elseif ($uri === '/admin/qa/cleanup' && $method === 'POST') {
-        QAController::cleanupTestData();
-    }
-    elseif ($uri === '/admin/qa/status' && $method === 'GET') {
-        QAController::getSeedingStatus();
-    }
-    elseif ($uri === '/admin/qa/errors' && $method === 'POST') {
-        QAController::getErrorReport();
-    }
-    // Admin subscription metrics
-    elseif ($uri === '/admin/subscriptions/metrics' && $method === 'GET') {
-        AdminController::getSubscriptionMetrics();
-    }
-    // Payment receipt download
-    elseif (preg_match('#^/payments/(\d+)/receipt$#', $uri, $matches) && $method === 'GET') {
-        PaymentController::downloadReceipt((int)$matches[1]);
-    }
-
-    elseif ($uri === '/qa/dashboard' && $method === 'GET') {
-        QAController::getDashboardUser();
-    }
-    elseif ($uri === '/qa/run' && $method === 'POST') {
-        QAController::runQAUser();
-    }
-    elseif ($uri === '/qa/seed' && $method === 'POST') {
-        QAController::seedTestDataUser();
-    }
-    elseif ($uri === '/qa/cleanup' && $method === 'POST') {
-        QAController::cleanupTestDataUser();
-    }
-    elseif ($uri === '/qa/status' && $method === 'GET') {
-        QAController::getSeedingStatusUser();
-    }
-    elseif ($uri === '/qa/errors' && $method === 'POST') {
-        QAController::getErrorReportUser();
-    }
-
     // Design Presets
     elseif ($uri === '/design-presets' && $method === 'GET') {
         (new DesignPresetController())->index();
@@ -520,7 +393,7 @@ try {
         Response::error('Endpoint not found', 404);
     }
 
-} catch (\Exception $e) {
+} catch (\Throwable $e) {
     error_log("API Error: " . $e->getMessage() . "\n" . $e->getTraceAsString());
     Response::error('Internal server error', 500);
 }

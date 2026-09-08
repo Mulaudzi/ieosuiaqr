@@ -6,7 +6,6 @@ use App\Config\Database;
 use App\Helpers\Response;
 use App\Helpers\Validator;
 use App\Middleware\RateLimit;
-use App\Services\CaptchaService;
 use App\Services\MailService;
 
 class ContactController
@@ -15,7 +14,7 @@ class ContactController
     private static array $emailRouting = [
         'general' => 'hello@ieosuia.com',
         'support' => 'support@ieosuia.com',
-        'sales' => 'sales@ieosuia.com',
+        'sales' => 'hello@ieosuia.com',
     ];
     
     private static string $ccEmail = 'info@ieosuia.com';
@@ -30,9 +29,6 @@ class ContactController
         
         $data = json_decode(file_get_contents('php://input'), true);
 
-        // Verify reCAPTCHA
-        CaptchaService::verify($data['captcha_token'] ?? null, 'contact');
-
         // Validate required fields
         $required = ['name', 'email', 'message'];
         foreach ($required as $field) {
@@ -42,7 +38,7 @@ class ContactController
         }
 
         // Validate email
-        if (!Validator::email($data['email'])) {
+        if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
             Response::error('Invalid email address', 422);
         }
 

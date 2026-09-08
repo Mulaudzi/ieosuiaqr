@@ -29,10 +29,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { useUserPlan } from "@/hooks/useUserPlan";
 import { useQRStorage, StoredQRCode } from "@/hooks/useQRStorage";
 import { inventoryApi, InventoryItem, InventoryStatus } from "@/services/api/inventory";
-import { UpsellModal } from "@/components/qr/UpsellModal";
 import {
   Package,
   Plus,
@@ -48,7 +46,6 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  Crown,
   Link as LinkIcon,
   FileSpreadsheet,
   History,
@@ -82,7 +79,7 @@ const categoryOptions = [
   "Other",
 ];
 
-export function InventoryTab() {
+export function InventoryTab({ showHeader = true }: { showHeader?: boolean }) {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -96,7 +93,6 @@ export function InventoryTab() {
   const [showLabelPrinter, setShowLabelPrinter] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [selectedItems, setSelectedItems] = useState<InventoryItem[]>([]);
-  const [showUpsell, setShowUpsell] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -104,17 +100,6 @@ export function InventoryTab() {
   const [perPage] = useState(20);
   
   const { toast } = useToast();
-  const { plan, isPro, isEnterprise } = useUserPlan();
-
-  // Plan-based limits
-  const getMaxItems = () => {
-    if (isEnterprise) return Infinity;
-    if (isPro) return 100;
-    return 3;
-  };
-
-  const canEdit = isPro || isEnterprise;
-  const maxItems = getMaxItems();
 
   const totalPages = Math.ceil(totalItems / perPage);
 
@@ -154,36 +139,22 @@ export function InventoryTab() {
     notes?: string;
     status: InventoryStatus;
     location?: string;
-    qr_id?: string;
+    qr_id?: string | null;
   }) => {
-    if (items.length >= maxItems) {
-      setShowUpsell(true);
-      return;
-    }
-
     try {
-      const response = await inventoryApi.create(data);
+      const response = await inventoryApi.create({ ...data, qr_id: data.qr_id || undefined });
       if (response.success) {
         toast({ title: "Item created!", description: "Inventory item added successfully." });
         setShowCreateDialog(false);
         fetchItems();
       }
     } catch (error: unknown) {
-      const err = error as { status?: number; message?: string };
-      if (err.status === 403) {
-        setShowUpsell(true);
-      } else {
-        toast({ variant: "destructive", title: "Error", description: err.message || "Failed to create item." });
-      }
+      const err = error as { message?: string };
+      toast({ variant: "destructive", title: "Error", description: err.message || "Failed to create item." });
     }
   };
 
   const handleUpdate = async (id: string, data: Partial<InventoryItem>) => {
-    if (!canEdit) {
-      setShowUpsell(true);
-      return;
-    }
-
     try {
       const response = await inventoryApi.update(id, data);
       if (response.success) {
@@ -215,21 +186,18 @@ export function InventoryTab() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
+        {showHeader && <div>
           <h2 className="font-display text-xl font-bold flex items-center gap-2">
             <Package className="w-5 h-5 text-primary" />
             Inventory Tracking
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
             Track products, assets, and equipment with smart QR codes.
-            <span className="ml-1 text-xs">
-              ({items.length}/{maxItems === Infinity ? "∞" : maxItems} items)
-            </span>
           </p>
-        </div>
-        <div className="flex items-center gap-2">
+        </div>}
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
           {/* Analytics Button */}
-          <Button variant="outline" asChild>
+          <Button className="w-full sm:w-auto" variant="outline" asChild>
             <Link to="/dashboard/inventory/analytics">
               <BarChart3 className="w-4 h-4 mr-2" />
               Analytics
@@ -238,14 +206,9 @@ export function InventoryTab() {
           
           {/* Create QR + Item Button */}
           <Button 
+            className="w-full sm:w-auto"
             variant="outline"
-            onClick={() => {
-              if (items.length >= maxItems) {
-                setShowUpsell(true);
-              } else {
-                setShowQRItemModal(true);
-              }
-            }}
+            onClick={() => setShowQRItemModal(true)}
           >
             <Sparkles className="w-4 h-4 mr-2" />
             QR + Item
@@ -254,6 +217,7 @@ export function InventoryTab() {
           {/* Print Labels */}
           {items.length > 0 && (
             <Button 
+              className="w-full sm:w-auto"
               variant="outline" 
               onClick={() => {
                 setSelectedItems(items.filter(i => i.qr_id));
@@ -264,61 +228,35 @@ export function InventoryTab() {
             </Button>
           )}
           
-          {/* Bulk Import (Enterprise) */}
-          {isEnterprise && (
-            <Button variant="outline" onClick={() => setShowBulkImport(true)}>
-              <FileSpreadsheet className="w-4 h-4 mr-2" />
-              Bulk Import
-            </Button>
-          )}
+          <Button className="w-full sm:w-auto" variant="outline" onClick={() => setShowBulkImport(true)}>
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            Bulk Import
+          </Button>
           
           {/* Add Item */}
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
               <Button 
+                className="w-full sm:w-auto"
                 variant="hero" 
-                onClick={() => {
-                  if (items.length >= maxItems) {
-                    setShowUpsell(true);
-                  } else {
-                    setShowCreateDialog(true);
-                  }
-                }}
+                onClick={() => setShowCreateDialog(true)}
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Item
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add Inventory Item</DialogTitle>
                 <DialogDescription>
                   Create a new item to track. You can link it to a QR code later.
                 </DialogDescription>
               </DialogHeader>
-              <InventoryForm onSubmit={handleCreate} />
+              <InventoryForm onSubmit={handleCreate} linkedQRIds={items.flatMap((item) => item.qr_id ? [item.qr_id] : [])} />
             </DialogContent>
           </Dialog>
         </div>
       </div>
-
-      {/* Plan Upgrade Banner for Free Users */}
-      {!canEdit && (
-        <div className="p-4 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20">
-          <div className="flex items-center gap-3">
-            <Crown className="w-5 h-5 text-primary" />
-            <div className="flex-1">
-              <p className="font-medium text-sm">Upgrade to edit items</p>
-              <p className="text-xs text-muted-foreground">
-                Pro unlocks editable tracking for up to 100 items. Enterprise offers unlimited with team sharing.
-              </p>
-            </div>
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/dashboard/settings?tab=billing">Upgrade</Link>
-            </Button>
-          </div>
-        </div>
-      )}
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -332,7 +270,7 @@ export function InventoryTab() {
           />
         </div>
         <Select value={categoryFilter || "all"} onValueChange={(val) => setCategoryFilter(val === "all" ? "" : val)}>
-          <SelectTrigger className="w-[150px]">
+          <SelectTrigger className="w-full sm:w-[150px]">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent>
@@ -343,7 +281,7 @@ export function InventoryTab() {
           </SelectContent>
         </Select>
         <Select value={statusFilter || "all"} onValueChange={(val) => setStatusFilter(val === "all" ? "" : val)}>
-          <SelectTrigger className="w-[150px]">
+          <SelectTrigger className="w-full sm:w-[150px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -389,9 +327,9 @@ export function InventoryTab() {
                   transition={{ delay: index * 0.05 }}
                   className="p-4 rounded-xl bg-card border border-border hover:border-primary/30 transition-colors"
                 >
-                  <div className="flex items-start gap-4">
+                  <div className="flex items-start gap-3 sm:gap-4">
                     {/* QR Preview */}
-                    <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                       {item.qr_id ? (
                         <QrCode className="w-8 h-8 text-primary" />
                       ) : (
@@ -428,7 +366,7 @@ export function InventoryTab() {
                     {/* Actions */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" aria-label={`Actions for ${item.name}`}>
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -444,12 +382,8 @@ export function InventoryTab() {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
-                            if (!canEdit) {
-                              setShowUpsell(true);
-                            } else {
-                              setSelectedItem(item);
-                              setShowEditDialog(true);
-                            }
+                            setSelectedItem(item);
+                            setShowEditDialog(true);
                           }}
                         >
                           <Edit className="w-4 h-4 mr-2" />
@@ -533,7 +467,7 @@ export function InventoryTab() {
 
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Inventory Item</DialogTitle>
             <DialogDescription>Update the item details.</DialogDescription>
@@ -542,20 +476,14 @@ export function InventoryTab() {
             <InventoryForm
               initialData={selectedItem}
               onSubmit={(data) => handleUpdate(selectedItem.id, data)}
+              linkedQRIds={items.flatMap((item) => item.qr_id ? [item.qr_id] : [])}
               isEdit
             />
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Upsell Modal */}
-      <UpsellModal
-        open={showUpsell}
-        onOpenChange={setShowUpsell}
-        feature="More inventory items"
-      />
-      
-      {/* Bulk Import Modal (Enterprise) */}
+      {/* Bulk Import Modal */}
       <BulkInventoryImport
         open={showBulkImport}
         onOpenChange={setShowBulkImport}
@@ -589,10 +517,12 @@ export function InventoryTab() {
 function InventoryForm({
   initialData,
   onSubmit,
+  linkedQRIds,
   isEdit = false,
 }: {
   initialData?: Partial<InventoryItem>;
-  onSubmit: (data: { name: string; category: string; notes?: string; status: InventoryStatus; location?: string; qr_id?: string }) => void;
+  onSubmit: (data: { name: string; category: string; notes?: string; status: InventoryStatus; location?: string; qr_id?: string | null }) => void;
+  linkedQRIds: string[];
   isEdit?: boolean;
 }) {
   const [name, setName] = useState(initialData?.name || "");
@@ -600,14 +530,14 @@ function InventoryForm({
   const [notes, setNotes] = useState(initialData?.notes || "");
   const [status, setStatus] = useState<InventoryStatus>(initialData?.status || "in_stock");
   const [location, setLocation] = useState(initialData?.location || "");
-  const [linkToQR, setLinkToQR] = useState(false);
+  const [linkToQR, setLinkToQR] = useState(Boolean(initialData?.qr_id));
   const [selectedQRId, setSelectedQRId] = useState<string>(initialData?.qr_id || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { qrCodes, isLoading: loadingQRCodes } = useQRStorage();
   
   // Filter QR codes that aren't already linked to inventory
-  const availableQRCodes = qrCodes;
+  const availableQRCodes = qrCodes.filter((qr) => qr.id === initialData?.qr_id || !linkedQRIds.includes(qr.id));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -618,7 +548,7 @@ function InventoryForm({
       notes: notes || undefined, 
       status, 
       location: location || undefined,
-      qr_id: linkToQR && selectedQRId ? selectedQRId : undefined,
+      qr_id: linkToQR && selectedQRId ? selectedQRId : (isEdit ? null : undefined),
     });
     setIsSubmitting(false);
   };
@@ -686,8 +616,7 @@ function InventoryForm({
       </div>
 
       {/* QR Code Linking Section */}
-      {!isEdit && (
-        <div className="space-y-3 pt-3 border-t border-border">
+      <div className="space-y-3 pt-3 border-t border-border">
           <div className="flex items-center space-x-2">
             <Checkbox 
               id="link-qr" 
@@ -734,7 +663,7 @@ function InventoryForm({
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
                   <div className="bg-background p-2 rounded-lg">
                     <QRCodeSVG 
-                      value={availableQRCodes.find(q => q.id === selectedQRId)?.content || "https://qr.ieosuia.com"} 
+                      value={availableQRCodes.find(q => q.id === selectedQRId)?.scanUrl || "https://qr.ieosuia.com"} 
                       size={60}
                       level="M"
                     />
@@ -755,8 +684,7 @@ function InventoryForm({
               </p>
             </div>
           )}
-        </div>
-      )}
+      </div>
 
       <Button type="submit" variant="hero" className="w-full" disabled={isSubmitting || !name}>
         {isSubmitting ? (

@@ -1,0 +1,11 @@
+START TRANSACTION;
+ALTER TABLE ejetffbz_qr.users MODIFY password VARCHAR(255) NULL;
+UPDATE ejetffbz_qr.users SET password=NULL,google_id=NULL,verification_token=NULL,reset_token=NULL,reset_token_expires=NULL;
+ALTER TABLE ejetffbz_qr.admin_users MODIFY password VARCHAR(255) NULL,MODIFY password_step2 VARCHAR(255) NULL,MODIFY password_step3 VARCHAR(255) NULL;
+UPDATE ejetffbz_qr.admin_users SET password=NULL,password_step2=NULL,password_step3=NULL,failed_attempts=0,locked_until=NULL;
+DELETE FROM ejetffbz_qr.admin_sessions;
+COMMIT;
+SELECT COUNT(*) AS customer_credentials_remaining FROM ejetffbz_qr.users WHERE password IS NOT NULL OR google_id IS NOT NULL OR verification_token IS NOT NULL OR reset_token IS NOT NULL;
+SELECT COUNT(*) AS admin_credentials_remaining FROM ejetffbz_qr.admin_users WHERE password IS NOT NULL OR password_step2 IS NOT NULL OR password_step3 IS NOT NULL;
+SELECT COUNT(*) AS linked_active_customers FROM ejetffbz_qr.users WHERE identity_uuid IS NOT NULL AND central_access_enabled=1;
+SELECT COUNT(*) AS linked_active_admins FROM ejetffbz_qr.admin_users WHERE identity_uuid IS NOT NULL AND is_active=1;

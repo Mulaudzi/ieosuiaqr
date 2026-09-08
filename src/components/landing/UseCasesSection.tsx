@@ -89,7 +89,7 @@ export function UseCasesSection() {
             <span className="gradient-text">Every Industry</span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            From small businesses to enterprises, see how organizations use
+            From small teams to large organizations, see how people use
             IEOSUIA QR codes to connect with their audience.
           </p>
         </motion.div>

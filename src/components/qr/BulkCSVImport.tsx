@@ -214,7 +214,7 @@ wifi,Office WiFi,MySSID:MyPassword:WPA`;
             Bulk CSV Import
           </DialogTitle>
           <DialogDescription>
-            Upload a CSV file to create multiple QR codes at once. Enterprise feature.
+            Upload a CSV file to create multiple QR codes at once, free forever.
           </DialogDescription>
         </DialogHeader>
 

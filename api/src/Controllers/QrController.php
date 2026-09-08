@@ -10,7 +10,7 @@ use App\Middleware\Auth;
 class QrController
 {
     private const BASIC_TYPES = ['url', 'text', 'email', 'phone', 'sms'];
-    private const PREMIUM_TYPES = ['wifi', 'vcard', 'event', 'location'];
+    private const PREMIUM_TYPES = ['wifi', 'vcard', 'event', 'location', 'whatsapp', 'social', 'app'];
 
     public static function create(): void
     {
@@ -31,40 +31,10 @@ class QrController
             Response::error('Invalid QR code type', 400);
         }
 
-        // Check premium type access
-        if (in_array($type, self::PREMIUM_TYPES) && $user['plan'] === 'Free') {
-            Response::error(
-                "This QR code type requires a Pro or Enterprise plan. Upgrade to unlock WiFi, vCard, Event, and Location QR codes.",
-                403
-            );
-        }
-
-        // Check QR code limit
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT qr_limit FROM plans WHERE name = ?");
-        $stmt->execute([$user['plan']]);
-        $plan = $stmt->fetch();
-
-        if ($plan && $plan['qr_limit'] !== null) {
-            $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM qr_codes WHERE user_id = ?");
-            $stmt->execute([$user['id']]);
-            $count = $stmt->fetch()['count'];
-
-            if ($count >= $plan['qr_limit']) {
-                Response::error(
-                    "You've reached your limit of {$plan['qr_limit']} QR codes. Upgrade your plan to create more.",
-                    403
-                );
-            }
-        }
 
         try {
-            $dynamicId = null;
-            
-            // Generate dynamic ID for Pro/Enterprise users
-            if (in_array($user['plan'], ['Pro', 'Enterprise'])) {
-                $dynamicId = bin2hex(random_bytes(8));
-            }
+            $dynamicId = bin2hex(random_bytes(8));
 
             $stmt = $pdo->prepare("
                 INSERT INTO qr_codes (user_id, type, name, content, custom_options, dynamic_id, created_at)
@@ -193,11 +163,6 @@ class QrController
             Response::error('QR code not found', 404);
         }
 
-        // Only dynamic QR codes (Pro/Enterprise) can have content updated
-        if (isset($data['content']) && empty($qr['dynamic_id']) && $user['plan'] === 'Free') {
-            Response::error('Static QR codes cannot be updated. Upgrade to Pro to create dynamic QR codes.', 403);
-        }
-
         $updates = [];
         $params = [];
 
@@ -250,7 +215,6 @@ class QrController
     public static function bulkCreate(): void
     {
         $user = Auth::check();
-        Auth::requirePlan(['Enterprise']);
 
         if (!isset($_FILES['file'])) {
             Response::error('CSV file is required', 400);

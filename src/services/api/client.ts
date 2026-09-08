@@ -1,6 +1,40 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 import { ApiError } from "./types";
 
+type ApiErrorDetails = Record<string, string[] | string>;
+
+export interface ParsedApiError {
+  message: string;
+  status?: number;
+  details?: ApiErrorDetails;
+  data?: unknown;
+}
+
+export function parseApiError(error: unknown, fallbackMessage: string): ParsedApiError {
+  const err = error as {
+    message?: string;
+    errors?: ApiErrorDetails;
+    status?: number;
+    data?: unknown;
+  };
+
+  const details = err.errors
+    ? Object.entries(err.errors)
+        .map(([field, messages]) => {
+          const joined = Array.isArray(messages) ? messages.join(", ") : String(messages);
+          return `${field}: ${joined}`;
+        })
+        .join(" | ")
+    : undefined;
+
+  return {
+    message: details || err.message || fallbackMessage,
+    status: err.status,
+    details: err.errors,
+    data: err.data,
+  };
+}
+
 // Base URL for API - uses environment variable or defaults to production
 const API_BASE_URL = import.meta.env.VITE_API_URL || "https://qr.ieosuia.com/api";
 
@@ -39,7 +73,7 @@ apiClient.interceptors.response.use(
     };
 
     // Log API errors for debugging (non-sensitive info only)
-    if (process.env.NODE_ENV === "development") {
+    if (import.meta.env.DEV) {
       console.warn("API Error:", {
         status: apiError.status,
         message: apiError.message,

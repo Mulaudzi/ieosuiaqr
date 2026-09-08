@@ -21,7 +21,6 @@ const ADMIN_ROUTES: Record<string, { label: string; parent?: string }> = {
   "/admin/settings": { label: "Settings", parent: "/admin/dashboard" },
   "/admin/stats": { label: "Statistics", parent: "/admin/dashboard" },
   "/admin/audit": { label: "Audit Log", parent: "/admin/dashboard" },
-  "/admin/qa": { label: "QA Console", parent: "/admin/dashboard" },
   "/admin/create": { label: "Create Admin", parent: "/admin/users" },
 };
 

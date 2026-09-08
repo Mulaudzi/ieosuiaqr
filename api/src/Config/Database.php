@@ -14,9 +14,13 @@ class Database
         if (self::$instance === null) {
             try {
                 $host = $_ENV['DB_HOST'] ?? 'localhost';
-                $dbname = $_ENV['DB_NAME'] ?? 'ejetffbz_qr';
-                $username = $_ENV['DB_USER'] ?? 'ejetffbz_ieosuia';
-                $password = $_ENV['DB_PASS'] ?? 'I Am Ieosuia';
+                $dbname = $_ENV['DB_NAME'] ?? '';
+                $username = $_ENV['DB_USER'] ?? '';
+                $password = $_ENV['DB_PASS'] ?? '';
+
+                if ($dbname === '' || $username === '') {
+                    throw new \RuntimeException('DB_NAME and DB_USER must be configured');
+                }
 
                 $dsn = "mysql:host={$host};dbname={$dbname};charset=utf8mb4";
                 

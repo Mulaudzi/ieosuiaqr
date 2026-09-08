@@ -55,17 +55,8 @@ export function HeroSection() {
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Link>
               </Button>
-              <Button 
-                variant="hero-outline" 
-                size="lg" 
-                onClick={() => {
-                  const pricingSection = document.getElementById('pricing');
-                  if (pricingSection) {
-                    pricingSection.scrollIntoView({ behavior: 'smooth' });
-                  }
-                }}
-              >
-                View Pricing
+              <Button variant="hero-outline" size="lg" asChild>
+                <Link to="/docs">View Docs</Link>
               </Button>
             </div>
 
@@ -73,7 +64,7 @@ export function HeroSection() {
             <div className="flex flex-wrap items-center gap-6 justify-center lg:justify-start">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Shield className="w-4 h-4 text-success" />
-                <span>Enterprise Security</span>
+                <span>Advanced Security</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <BarChart3 className="w-4 h-4 text-primary" />
@@ -81,7 +72,7 @@ export function HeroSection() {
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Sparkles className="w-4 h-4 text-accent" />
-                <span>No Hardware Needed</span>
+                <span>Free Forever</span>
               </div>
             </div>
           </motion.div>

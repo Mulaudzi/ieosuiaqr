@@ -9,7 +9,6 @@ import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
 
 const navLinks = [
   { name: "Features", href: "/#features" },
-  { name: "Pricing", href: "/#pricing" },
   { name: "Solutions", href: "/solutions" },
 ];
 
@@ -82,7 +81,7 @@ export function Header() {
                   <Link to="/login">Sign In</Link>
                 </Button>
                 <Button variant="hero" asChild>
-                  <Link to="/signup">Get Started Free</Link>
+                  <Link to="/signup">Start Free Forever</Link>
                 </Button>
               </>
             )}
@@ -150,7 +149,7 @@ export function Header() {
                       <Link to="/login">Sign In</Link>
                     </Button>
                     <Button variant="hero" asChild className="w-full justify-center">
-                      <Link to="/signup">Get Started Free</Link>
+                      <Link to="/signup">Start Free Forever</Link>
                     </Button>
                   </>
                 )}

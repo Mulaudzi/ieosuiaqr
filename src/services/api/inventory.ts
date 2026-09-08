@@ -1,4 +1,4 @@
-import { del, get, post, put } from "./client";
+import apiClient, { del, get, post, put } from "./client";
 import { ApiResponse, PaginatedResponse } from "./types";
 
 export type InventoryStatus = "in_stock" | "out" | "maintenance" | "checked_out";
@@ -61,7 +61,7 @@ export interface InventoryItem {
   qr_preview?: string;
   created_at: string;
   updated_at: string;
-  shared_access?: string[]; // Enterprise: user IDs with access
+  shared_access?: string[]; // User IDs with access
 }
 
 export interface CreateInventoryRequest {
@@ -74,6 +74,7 @@ export interface CreateInventoryRequest {
 }
 
 export interface UpdateInventoryRequest {
+  qr_id?: string | null;
   name?: string;
   category?: string;
   notes?: string;
@@ -155,10 +156,12 @@ export const inventoryApi = {
    * Export analytics as CSV
    * GET /api/inventory/analytics/export
    */
-  exportAnalyticsCsv: (period?: string): string => {
-    const baseUrl = import.meta.env.VITE_API_URL || "https://qr.ieosuia.com/api";
-    const token = localStorage.getItem("auth_token");
-    return `${baseUrl}/inventory/analytics/export?period=${period || "30d"}&token=${token}`;
+  exportAnalyticsCsv: async (period?: string): Promise<Blob> => {
+    const response = await apiClient.get("/inventory/analytics/export", {
+      params: { period: period || "30d" },
+      responseType: "blob",
+    });
+    return response.data;
   },
 
   /**

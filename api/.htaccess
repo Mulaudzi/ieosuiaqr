@@ -1,13 +1,13 @@
 RewriteEngine On
+
+# The public API returns same-origin paths such as /api/uploads/logos/file.png.
+# When this directory itself is the Apache document root (local Docker), map
+# those URLs back to the real uploads directory before the front controller.
+RewriteRule ^api/uploads/(.*)$ uploads/$1 [L]
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php [QSA,L]
 
-# CORS headers
-Header always set Access-Control-Allow-Origin "*"
-Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-Header always set Access-Control-Allow-Headers "Content-Type, Authorization"
-
-# Handle preflight
-RewriteCond %{REQUEST_METHOD} OPTIONS
-RewriteRule ^(.*)$ index.php [QSA,L]
+# CORS is handled centrally by App\Middleware\Cors so the configured origin is
+# applied consistently and wildcard credentials are never emitted.
