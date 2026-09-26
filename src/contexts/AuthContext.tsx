@@ -25,7 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       const params = new URLSearchParams(window.location.hash.slice(1));
-      const centralToken = params.get("ieosuia_token");
+      const centralToken = localStorage.getItem("ieosuia_explicit_logout") ? null : params.get("ieosuia_token");
       if (centralToken) {
         localStorage.setItem("auth_token", centralToken);
         window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
@@ -83,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    localStorage.setItem("ieosuia_explicit_logout", Date.now().toString());
     try {
       await authApi.logout();
     } catch {
@@ -90,7 +91,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       authHelpers.clearAuth();
       setUser(null);
+      window.location.replace("https://auth.ieosuia.com/oauth/logout?client_id=qr-web&post_logout_redirect_uri=https%3A%2F%2Fqr.ieosuia.com%2F%3Fsigned_out%3D1");
     }
+  }, []);
+
+  useEffect(() => {
+    const synchronizeLogout = (event: StorageEvent) => {
+      if (event.key !== "ieosuia_explicit_logout" || !event.newValue) return;
+      authHelpers.clearAuth();
+      setUser(null);
+    };
+    window.addEventListener("storage", synchronizeLogout);
+    return () => window.removeEventListener("storage", synchronizeLogout);
   }, []);
 
   const updateUser = useCallback((updatedUser: User) => {

@@ -462,6 +462,17 @@ class AdminController
      */
     public static function logout(): void
     {
+        $admin = AdminAuthController::validateAdminSession();
+        $headers = getallheaders();
+        $authorization = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+        preg_match('/^Bearer\s+(.+)$/i', $authorization, $match);
+        $token = (string)($match[1] ?? '');
+        if ($token !== '') {
+            $pdo = Database::getInstance();
+            \App\Middleware\Auth::ensureRevocationTable();
+            $statement = $pdo->prepare("INSERT IGNORE INTO revoked_auth_tokens (token_hash, user_id, token_type, expires_at) VALUES (?, ?, 'admin', DATE_ADD(NOW(), INTERVAL 24 HOUR))");
+            $statement->execute([hash('sha256', $token), (int)$admin['id']]);
+        }
         Response::success(['message' => 'Logged out']);
     }
     
@@ -883,4 +894,3 @@ class AdminController
 
 
 }
-

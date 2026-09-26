@@ -57,7 +57,7 @@ export function DashboardSidebar({ activeTab, onTabChange }: DashboardSidebarPro
         title: "Signed out",
         description: "You have been successfully logged out.",
       });
-      navigate("/login");
+      return;
     } catch {
       // Error already handled
     } finally {

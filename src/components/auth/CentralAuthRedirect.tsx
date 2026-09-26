@@ -2,12 +2,15 @@ import { useLayoutEffect } from "react";
 
 export default function CentralAuthRedirect({ mode = "login", callback = false }: { mode?: "login" | "signup" | "admin"; callback?: boolean }) {
   useLayoutEffect(() => {
+    const signedOut = localStorage.getItem("ieosuia_explicit_logout");
     const token = new URLSearchParams(window.location.hash.slice(1)).get("ieosuia_token");
-    if (token) { localStorage.setItem("auth_token", token); window.location.replace("/dashboard"); return; }
+    if (token) { if (signedOut) { window.location.replace("/?signed_out=1"); return; } localStorage.setItem("auth_token", token); window.location.replace("/dashboard"); return; }
     const adminToken = new URLSearchParams(window.location.hash.slice(1)).get("ieosuia_admin_token");
-    if (adminToken) { localStorage.setItem("admin_token", adminToken); localStorage.setItem("admin_last_activity", Date.now().toString()); window.location.replace("/admin/dashboard"); return; }
+    if (adminToken) { if (signedOut) { window.location.replace("/?signed_out=1"); return; } localStorage.setItem("admin_token", adminToken); localStorage.setItem("admin_last_activity", Date.now().toString()); window.location.replace("/admin/dashboard"); return; }
     if (callback) { window.location.replace("/?sso=invalid_response"); return; }
-    const query = mode === "signup" ? "?screen_hint=signup" : mode === "admin" ? "?account_type=admin" : "";
+    const fresh = signedOut ? "prompt=login" : "";
+    localStorage.removeItem("ieosuia_explicit_logout");
+    const query = mode === "signup" ? "?screen_hint=signup" : mode === "admin" ? `?account_type=admin${fresh ? `&${fresh}` : ""}` : fresh ? `?${fresh}` : "";
     window.location.replace(`/api/auth/ieosuia/start${query}`);
   }, [mode, callback]);
 

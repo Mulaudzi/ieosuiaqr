@@ -267,7 +267,8 @@ export default function AdminEmails() {
       });
     } catch { /* ignore */ }
     localStorage.removeItem("admin_token");
-    navigate("/admin");
+    localStorage.setItem("ieosuia_explicit_logout", String(Date.now()));
+    window.location.replace("https://auth.ieosuia.com/oauth/logout?client_id=qr-web&post_logout_redirect_uri=https%3A%2F%2Fqr.ieosuia.com%2F%3Fsigned_out%3D1");
   };
 
   const markAsRead = async (id: number, isRead: boolean) => {

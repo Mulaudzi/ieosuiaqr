@@ -178,6 +178,12 @@ class AdminAuthController
         }
 
         $pdo = Database::getInstance();
+        \App\Middleware\Auth::ensureRevocationTable();
+        $revoked = $pdo->prepare('SELECT 1 FROM revoked_auth_tokens WHERE token_hash = ? AND expires_at >= NOW() LIMIT 1');
+        $revoked->execute([hash('sha256', $token)]);
+        if ($revoked->fetchColumn()) {
+            Response::error('Admin session has been invalidated', 401);
+        }
         $stmt = $pdo->prepare("SELECT * FROM admin_users WHERE id = ? AND is_active = TRUE");
         $stmt->execute([$tokenData['admin_id']]);
         $admin = $stmt->fetch();

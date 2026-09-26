@@ -95,13 +95,16 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const adminToken = localStorage.getItem("admin_token");
+    try { await fetch("/api/admin/logout", { method: "POST", headers: { Authorization: `Bearer ${adminToken}` } }); } catch { /* local cleanup must continue */ }
     clearAdminSession();
     toast({
       title: "Logged Out",
       description: "You have been logged out of the admin panel."
     });
-    navigate("/admin/login", { replace: true });
+    localStorage.setItem("ieosuia_explicit_logout", String(Date.now()));
+    window.location.replace("https://auth.ieosuia.com/oauth/logout?client_id=qr-web&post_logout_redirect_uri=https%3A%2F%2Fqr.ieosuia.com%2F%3Fsigned_out%3D1");
   };
 
   const navItems = [

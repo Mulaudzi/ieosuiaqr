@@ -9,6 +9,11 @@ class Auth
 {
     private static ?array $user = null;
 
+    public static function ensureRevocationTable(): void
+    {
+        Database::getInstance()->exec("CREATE TABLE IF NOT EXISTS revoked_auth_tokens (token_hash CHAR(64) PRIMARY KEY, user_id BIGINT UNSIGNED NOT NULL, token_type ENUM('customer','admin') NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX revoked_auth_expiry_idx (expires_at), INDEX revoked_auth_user_idx (user_id, token_type)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }
+
     /**
      * Base64 URL encode
      */
@@ -77,8 +82,13 @@ class Auth
                 Response::error('Token has expired', 401);
             }
 
-            // Get user from database with all fields
             $pdo = Database::getInstance();
+            self::ensureRevocationTable();
+            $revoked = $pdo->prepare('SELECT 1 FROM revoked_auth_tokens WHERE token_hash = ? AND expires_at >= NOW() LIMIT 1');
+            $revoked->execute([hash('sha256', $token)]);
+            if ($revoked->fetchColumn()) Response::error('Session has been invalidated', 401);
+
+            // Get user from database with all fields
             $stmt = $pdo->prepare("SELECT id, email, name, plan, email_verified_at, avatar_url, created_at FROM users WHERE id = ?");
             $stmt->execute([$decoded->user_id]);
             $user = $stmt->fetch();
@@ -129,6 +139,7 @@ class Auth
             'iss' => $issuer,
             'user_id' => $userId,
             'plan' => $plan,
+            'jti' => bin2hex(random_bytes(16)),
             'iat' => time(),
             'exp' => time() + $expiry
         ]);

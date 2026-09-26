@@ -239,7 +239,7 @@ export default function Analytics() {
         title: "Signed out",
         description: "You have been successfully logged out.",
       });
-      navigate("/login");
+      return;
     } catch {
       // Error already handled by logout
     } finally {

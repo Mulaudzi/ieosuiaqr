@@ -16,10 +16,11 @@ final class IeosuiaAuthController
         $state = self::base64Url(random_bytes(32));
         $type = ($_GET['account_type'] ?? 'customer') === 'admin' ? 'admin' : 'customer';
         $screenHint = (($_GET['screen_hint'] ?? '') === 'signup' && $type === 'customer') ? 'signup' : 'login';
+        $prompt = ($_GET['prompt'] ?? '') === 'login' ? 'login' : '';
         $pending = ['verifier' => $verifier, 'state' => $state, 'account_type' => $type, 'created_at' => time()];
         $_SESSION['ieosuia_oauth'] = $pending;
         self::storeFlowCookie($pending);
-        $query = http_build_query(['client_id' => $_ENV['AUTH_CLIENT_ID'] ?? 'qr-web', 'redirect_uri' => self::redirectUri(), 'response_type' => 'code', 'scope' => 'openid profile email', 'account_type' => $type, 'screen_hint'=>$screenHint, 'state' => $state, 'code_challenge' => self::base64Url(hash('sha256', $verifier, true)), 'code_challenge_method' => 'S256'], '', '&', PHP_QUERY_RFC3986);
+        $query = http_build_query(['client_id' => $_ENV['AUTH_CLIENT_ID'] ?? 'qr-web', 'redirect_uri' => self::redirectUri(), 'response_type' => 'code', 'scope' => 'openid profile email', 'account_type' => $type, 'screen_hint'=>$screenHint, 'prompt'=>$prompt, 'state' => $state, 'code_challenge' => self::base64Url(hash('sha256', $verifier, true)), 'code_challenge_method' => 'S256'], '', '&', PHP_QUERY_RFC3986);
         header('Location: '.self::issuer().'/oauth/authorize?'.$query, true, 302);
         exit;
     }

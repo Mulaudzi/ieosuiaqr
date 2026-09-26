@@ -146,9 +146,13 @@ class AuthController
 
     public static function logout(): void
     {
-        // With JWT, we don't need server-side logout
-        // The client should remove the token
-        Auth::check(); // Verify user is authenticated
+        $user = Auth::check();
+        $headers = getallheaders();
+        $authorization = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+        preg_match('/^Bearer\s+(.+)$/i', $authorization, $match);
+        $token = (string)($match[1] ?? '');
+        $pdo = Database::getInstance();
+        if($token!=='')$pdo->prepare("INSERT IGNORE INTO revoked_auth_tokens(token_hash,user_id,token_type,expires_at) VALUES(?,?,'customer',DATE_ADD(NOW(),INTERVAL 24 HOUR))")->execute([hash('sha256',$token),$user['id']]);
         Response::success(null, 'Logged out successfully');
     }
 
