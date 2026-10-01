@@ -1,16 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
 import fs from 'node:fs';
-import path from 'node:path';
-
-function privateFields(file: string) {
-  const text = fs.readFileSync(path.resolve('.private', file), 'utf8');
-  return Object.fromEntries(
-    text.split(/\r?\n/).flatMap((line) => {
-      const match = line.match(/^- ([^:]+):\s*(.+)$/);
-      return match ? [[match[1], match[2]]] : [];
-    }),
-  );
-}
 
 function collectRuntimeFailures(page: Page) {
   const failures: string[] = [];
@@ -35,9 +24,9 @@ async function assertRendered(page: Page, route: string) {
 test('every public route renders without runtime or server errors', async ({ page }) => {
   const failures = collectRuntimeFailures(page);
   const routes = [
-    '/', '/login', '/signup', '/forgot-password', '/reset-password', '/verify-email',
+    '/', '/forgot-password', '/reset-password', '/verify-email',
     '/terms', '/privacy', '/cookies', '/support', '/contact', '/docs', '/careers',
-    '/solutions', '/solutions/retail', '/admin', '/admin/login',
+    '/solutions', '/solutions/retail', '/admin',
   ];
   for (const route of routes) await assertRendered(page, route);
   expect(failures).toEqual([]);
@@ -53,13 +42,10 @@ test('favicon is optimized, valid, and served as an image', async ({ request }) 
 });
 
 test('user logs in through UI and every protected route renders', async ({ page }) => {
-  const account = privateFields('LOCAL_TEST_ACCOUNT.md');
+  const token=process.env.QR_TEST_TOKEN||'';expect(token).toBeTruthy();
   const failures = collectRuntimeFailures(page);
-  await page.goto('/login');
-  await page.getByPlaceholder('you@example.com').fill(account.Email);
-  await page.locator('input[type="password"]').fill(account.Password);
-  await page.getByRole('button', { name: /sign in|log in/i }).click();
-  await expect(page).toHaveURL(/\/dashboard/);
+  await page.addInitScript(value=>localStorage.setItem('auth_token',value),token);
+  await page.goto('/dashboard');
   await expect(page.getByText(/welcome|dashboard|qr codes/i).first()).toBeVisible();
 
   for (const route of [
@@ -71,16 +57,12 @@ test('user logs in through UI and every protected route renders', async ({ page 
 
 test('logo loads in QR preview, persists, and is present in a downloaded PNG', async ({ page }) => {
   test.setTimeout(90_000);
-  const account = privateFields('LOCAL_TEST_ACCOUNT.md');
+  const token=process.env.QR_TEST_TOKEN||'';expect(token).toBeTruthy();
   await page.addInitScript(() => {
     localStorage.setItem('cookie-consent', 'accepted');
     localStorage.setItem('dashboard-tutorial-seen', 'true');
   });
-  await page.goto('/login');
-  await page.getByPlaceholder('you@example.com').fill(account.Email);
-  await page.locator('input[type="password"]').fill(account.Password);
-  await page.getByRole('button', { name: /sign in|log in/i }).click();
-  await expect(page).toHaveURL(/\/dashboard/);
+  await page.addInitScript(value=>localStorage.setItem('auth_token',value),token);
   await page.goto('/dashboard/create');
   await page.getByRole('button', { name: /^url/i }).click();
   await page.getByRole('button', { name: /^next/i }).click();
@@ -123,21 +105,18 @@ test('unauthenticated visitors cannot enter protected routes', async ({ page }) 
   }
 });
 
-test('admin logs in through UI and every admin screen renders', async ({ page }) => {
-  const account = privateFields('LOCAL_ADMIN_TEST_ACCOUNT.md');
-  await page.addInitScript(() => localStorage.setItem('cookie-consent', 'accepted'));
-  const failures = collectRuntimeFailures(page);
-  await page.goto('/admin/login');
-  await page.getByPlaceholder('admin@example.com').fill(account.Email);
-  await page.getByPlaceholder('Enter password 1').fill(account['Password 1']);
-  await page.getByPlaceholder('Enter password 2').fill(account['Password 2']);
-  await page.getByPlaceholder('Enter password 3').fill(account['Password 3']);
-  await page.getByRole('button', { name: /access admin panel/i }).click();
-  await expect(page).toHaveURL(/\/admin\/dashboard/);
-
-  for (const route of [
-    '/admin/dashboard', '/admin/emails', '/admin/settings', '/admin/stats',
-    '/admin/create', '/admin/users', '/admin/audit',
-  ]) await assertRendered(page, route);
-  expect(failures).toEqual([]);
+test('admin entry uses Central Auth and protected screens fail closed', async ({ page }) => {
+  await page.goto('/admin/login', { waitUntil: 'domcontentloaded' });
+  await page.waitForURL((url) => url.hostname === 'auth.ieosuia.com');
+  for (const route of ['/admin/dashboard', '/admin/emails', '/admin/settings', '/admin/stats', '/admin/create', '/admin/users', '/admin/audit']) {
+    try {
+      await page.goto(`http://localhost:5173${route}`, { waitUntil: 'domcontentloaded' });
+    } catch {
+      // Cross-origin Central Auth navigation can interrupt the local document.
+    }
+    await expect.poll(() => {
+      const current = new URL(page.url());
+      return current.origin === 'http://localhost:5173' && current.pathname === route;
+    }, { message: `${route} must not remain accessible without an admin session` }).toBe(false);
+  }
 });

@@ -65,6 +65,9 @@ final class InventoryMovementService
                     'stock_count_id'=>(int)$stockCount['id'],
                     'location_expected_quantity'=>(int)$stockCount['expected_location_quantity'],
                     'location_counted_quantity'=>(int)$stockCount['counted_quantity'],
+                    'count_date'=>$stockCount['count_date'],
+                    'count_reason'=>$stockCount['reason'],
+                    'count_notes'=>$stockCount['notes'],
                 ]);
             }
 
@@ -72,15 +75,14 @@ final class InventoryMovementService
             $afterQty = $beforeQty;
             $beforeStatus = (string)$item['status'];
             $afterStatus = $beforeStatus;
-            $fromLocation = $item['location'];
+            $type = (string)$item['inventory_type'];
+            $fromLocation = $action==='transfer'&&$type==='quantity'?(self::nullableText($data['from_location']??$item['location'],255)??'Unassigned'):$item['location'];
             $toLocation = array_key_exists('to_location',$data) ? self::nullableText($data['to_location'],255) : $fromLocation;
             $movementToLocation = $toLocation;
             $assignedTo = $item['assigned_to'];
             $delta = 0;
-            $type = (string)$item['inventory_type'];
-
             if ($type === 'quantity') {
-                [$afterQty,$delta,$afterStatus,$itemLocation] = self::quantityTransition($item,$action,$data,$toLocation);
+                [$afterQty,$delta,$afterStatus,$itemLocation] = self::quantityTransition($item,$action,$data,$toLocation,$fromLocation);
                 if ($action !== 'transfer') {
                     $movementToLocation = self::nullableText($data['location'] ?? $fromLocation,255);
                 }
@@ -112,14 +114,14 @@ final class InventoryMovementService
         }
     }
 
-    private static function quantityTransition(array $item,string $action,array $data,?string $toLocation): array
+    private static function quantityTransition(array $item,string $action,array $data,?string $toLocation,?string $fromLocation): array
     {
         $before=(int)$item['quantity']; $after=$before;
         if (in_array($action,['checkout','return','maintenance_send','maintenance_release'],true)) throw new \InvalidArgumentException('This action is only available for individually tracked items');
         if ($action === 'add_stock') { $qty=self::positive($data['quantity']??0); $after=$before+$qty; }
         elseif (in_array($action,['remove_stock','damaged','lost','missing'],true)) { $qty=self::positive($data['quantity']??0); if($qty>$before) throw new \DomainException('Quantity cannot fall below zero'); $after=$before-$qty; }
         elseif (in_array($action,['adjust','reconciliation'],true)) { if(!isset($data['new_quantity'])||filter_var($data['new_quantity'],FILTER_VALIDATE_INT)===false||(int)$data['new_quantity']<0) throw new \InvalidArgumentException('New quantity must be zero or greater'); $after=(int)$data['new_quantity']; }
-        elseif ($action === 'transfer') { self::positive($data['quantity']??0); if(!$toLocation||$toLocation===$item['location']) throw new \InvalidArgumentException('A different destination location is required'); }
+        elseif ($action === 'transfer') { self::positive($data['quantity']??0); if(!$toLocation||$toLocation===$fromLocation) throw new \InvalidArgumentException('A different destination location is required'); }
         $delta=$after-$before;
         $minimum=(int)$item['minimum_stock_level'];
         $status=$after===0?'out_of_stock':($after<=$minimum&&$minimum>0?'low_stock':'in_stock');
@@ -168,6 +170,7 @@ final class InventoryMovementService
             : self::optionalDate($data['action_date']??null);
         $metadata=(array)($data['metadata']??[]);
         $metadata['action_date']=$occurred;
+        $sourceReference=self::nullableText($data['source_reference']??null,255);if($sourceReference!==null)$metadata['source_reference']=$sourceReference;
         $require=function(string $field,string $label,int $max=255)use(&$data,&$metadata):string{
             $value=self::requiredText($data[$field]??$metadata[$field]??null,"{$label} is required",$max);
             $metadata[$field]=$value; return $value;
@@ -210,7 +213,8 @@ final class InventoryMovementService
     private static function requiredDate(mixed $value,string $message,bool $dateOnly=false): string
     {
         $raw=trim((string)$value); if($raw==='')throw new \InvalidArgumentException($message);
-        if(!preg_match('/^(\d{4})-(\d{2})-(\d{2})/',$raw,$parts)||!checkdate((int)$parts[2],(int)$parts[3],(int)$parts[1]))throw new \InvalidArgumentException($message);
+        $pattern=$dateOnly?'/^(\d{4})-(\d{2})-(\d{2})$/':'/^(\d{4})-(\d{2})-(\d{2})(?:[ T]\d{2}:\d{2}(?::\d{2})?(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})?)?$/';
+        if(!preg_match($pattern,$raw,$parts)||!checkdate((int)$parts[2],(int)$parts[3],(int)$parts[1]))throw new \InvalidArgumentException($message);
         try{$date=new \DateTimeImmutable($raw);}catch(\Throwable){throw new \InvalidArgumentException($message);}
         return $dateOnly?$date->format('Y-m-d'):$date->format('Y-m-d H:i:s');
     }

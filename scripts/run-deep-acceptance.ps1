@@ -19,6 +19,16 @@ $env:QR_TEST_QR_ID = Get-LocalScalar "SELECT qr_id FROM inventory_items WHERE us
 if (-not $env:QR_TEST_TOKEN -or -not $env:QR_TEST_ITEM_ID -or -not $env:QR_TEST_QR_ID) { throw 'Local deep-acceptance fixtures are incomplete.' }
 $env:QR_REQUIRE_FIXTURES = '1'
 
-npx.cmd playwright test tests/e2e/api-behavior.spec.ts tests/e2e/master-repair.spec.ts tests/e2e/responsive-ui.spec.ts
-if ($LASTEXITCODE -ne 0) { throw 'Deep browser/API acceptance failed.' }
+npm.cmd run typecheck
+if ($LASTEXITCODE -ne 0) { throw 'TypeScript acceptance failed.' }
+npm.cmd run test
+if ($LASTEXITCODE -ne 0) { throw 'Unit acceptance failed.' }
+docker compose exec -T api php tests/inventory_acceptance.php
+if ($LASTEXITCODE -ne 0) { throw 'Inventory concurrency acceptance failed.' }
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-database-migrations.ps1
+if ($LASTEXITCODE -ne 0) { throw 'Database migration acceptance failed.' }
+npm.cmd run build:web
+if ($LASTEXITCODE -ne 0) { throw 'Production web build failed.' }
+npx.cmd playwright test
+if ($LASTEXITCODE -ne 0) { throw 'Complete browser/API acceptance failed.' }
 

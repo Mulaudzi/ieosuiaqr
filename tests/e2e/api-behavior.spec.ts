@@ -78,7 +78,7 @@ const auth = () => ({ Authorization: `Bearer ${token}` });
       data: {
         type: 'url', name: 'Codex Exact Redirect QR',
         content: { content: 'https://example.com/expected-destination' },
-        custom_options: { fgColor: '#0066aa', bgColor: '#ffffff', logo: '/api/uploads/logos/test.png' },
+        custom_options: { fgColor: '#0066aa', bgColor: '#ffffff', logo: '/favicon.png' },
       },
     });
     expect(create.status()).toBe(201);
@@ -86,7 +86,7 @@ const auth = () => ({ Authorization: `Bearer ${token}` });
     const before = await request.get(`${api}/qr/${qrId}`, { headers: auth() });
     const beforeData = (await before.json()).data;
     expect(beforeData.content.content).toBe('https://example.com/expected-destination');
-    expect(beforeData.custom_options.logo).toBe('/api/uploads/logos/test.png');
+    expect(beforeData.custom_options.logo).toBe('/favicon.png');
     const scan1 = await request.get(`${api}/scan/log?id=${qrId}`, { headers: { 'User-Agent': 'Codex-Acceptance-Scanner/1.0' }, maxRedirects: 0 });
     expect(scan1.status()).toBe(302);
     expect(scan1.headers().location).toBe(`http://localhost:5173/go/${qrId}`);

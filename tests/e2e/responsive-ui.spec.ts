@@ -51,7 +51,7 @@ for(const route of ['/login','/signup','/admin/login']){
 
 test('invalid authentication callback returns to a safe local state',async({page})=>{const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));await page.goto('/auth/callback?error=access_denied',{waitUntil:'domcontentloaded'});await page.waitForURL(/sso=invalid_response/);expect(errors).toEqual([]);});
 
-test('unauthorized admin route matrix fails closed',async({page})=>{for(const route of ['/admin/dashboard','/admin/users','/admin/stats','/admin/emails','/admin/settings','/admin/create','/admin/audit']){try{await page.goto(route,{waitUntil:'domcontentloaded'});}catch(error){if(!String(error).includes('ERR_ABORTED'))throw error;}await page.waitForTimeout(500);const url=new URL(page.url());expect(url.hostname==='auth.ieosuia.com'||['/admin','/admin/login'].includes(url.pathname),`${route} remained accessible at ${url}`).toBe(true);expect(url.pathname).not.toBe(route);}});
+test('unauthorized admin route matrix fails closed',async({page})=>{for(const route of ['/admin/dashboard','/admin/users','/admin/stats','/admin/emails','/admin/settings','/admin/create','/admin/audit']){try{await page.goto(route,{waitUntil:'domcontentloaded'});}catch{/* Central Auth can interrupt the original navigation. The settled URL below remains authoritative. */}await page.waitForTimeout(500);const url=new URL(page.url());expect(url.hostname==='auth.ieosuia.com'||['/admin','/admin/login'].includes(url.pathname),`${route} remained accessible at ${url}`).toBe(true);expect(url.pathname).not.toBe(route);}});
 
 for (const width of [320, 360, 390, 430, 768, 1024, 1440]) {
   test(`public routes are viewport-safe at ${width}px`, async ({ page }) => {

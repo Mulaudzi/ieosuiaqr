@@ -1,38 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
-import fs from 'node:fs';
-import path from 'node:path';
-
-function credentials(file: string) {
-  return Object.fromEntries(
-    fs.readFileSync(path.resolve('.private', file), 'utf8').split(/\r?\n/).flatMap((line) => {
-      const match = line.match(/^- ([^:]+):\s*(.+)$/);
-      return match ? [[match[1], match[2]]] : [];
-    }),
-  );
-}
 
 async function login(page: Page) {
-  const account = credentials('LOCAL_TEST_ACCOUNT.md');
+  const token=process.env.QR_TEST_TOKEN||'';expect(token).toBeTruthy();
   await page.addInitScript(() => {
     localStorage.setItem('cookie-consent', 'accepted');
     localStorage.setItem('dashboard-tutorial-seen', 'true');
   });
-  await page.goto('/login');
-  await page.getByPlaceholder('you@example.com').fill(account.Email);
-  await page.locator('input[type="password"]').fill(account.Password);
-  await page.getByRole('button', { name: /sign in|log in/i }).click();
-  await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 });
-}
-
-async function loginAdmin(page: Page) {
-  const account = credentials('LOCAL_ADMIN_TEST_ACCOUNT.md');
-  await page.goto('/admin/login');
-  await page.getByPlaceholder('admin@example.com').fill(account.Email);
-  await page.getByPlaceholder('Enter password 1').fill(account['Password 1']);
-  await page.getByPlaceholder('Enter password 2').fill(account['Password 2']);
-  await page.getByPlaceholder('Enter password 3').fill(account['Password 3']);
-  await page.getByRole('button', { name: /access admin panel/i }).click();
-  await expect(page).toHaveURL(/\/admin\/dashboard/, { timeout: 30_000 });
+  await page.addInitScript(value=>localStorage.setItem('auth_token',value),token);
+  await page.goto('/dashboard');await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 });
 }
 
 async function assertResponsive(page: Page, route: string) {
@@ -55,7 +30,7 @@ for (const device of [
     await page.setViewportSize({ width: device.width, height: device.height });
     for (const route of [
       '/', '/solutions', '/solutions/retail', '/support', '/contact', '/docs', '/careers',
-      '/terms', '/privacy', '/cookies', '/login', '/signup', '/forgot-password', '/admin', '/admin/login',
+      '/terms', '/privacy', '/cookies', '/forgot-password', '/admin',
     ]) {
       await assertResponsive(page, route);
     }
@@ -76,12 +51,5 @@ for (const device of [
     await expect(mobileNav.getByText('Analytics', { exact: true })).toBeVisible();
     await expect(mobileNav.getByText('Settings', { exact: true })).toBeVisible();
 
-    await loginAdmin(page);
-    for (const route of [
-      '/admin/dashboard', '/admin/emails', '/admin/settings', '/admin/stats',
-      '/admin/create', '/admin/users', '/admin/audit',
-    ]) {
-      await assertResponsive(page, route);
-    }
   });
 }

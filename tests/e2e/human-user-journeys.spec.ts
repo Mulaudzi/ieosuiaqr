@@ -1,30 +1,19 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import fs from 'node:fs';
-import path from 'node:path';
 
 const api = 'http://localhost:8081/api';
-const account = Object.fromEntries(
-  fs.readFileSync(path.resolve('.private/LOCAL_TEST_ACCOUNT.md'), 'utf8').split(/\r?\n/).flatMap((line) => {
-    const match = line.match(/^- ([^:]+):\s*(.+)$/);
-    return match ? [[match[1], match[2]]] : [];
-  }),
-);
 
 async function loginApi(request: APIRequestContext) {
-  const response = await request.post(`${api}/auth/login`, { data: { email: account.Email, password: account.Password } });
-  expect(response.status()).toBe(200);
-  return (await response.json()).data.tokens.access_token as string;
+  void request;const token=process.env.QR_TEST_TOKEN||'';expect(token).toBeTruthy();return token;
 }
 
 async function loginUi(page: Page) {
+  const token=process.env.QR_TEST_TOKEN||'';expect(token).toBeTruthy();
   await page.addInitScript(() => {
     localStorage.setItem('cookie-consent', 'accepted');
     localStorage.setItem('dashboard-tutorial-seen', 'true');
   });
-  await page.goto('/login');
-  await page.getByPlaceholder('you@example.com').fill(account.Email);
-  await page.locator('input[type="password"]').fill(account.Password);
-  await page.getByRole('button', { name: /sign in|log in/i }).click();
+  await page.addInitScript(value=>localStorage.setItem('auth_token',value),token);
+  await page.goto('/dashboard');
   await expect(page).toHaveURL(/\/dashboard/);
 }
 
@@ -60,7 +49,10 @@ test.describe.serial('human-style populated user journeys', () => {
       qr_id: qrId, name: `${unique} Asset`, category: 'Testing', status: 'in_stock', location: 'Human Test Lab',
     } });
     inventoryId = Number((await item.json()).data.id);
-    await request.get(`${api}/scan/log?id=${qrId}`, { headers: { 'User-Agent': `Human-Journey-Scanner-${Date.now()}` }, maxRedirects: 0 });
+    const scan = await request.get(`${api}/scan/log?id=${qrId}&response=json`, {
+      headers: { 'User-Agent': `Human-Journey-Scanner-${Date.now()}` },
+    });
+    expect(scan.status()).toBe(200);
   });
 
   test.afterAll(async ({ request }) => {
@@ -152,9 +144,12 @@ test.describe.serial('human-style populated user journeys', () => {
 
     const qr = await request.get(`${api}/qr/${combinedQrId}`, { headers });
     expect((await qr.json()).data.content.url).toBe(`http://localhost:5173/scan/${combinedQrId}`);
-    const scan = await request.get(`${api}/scan/log?id=${combinedQrId}`, { maxRedirects: 0 });
-    expect(scan.status()).toBe(302);
-    expect(scan.headers().location).toBe(`http://localhost:5173/scan/${combinedQrId}`);
+    const legacyScan = await request.get(`${api}/scan/log?id=${combinedQrId}`, { maxRedirects: 0 });
+    expect(legacyScan.status()).toBe(302);
+    expect(legacyScan.headers().location).toBe(`http://localhost:5173/go/${combinedQrId}`);
+    const transition = await request.get(`${api}/scan/log?id=${combinedQrId}&response=json`);
+    expect(transition.status()).toBe(200);
+    expect((await transition.json()).data.redirect_url).toBe(`http://localhost:5173/scan/${combinedQrId}`);
     expect(failures).toEqual([]);
   });
 });
