@@ -11,7 +11,7 @@ const fields = (file: string) => Object.fromEntries(
 );
 
 test.describe.serial('exact API behavior and lifecycle', () => {
-  let token = process.env.QR_TEST_TOKEN || '';
+  const token = process.env.QR_TEST_TOKEN || '';
   let qrId = 0;
   let presetId = '';
   let inventoryId = 0;

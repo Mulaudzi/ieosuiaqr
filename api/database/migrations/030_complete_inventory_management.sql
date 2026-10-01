@@ -151,3 +151,41 @@ CREATE TABLE IF NOT EXISTS inventory_access (
   CONSTRAINT inventory_access_owner_fk FOREIGN KEY(owner_user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT inventory_access_user_fk FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Ledger rows are append-only. A narrowly scoped session flag exists only so
+-- disposable acceptance fixtures can be removed without weakening production
+-- application behavior.
+DROP TRIGGER IF EXISTS inventory_movements_block_update;
+DROP TRIGGER IF EXISTS inventory_movements_block_delete;
+DROP TRIGGER IF EXISTS inventory_applied_counts_block_update;
+DROP TRIGGER IF EXISTS inventory_counts_block_delete;
+DELIMITER $$
+CREATE TRIGGER inventory_movements_block_update
+BEFORE UPDATE ON inventory_movements FOR EACH ROW
+BEGIN
+  IF COALESCE(@inventory_allow_history_cleanup,0) <> 1 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Inventory movement history is immutable';
+  END IF;
+END$$
+CREATE TRIGGER inventory_movements_block_delete
+BEFORE DELETE ON inventory_movements FOR EACH ROW
+BEGIN
+  IF COALESCE(@inventory_allow_history_cleanup,0) <> 1 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Inventory movement history is immutable';
+  END IF;
+END$$
+CREATE TRIGGER inventory_applied_counts_block_update
+BEFORE UPDATE ON inventory_stock_counts FOR EACH ROW
+BEGIN
+  IF OLD.status='applied' AND COALESCE(@inventory_allow_history_cleanup,0) <> 1 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Applied stock count history is immutable';
+  END IF;
+END$$
+CREATE TRIGGER inventory_counts_block_delete
+BEFORE DELETE ON inventory_stock_counts FOR EACH ROW
+BEGIN
+  IF COALESCE(@inventory_allow_history_cleanup,0) <> 1 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Stock count history is immutable';
+  END IF;
+END$$
+DELIMITER ;

@@ -24,9 +24,19 @@ test('authenticated owner can open protected inventory actions and history',asyn
   test.skip(!token||!itemId,'Local owner token unavailable');await page.addInitScript(value=>localStorage.setItem('auth_token',value),token);
   await page.goto(`/dashboard/inventory/${itemId}`);await expect(page).toHaveURL(new RegExp(`/dashboard/inventory/${itemId}`));
   await expect(page.getByText('Actions',{exact:true})).toBeVisible();await expect(page.getByText('Movement history',{exact:true})).toBeVisible();
-  await page.getByPlaceholder('Reason contains').fill('Legacy');await page.getByLabel('History from date').fill('2000-01-01');await page.getByRole('button',{name:'Apply filters'}).click();
+  await page.getByPlaceholder('Reason contains').fill('Initial');await page.getByLabel('History from date').fill('2000-01-01');await page.getByRole('button',{name:'Apply filters'}).click();
   const detail=page.locator('.inventory-history-print details').first();await expect(detail).toHaveCount(1);await detail.evaluate(element=>{(element as HTMLDetailsElement).open=true;});await expect(detail.getByText('Workflow:',{exact:false})).toBeVisible();
-  await page.emulateMedia({media:'print'});await expect(page.locator('.inventory-history-print')).toBeVisible();await expect(page.locator('.inventory-history-print')).toContainText('Filters: reason=Legacy');await expect(detail.getByText('Workflow:',{exact:false})).toBeVisible();await expect(page.locator('aside')).toBeHidden();await page.emulateMedia({media:'screen'});
+  await page.emulateMedia({media:'print'});await expect(page.locator('.inventory-history-print')).toBeVisible();await expect(page.locator('.inventory-history-print')).toContainText('Filters: reason=Initial');await expect(detail.getByText('Workflow:',{exact:false})).toBeVisible();await expect(page.locator('aside')).toBeHidden();await page.emulateMedia({media:'screen'});
+});
+
+test('delayed movement history does not block authorized inventory actions',async({page},testInfo)=>{
+  test.skip(!token||!itemId,'Local owner token unavailable');await page.addInitScript(value=>localStorage.setItem('auth_token',value),token);
+  await page.route(/\/api\/inventory\/[^/]+\/movements(?:\?|$)/,async route=>{await new Promise(resolve=>setTimeout(resolve,15_000));await route.continue();});
+  const historyResponse=page.waitForResponse(response=>/\/api\/inventory\/[^/]+\/movements(?:\?|$)/.test(response.url())&&response.status()===200);
+  const started=Date.now();await page.goto(`/dashboard/inventory/${itemId}`);await expect(page.getByText('Actions',{exact:true})).toBeVisible();const actionsElapsed=Date.now()-started;
+  await historyResponse;const historyElapsed=Date.now()-started;
+  await testInfo.attach('inventory-readiness-timing.json',{body:Buffer.from(JSON.stringify({actions_elapsed_ms:actionsElapsed,history_elapsed_ms:historyElapsed,history_delay_ms:15_000})),contentType:'application/json'});
+  expect(actionsElapsed).toBeLessThan(20_000);expect(actionsElapsed).toBeLessThan(historyElapsed);expect(historyElapsed).toBeGreaterThanOrEqual(15_000);await expect(page.locator('.inventory-history-print details').first()).toBeVisible();
 });
 
 test('inventory history export and movement analytics are authorized and usable',async({request})=>{

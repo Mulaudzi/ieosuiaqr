@@ -78,6 +78,9 @@ test('logo loads in QR preview, persists, and is present in a downloaded PNG', a
   await page.getByPlaceholder('https://example.com').fill('https://example.com/browser-logo');
   await page.getByRole('button', { name: /^next/i }).click();
   await page.getByRole('button', { name: /click or drag a png logo here/i }).click();
+  await page.locator('#logo-upload').setInputFiles('public/favicon.png');
+  await expect(page.getByRole('img', { name: 'Selected logo' })).toBeVisible();
+  await page.getByRole('button', { name: 'Change' }).click();
   const savedLogo = page.getByRole('dialog').getByRole('img', { name: 'Logo' }).first();
   await expect(savedLogo).toBeVisible();
   expect(await savedLogo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);

@@ -7,14 +7,14 @@ Scope: local completion candidate only. Production deployment is explicitly excl
 | Controlled inventory workflow reasons and conditions | `InventoryMovementService::REASONS`, `validateActionData`; `InventoryDetail` controlled selectors | PHP syntax, TypeScript, Docker inventory acceptance | PASS |
 | Checkout and maintenance date ordering | `InventoryMovementService::validateActionData` | Invalid/incomplete workflow acceptance plus lifecycle suite | PASS |
 | Complete pre-commit confirmation | `InventoryDetail` review shows item, action, quantity, old/new quantity and status, locations, actor, reason, dates, and count notes | TypeScript and authenticated action-dialog acceptance | PASS |
-| Auth-derived actor and immutable movement record | Middleware actor passed to movement service; client actor fields ignored | Permission rejection and ledger assertions | PASS |
+| Auth-derived actor and immutable movement record | Middleware actor passed to movement service; client actor fields ignored; migration 030 append-only movement triggers | Permission rejection, ledger assertions, and hostile movement update/delete acceptance | PASS |
 | Quantity and serialized state invariants | Locked transitions and optimistic version update | Negative stock, lifecycle, and A-L race suite | PASS |
 | Idempotency for all important mutations | Owner-scoped unique key inside transaction | Retries for add, remove, checkout, return, transfer, damage, loss, maintenance, release, adjust, reconciliation | PASS |
 | Full concurrency matrix A-L | Transactions and row locks | `api/tests/inventory_acceptance.php` labels and asserts A-L | PASS |
 | Location count and stale guard | Version/location snapshots and locked reconciliation | Count apply, stale rejection, race reconciliation | PASS |
 | Count reason, notes, editable date | Count dialog and controller validation | TypeScript and Docker count lifecycle | PASS |
 | Canonical locations | Location tables/API and service validation | Docker stock-level and bidirectional selected-source transfer assertions | PASS |
-| Detailed paginated history | Controller pagination; expandable metadata/evidence UI | API behavior, browser route, TypeScript | PASS |
+| Detailed paginated history | Controller pagination; independently loaded expandable metadata/evidence UI | API behavior, browser route, delayed-history non-blocking acceptance, TypeScript | PASS |
 | CSV and isolated print view | Safe CSV; inventory-only print CSS with filter summary | Authenticated export and build | PASS |
 | Movement analytics | Action and from/to aggregation; transfer units recorded once | Authenticated analytics API and TypeScript | PASS |
 | Scan privacy and no scan mutation | Public projection and explicit movement writes | Anonymous scan and API lifecycle | PASS |
@@ -23,9 +23,9 @@ Scope: local completion candidate only. Production deployment is explicitly excl
 | Responsive application layout | Shared styles and narrow auth repairs | 320, 360, 390, 430, 768, 1024, 1440 pixel matrix | PASS |
 | Central Auth handoff/callback | Redirect component and safe fallback | Login/signup/admin handoff and invalid callback | PASS |
 | Unauthorized admin states | Admin guards | Admin route matrix fails closed | PASS |
-| Fresh schema | Ordered structural migrations, excluding operational 027/028 | Isolated fresh database harness | PASS |
-| Legacy backfill/soft delete | Additive migration 030 | Isolated legacy row, opening movement, soft delete | PASS |
-| Historical referential integrity | RESTRICT movement/count owner/item keys | Four constraint assertions | PASS |
+| Fresh schema | Ordered structural migrations, excluding operational 027/028 | Isolated database creates QR, quantity and serialized inventory and executes both service lifecycles | PASS |
+| Legacy backfill/soft delete | Additive replay-safe migration 030 | Multi-item quantity/serialized/QR/archive fixture; exact retention, opening provenance, soft delete, and replay assertions | PASS |
+| Historical referential integrity | RESTRICT owner/item keys plus append-only movement/applied-count triggers | Hostile update/delete operations against movement, count, owner, item, actor, and location policy | PASS |
 | Payments, subscriptions, reCAPTCHA, 2FA | Intentionally removed/disabled scope | Existing regressions | N/A - absent by design |
 | Production deployment | Outside this directive | None | N/A - prohibited |
 
@@ -56,7 +56,8 @@ Each row is independently exercised by `tests/e2e/master-repair.spec.ts`. Downlo
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-database-migrations.ps1`
 - `npm run test:deep:local` (creates required local environment variables and fails rather than skipping when fixtures are absent)
 - `npm run build:web`
+- `npm run lint`
 
-Latest complete local run (2026-10-01): typecheck PASS; 23/23 unit tests PASS; inventory A-L acceptance PASS; fresh and legacy migration acceptance PASS; production build PASS; 63/63 Playwright tests PASS with no skips. Invalid stored admin tokens are server-validated before protected UI renders. Post-run checks found zero named inventory/QR test fixtures and no new upload files. Successful Central Auth admin entitlement/session and protected admin feature operation remain an external, unverified boundary; local acceptance covers handoff and unauthorized fail-closed behavior only.
+Latest complete implementer run (2026-10-02): typecheck PASS; 23/23 unit tests PASS; inventory A-L acceptance PASS; strengthened fresh/legacy/replay/referential-integrity migration acceptance PASS; production build PASS; 64/64 Playwright tests PASS with no failures or skips. The previously failing authenticated inventory test passed three consecutive executions in 14.5s, 7.9s, and 4.7s. A separate 15-second delayed-history test proves authorized Actions become usable before history completes. Lint exits 0 with the unchanged 27-warning baseline. Runtime logs contain zero fatal/exception/database/HTTP-500 matches. The owned fixture database state is clean: zero owned users, inventory/QR fixtures, temporary migration databases, untracked uploads, or Playwright processes. Successful Central Auth admin entitlement/session and protected admin feature operation remain an external, unverified boundary; local acceptance covers handoff and unauthorized fail-closed behavior only.
 
 Change a row back to RED if its listed evidence fails after a code change.
