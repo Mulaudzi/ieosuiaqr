@@ -21,7 +21,9 @@ async function authenticate(page: Page) {
 async function assertViewportSafe(page: Page, route: string) {
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
-  await page.goto(route, { waitUntil: "networkidle" });
+  // Analytics and dashboard routes can legitimately poll. DOM readiness plus
+  // a visible body is the stable UI boundary; network-idle is not.
+  await page.goto(route, { waitUntil: "domcontentloaded" });
   await expect(page.locator("body")).toBeVisible();
   await page.waitForTimeout(150);
   const overflow = await page.evaluate(() => ({

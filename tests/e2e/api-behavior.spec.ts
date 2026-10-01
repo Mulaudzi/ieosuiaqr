@@ -11,32 +11,29 @@ const fields = (file: string) => Object.fromEntries(
 );
 
 test.describe.serial('exact API behavior and lifecycle', () => {
-  let token = '';
+  let token = process.env.QR_TEST_TOKEN || '';
   let qrId = 0;
   let presetId = '';
   let inventoryId = 0;
   const account = fields('LOCAL_TEST_ACCOUNT.md');
 const auth = () => ({ Authorization: `Bearer ${token}` });
 
-  test('authentication rejects malformed and wrong credentials without leaking details', async ({ request }) => {
+  test('local credential authentication is retired without leaking details', async ({ request }) => {
     const malformed = await request.post(`${api}/auth/login`, { data: { email: 'not-an-email', password: 'x' } });
-    expect(malformed.status()).toBe(422);
+    expect(malformed.status()).toBe(410);
     const wrong = await request.post(`${api}/auth/login`, { data: { email: account.Email, password: `${account.Password}-wrong` } });
-    expect(wrong.status()).toBe(401);
+    expect(wrong.status()).toBe(410);
     expect((await wrong.json()).message).not.toMatch(/hash|sql|password.*database/i);
   });
 
-  test('login returns usable tokens and private routes enforce authentication', async ({ request }) => {
+  test('central-auth token is usable and private routes enforce authentication', async ({ request }) => {
     const denied = await request.get(`${api}/user/profile`);
     expect(denied.status()).toBe(401);
-    const response = await request.post(`${api}/auth/login`, { data: { email: account.Email, password: account.Password } });
-    expect(response.status()).toBe(200);
-    const body = await response.json();
-    token = body.data.tokens.access_token;
+    test.skip(!token,'Local central-auth fixture token is required');
     expect(token).toBeTruthy();
     const profile = await request.get(`${api}/user/profile`, { headers: auth() });
     expect(profile.status()).toBe(200);
-    expect((await profile.json()).data.email).toBe(account.Email);
+    expect((await profile.json()).data.email).toBeTruthy();
   });
 
   test('logo upload stores a retrievable real image', async ({ request }) => {
@@ -92,9 +89,11 @@ const auth = () => ({ Authorization: `Bearer ${token}` });
     expect(beforeData.custom_options.logo).toBe('/api/uploads/logos/test.png');
     const scan1 = await request.get(`${api}/scan/log?id=${qrId}`, { headers: { 'User-Agent': 'Codex-Acceptance-Scanner/1.0' }, maxRedirects: 0 });
     expect(scan1.status()).toBe(302);
-    expect(scan1.headers().location).toBe('https://example.com/expected-destination');
-    const scan2 = await request.get(`${api}/scan/log?id=${qrId}`, { headers: { 'User-Agent': 'Codex-Acceptance-Scanner/1.0' }, maxRedirects: 0 });
-    expect(scan2.status()).toBe(302);
+    expect(scan1.headers().location).toBe(`http://localhost:5173/go/${qrId}`);
+    const scan2 = await request.get(`${api}/scan/log?id=${qrId}&response=json`, { headers: { 'User-Agent': 'Codex-Acceptance-Scanner/1.0' } });
+    expect(scan2.status()).toBe(200);
+    const duplicateScan = await request.get(`${api}/scan/log?id=${qrId}&response=json`, { headers: { 'User-Agent': 'Codex-Acceptance-Scanner/1.0' } });
+    expect(duplicateScan.status()).toBe(200);
     const after = await request.get(`${api}/qr/${qrId}`, { headers: auth() });
     expect(Number((await after.json()).data.total_scans) - Number(beforeData.total_scans)).toBe(1);
     const scans = await request.get(`${api}/qr/${qrId}/scans`, { headers: auth() });
@@ -130,10 +129,10 @@ const auth = () => ({ Authorization: `Bearer ${token}` });
     } });
     expect(duplicateLink.status()).toBe(409);
 
-    const inventoryScan = await request.get(`${api}/scan/log?id=${qrId}`, {
-      headers: { 'User-Agent': `Codex-Inventory-Link-${Date.now()}` }, maxRedirects: 0,
+    const inventoryScan = await request.get(`${api}/scan/log?id=${qrId}&response=json`, {
+      headers: { 'User-Agent': `Codex-Inventory-Link-${Date.now()}` },
     });
-    expect(inventoryScan.status()).toBe(302);
+    expect(inventoryScan.status()).toBe(200);
     const scannedItem = await request.get(`${api}/inventory/${inventoryId}`, { headers: auth() });
     expect((await scannedItem.json()).data.last_scan_date).toBeTruthy();
 
@@ -144,14 +143,15 @@ const auth = () => ({ Authorization: `Bearer ${token}` });
 
     expect((await request.put(`${api}/inventory/${inventoryId}`, {
       headers: auth(), data: { status: 'maintenance', location: 'Repair Bench' },
-    })).status()).toBe(200);
-    expect((await request.post(`${api}/inventory/qr/${qrId}/status`, { headers: auth(), data: { status: 'out', location: 'Field' } })).status()).toBe(200);
+    })).status()).toBe(422);
+    expect((await request.post(`${api}/inventory/qr/${qrId}/status`, { headers: auth(), data: { status: 'out', location: 'Field' } })).status()).toBe(404);
+    const actionDate=new Date().toISOString();
+    expect((await request.post(`${api}/inventory/${inventoryId}/actions/checkout`,{headers:auth(),data:{related_party:'Acceptance team',location:'Lab A',purpose:'Lifecycle test',action_date:actionDate,expected_return_date:new Date(Date.now()+86400000).toISOString().slice(0,10),reason:'Acceptance checkout',idempotency_key:crypto.randomUUID()}})).status()).toBe(200);
     const item = await request.get(`${api}/inventory/${inventoryId}`, { headers: auth() });
-    expect((await item.json()).data.status).toBe('out');
-    const history = await request.get(`${api}/inventory/qr/${qrId}/history`, { headers: auth() });
-    const historyEntries = (await history.json()).data.data as Array<{ new_status: string }>;
-    expect(historyEntries.some((entry) => entry.new_status === 'maintenance')).toBeTruthy();
-    expect(historyEntries.some((entry) => entry.new_status === 'out')).toBeTruthy();
+    expect((await item.json()).data.status).toBe('checked_out');
+    const history = await request.get(`${api}/inventory/${inventoryId}/movements`, { headers: auth() });
+    const historyEntries = (await history.json()).data as Array<{ action_type: string }>;
+    expect(historyEntries.some((entry) => entry.action_type === 'checkout')).toBeTruthy();
     expect((await request.delete(`${api}/inventory/${inventoryId}`, { headers: auth() })).status()).toBe(200);
     expect((await request.get(`${api}/inventory/${inventoryId}`, { headers: auth() })).status()).toBe(404);
   });
@@ -179,38 +179,20 @@ const auth = () => ({ Authorization: `Bearer ${token}` });
     }
   });
 
-  test('invalid reset token is rejected and QR cleanup is complete', async ({ request }) => {
+  test('local password reset is retired and QR cleanup is complete', async ({ request }) => {
     const invalid = await request.post(`${api}/auth/reset-password`, { data: { token: 'invalid-token', password: account.Password } });
-    expect(invalid.status()).toBe(400);
+    expect(invalid.status()).toBe(410);
     expect((await request.delete(`${api}/qr/${qrId}`, { headers: auth() })).status()).toBe(200);
     expect((await request.get(`${api}/qr/${qrId}`, { headers: auth() })).status()).toBe(404);
   });
 
-  test('password reset email contains a working single-use token and login still succeeds', async ({ request }) => {
+  test('password reset is delegated to central auth', async ({ request }) => {
     const forgot = await request.post(`${api}/auth/forgot-password`, { data: { email: account.Email } });
-    expect(forgot.status()).toBe(200);
-    const mailbox = await request.get('http://localhost:8025/api/v1/messages');
-    const summaries = (await mailbox.json()).messages as Array<{ ID: string; Subject: string; To: Array<{ Address: string }> }>;
-    const summary = summaries.find((message) => message.Subject.includes('Reset your password') && message.To.some((to) => to.Address === account.Email));
-    expect(summary).toBeTruthy();
-    const message = await request.get(`http://localhost:8025/api/v1/message/${summary!.ID}`);
-    const content = await message.json();
-    const match = `${content.Text}\n${content.HTML}`.match(/[?&]token=([a-f0-9]{64})/i);
-    expect(match).toBeTruthy();
-    const reset = await request.post(`${api}/auth/reset-password`, { data: { token: match![1], password: account.Password } });
-    expect(reset.status()).toBe(200);
-    expect((await request.post(`${api}/auth/reset-password`, { data: { token: match![1], password: account.Password } })).status()).toBe(400);
-    expect((await request.post(`${api}/auth/login`, { data: { email: account.Email, password: account.Password } })).status()).toBe(200);
+    expect(forgot.status()).toBe(410);
   });
 
-  test('a disposable local account can register and permanently delete itself', async ({ request }) => {
-    const password = 'Codex-Disposable-Delete-2026!';
-    const email = `codex.acceptance.${Date.now()}@gmail.com`;
-    const register = await request.post(`${api}/auth/register`, { data: { name: 'Codex Disposable User', email, password } });
-    expect(register.status()).toBe(201);
-    const disposableToken = (await register.json()).data.tokens.access_token as string;
-    expect((await request.post(`${api}/user/delete`, { headers: { Authorization: `Bearer ${disposableToken}` }, data: { password: `${password}-wrong` } })).status()).toBe(401);
-    expect((await request.post(`${api}/user/delete`, { headers: { Authorization: `Bearer ${disposableToken}` }, data: { password } })).status()).toBe(200);
-    expect((await request.post(`${api}/auth/login`, { data: { email, password } })).status()).toBe(401);
+  test('local registration is retired', async ({ request }) => {
+    const register = await request.post(`${api}/auth/register`, { data: { name: 'Codex Disposable User', email: `codex.acceptance.${Date.now()}@gmail.com`, password: 'Codex-Disposable-Delete-2026!' } });
+    expect(register.status()).toBe(410);
   });
 });

@@ -174,8 +174,8 @@ export default function Contact() {
             <div className="grid lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
               {/* Contact Form */}
               <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
               >
                 <div className="p-8 rounded-3xl bg-card border border-border">
@@ -282,8 +282,8 @@ export default function Contact() {
 
               {/* Contact Info */}
               <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
                 className="space-y-6"
               >

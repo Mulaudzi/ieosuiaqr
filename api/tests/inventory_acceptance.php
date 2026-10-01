@@ -20,6 +20,14 @@ if (($argv[1] ?? '') === 'worker-remove') {
         exit(0);
     } catch (Throwable) { exit(1); }
 }
+if (($argv[1] ?? '') === 'worker-add') {
+    try { InventoryMovementService::perform((int)$argv[2],['id'=>(int)$argv[3],'name'=>'Race owner'],'add_stock',['quantity'=>2,'reason'=>'Concurrent retry','idempotency_key'=>$argv[4]]);exit(0); }
+    catch (Throwable) { exit(1); }
+}
+if (($argv[1] ?? '') === 'worker-checkout') {
+    try { InventoryMovementService::perform((int)$argv[2],['id'=>(int)$argv[3],'name'=>'Race owner'],'checkout',['related_party'=>'Race team','location'=>'Office','purpose'=>'Concurrency test','action_date'=>date('Y-m-d H:i:s'),'expected_return_date'=>date('Y-m-d',strtotime('+1 day')),'reason'=>'Concurrent checkout','idempotency_key'=>$argv[4]]);exit(0); }
+    catch (Throwable) { exit(1); }
+}
 if (($argv[1] ?? '') === 'token') { echo Auth::generateToken((int)$argv[2],'Free'); exit(0); }
 
 $pdo=Database::getInstance();
@@ -57,22 +65,27 @@ try {
 
     $pdo->prepare("INSERT INTO inventory_items(user_id,public_token,name,category,inventory_type,quantity,status,location,version) VALUES(?,UUID(),'Laptop 001','Electronics','serialized',1,'available','Office',0)")->execute([$owner['id']]);
     $serializedId=(int)$pdo->lastInsertId();$ids['items'][]=$serializedId;
-    InventoryMovementService::perform($serializedId,$owner,'checkout',['related_party'=>'Design team','reason'=>'Project work','idempotency_key'=>'checkout-'.$suffix]);
-    try { InventoryMovementService::perform($serializedId,$owner,'checkout',['related_party'=>'Other','reason'=>'Duplicate','idempotency_key'=>'checkout2-'.$suffix]); throw new RuntimeException('Duplicate checkout was accepted'); } catch (DomainException) {}
-    InventoryMovementService::perform($serializedId,$owner,'return',['condition'=>'damaged','reason'=>'Screen cracked','idempotency_key'=>'return-'.$suffix]);
-    InventoryMovementService::perform($serializedId,$owner,'maintenance_send',['reason'=>'Screen repair','idempotency_key'=>'maint-'.$suffix]);
-    InventoryMovementService::perform($serializedId,$owner,'maintenance_release',['condition'=>'good','reason'=>'Repair completed','idempotency_key'=>'release-'.$suffix]);
+    try { InventoryMovementService::perform($serializedId,$owner,'checkout',['related_party'=>'Design team','reason'=>'Incomplete workflow','idempotency_key'=>'invalid-checkout-'.$suffix]);throw new RuntimeException('Incomplete checkout was accepted'); } catch (InvalidArgumentException) {}
+    $now=date('Y-m-d H:i:s');
+    InventoryMovementService::perform($serializedId,$owner,'checkout',['related_party'=>'Design team','location'=>'Office','action_date'=>$now,'expected_return_date'=>date('Y-m-d',strtotime('+7 days')),'purpose'=>'Project work','reason'=>'Project work','idempotency_key'=>'checkout-'.$suffix]);
+    try { InventoryMovementService::perform($serializedId,$owner,'checkout',['related_party'=>'Other','location'=>'Office','action_date'=>$now,'expected_return_date'=>date('Y-m-d',strtotime('+7 days')),'purpose'=>'Other work','reason'=>'Duplicate','idempotency_key'=>'checkout2-'.$suffix]); throw new RuntimeException('Duplicate checkout was accepted'); } catch (DomainException) {}
+    InventoryMovementService::perform($serializedId,$owner,'return',['returned_by'=>'Design team','location'=>'Office','action_date'=>$now,'condition'=>'damaged','reason'=>'Screen cracked','idempotency_key'=>'return-'.$suffix]);
+    InventoryMovementService::perform($serializedId,$owner,'maintenance_send',['location'=>'Office','maintenance_reason'=>'repair','action_date'=>$now,'expected_completion_date'=>date('Y-m-d',strtotime('+3 days')),'technician'=>'Repair desk','reason'=>'Screen repair','idempotency_key'=>'maint-'.$suffix]);
+    InventoryMovementService::perform($serializedId,$owner,'maintenance_release',['location'=>'Office','action_date'=>$now,'condition'=>'good','reason'=>'Repair completed','idempotency_key'=>'release-'.$suffix]);
     $asset=row($pdo,'SELECT * FROM inventory_items WHERE id=?',[$serializedId]);
     check($asset['status']==='available' && $asset['assigned_to']===null,'Serialized lifecycle final state is incorrect');
 
     $countKey='count-'.$suffix;
-    $pdo->prepare("INSERT INTO inventory_stock_counts(item_id,user_id,expected_quantity,counted_quantity,difference,location,counted_by,counted_by_name,count_date,reason,idempotency_key) VALUES(?,?,?,?,?,'Warehouse',?,?,NOW(),'Physical count',?)")
-        ->execute([$quantityId,$owner['id'],11,9,-2,$owner['id'],$owner['name'],$countKey]);
+    $itemBeforeCount=row($pdo,'SELECT quantity,version FROM inventory_items WHERE id=?',[$quantityId]);
+    $warehouseBefore=(int)row($pdo,"SELECT quantity FROM inventory_stock_levels WHERE item_id=? AND location_name='Warehouse'",[$quantityId])['quantity'];
+    $pdo->prepare("INSERT INTO inventory_stock_counts(item_id,user_id,expected_quantity,expected_location_quantity,item_version,counted_quantity,difference,location,counted_by,counted_by_name,count_date,reason,idempotency_key) VALUES(?,?,?,?,?,?,?,'Warehouse',?,?,NOW(),'Physical count',?)")
+        ->execute([$quantityId,$owner['id'],$itemBeforeCount['quantity'],$warehouseBefore,$itemBeforeCount['version'],9,9-$warehouseBefore,$owner['id'],$owner['name'],$countKey]);
     $countId=(int)$pdo->lastInsertId();
     InventoryMovementService::perform($quantityId,$owner,'reconciliation',['apply_count_id'=>$countId,'reason'=>'Physical count','idempotency_key'=>'stock-count-'.$countId]);
     $count=row($pdo,'SELECT * FROM inventory_stock_counts WHERE id=?',[$countId]);
     check($count['status']==='applied' && !empty($count['applied_movement_id']),'Reconciliation was not linked atomically');
-    check((int)row($pdo,'SELECT quantity FROM inventory_items WHERE id=?',[$quantityId])['quantity']===9,'Reconciliation quantity is incorrect');
+    check((int)row($pdo,'SELECT quantity FROM inventory_items WHERE id=?',[$quantityId])['quantity']===12,'Location reconciliation changed aggregate quantity incorrectly');
+    check((int)row($pdo,"SELECT quantity FROM inventory_stock_levels WHERE item_id=? AND location_name='Warehouse'",[$quantityId])['quantity']===9,'Location reconciliation did not update the counted location');
     check((int)row($pdo,'SELECT COUNT(*) c FROM inventory_movements WHERE item_id=?',[$quantityId])['c']===4,'Unexpected quantity movement count');
 
     $pdo->prepare("INSERT INTO inventory_items(user_id,public_token,name,category,inventory_type,quantity,minimum_stock_level,status,location,version) VALUES(?,UUID(),'Race stock','Supplies','quantity',10,0,'in_stock','Warehouse',0)")->execute([$owner['id']]);
@@ -84,6 +97,26 @@ try {
     sort($codes);check($codes===[0,1],'Exactly one concurrent removal must succeed');
     check((int)row($pdo,'SELECT quantity FROM inventory_items WHERE id=?',[$raceId])['quantity']===4,'Concurrent removal produced an invalid quantity');
     check((int)row($pdo,'SELECT COUNT(*) c FROM inventory_movements WHERE item_id=?',[$raceId])['c']===1,'Concurrent removal produced duplicate movements');
+
+    $pdo->prepare("INSERT INTO inventory_items(user_id,public_token,name,category,inventory_type,quantity,status,location,version) VALUES(?,UUID(),'Retry stock','Supplies','quantity',5,'in_stock','Warehouse',0)")->execute([$owner['id']]);
+    $retryId=(int)$pdo->lastInsertId();$ids['items'][]=$retryId;$pdo->prepare("INSERT INTO inventory_stock_levels(item_id,location_name,quantity) VALUES(?,'Warehouse',5)")->execute([$retryId]);
+    $workers=[];$sameKey='same-add-'.$suffix;foreach([1,2] as $number){$pipes=[];$workers[]=[$process=proc_open([PHP_BINARY,__FILE__,'worker-add',(string)$retryId,(string)$owner['id'],$sameKey],[['pipe','r'],['pipe','w'],['pipe','w']],$pipes),$pipes];}
+    foreach($workers as [$process,$pipes]){foreach($pipes as $pipe)fclose($pipe);check(proc_close($process)===0,'Idempotent concurrent retry failed');}
+    check((int)row($pdo,'SELECT quantity FROM inventory_items WHERE id=?',[$retryId])['quantity']===7,'Concurrent idempotent retry applied twice');
+    check((int)row($pdo,'SELECT COUNT(*) c FROM inventory_movements WHERE item_id=?',[$retryId])['c']===1,'Concurrent idempotent retry wrote duplicate movements');
+
+    $pdo->prepare("INSERT INTO inventory_items(user_id,public_token,name,category,inventory_type,quantity,status,location,version) VALUES(?,UUID(),'Race asset','Equipment','serialized',1,'available','Office',0)")->execute([$owner['id']]);
+    $raceAssetId=(int)$pdo->lastInsertId();$ids['items'][]=$raceAssetId;$workers=[];
+    foreach([1,2] as $number){$pipes=[];$workers[]=[$process=proc_open([PHP_BINARY,__FILE__,'worker-checkout',(string)$raceAssetId,(string)$owner['id'],"race-checkout-{$number}-{$suffix}"],[['pipe','r'],['pipe','w'],['pipe','w']],$pipes),$pipes];}
+    $codes=[];foreach($workers as [$process,$pipes]){foreach($pipes as $pipe)fclose($pipe);$codes[]=proc_close($process);}sort($codes);check($codes===[0,1],'Exactly one concurrent checkout must succeed');
+    check(row($pdo,'SELECT status FROM inventory_items WHERE id=?',[$raceAssetId])['status']==='checked_out','Concurrent checkout final state is incorrect');
+
+    $pdo->prepare("INSERT INTO inventory_items(user_id,public_token,name,category,inventory_type,quantity,status,location,version) VALUES(?,UUID(),'Stale count stock','Supplies','quantity',5,'in_stock','Warehouse',0)")->execute([$owner['id']]);
+    $staleId=(int)$pdo->lastInsertId();$ids['items'][]=$staleId;$pdo->prepare("INSERT INTO inventory_stock_levels(item_id,location_name,quantity) VALUES(?,'Warehouse',5)")->execute([$staleId]);
+    $pdo->prepare("INSERT INTO inventory_stock_counts(item_id,user_id,expected_quantity,expected_location_quantity,item_version,counted_quantity,difference,location,counted_by,counted_by_name,count_date,reason,idempotency_key) VALUES(?,?,5,5,0,4,-1,'Warehouse',?,?,NOW(),'Stale test',?)")->execute([$staleId,$owner['id'],$owner['id'],$owner['name'],'stale-count-'.$suffix]);$staleCountId=(int)$pdo->lastInsertId();
+    InventoryMovementService::perform($staleId,$owner,'add_stock',['quantity'=>1,'reason'=>'Changed after count','idempotency_key'=>'stale-change-'.$suffix]);
+    try{InventoryMovementService::perform($staleId,$owner,'reconciliation',['apply_count_id'=>$staleCountId,'reason'=>'Should fail','idempotency_key'=>'stock-count-'.$staleCountId]);throw new RuntimeException('Stale count was applied');}catch(RuntimeException $e){check($e->getCode()===409,'Unexpected stale-count error');}
+    check(row($pdo,'SELECT status FROM inventory_stock_counts WHERE id=?',[$staleCountId])['status']==='saved','Rejected stale count was finalized');
     echo "inventory acceptance: PASS\n";
 } finally {
     if ($ids['items']) {$marks=implode(',',array_fill(0,count($ids['items']),'?'));foreach(['inventory_stock_counts','inventory_stock_levels','inventory_movements'] as $child){$pdo->prepare("DELETE FROM {$child} WHERE item_id IN ($marks)")->execute($ids['items']);}$pdo->prepare("DELETE FROM inventory_items WHERE id IN ($marks)")->execute($ids['items']);}
