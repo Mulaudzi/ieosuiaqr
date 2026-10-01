@@ -150,7 +150,7 @@ const auth = () => ({ Authorization: `Bearer ${token}` });
     const item = await request.get(`${api}/inventory/${inventoryId}`, { headers: auth() });
     expect((await item.json()).data.status).toBe('checked_out');
     const history = await request.get(`${api}/inventory/${inventoryId}/movements`, { headers: auth() });
-    const historyEntries = (await history.json()).data as Array<{ action_type: string }>;
+    const historyEntries = (await history.json()).data.items as Array<{ action_type: string }>;
     expect(historyEntries.some((entry) => entry.action_type === 'checkout')).toBeTruthy();
     expect((await request.delete(`${api}/inventory/${inventoryId}`, { headers: auth() })).status()).toBe(200);
     expect((await request.get(`${api}/inventory/${inventoryId}`, { headers: auth() })).status()).toBe(404);

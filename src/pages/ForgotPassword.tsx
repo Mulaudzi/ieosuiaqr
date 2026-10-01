@@ -113,7 +113,7 @@ export default function ForgotPassword() {
       </div>
 
       {/* Right side - Form */}
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex min-w-0 flex-1 items-center justify-center p-4 sm:p-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

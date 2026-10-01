@@ -113,6 +113,30 @@
   }
 }
 
+@media print {
+  .inventory-detail-page aside,
+  .inventory-detail-page nav,
+  .inventory-detail-page main > div > :not(.inventory-history-print) {
+    display: none !important;
+  }
+  .inventory-detail-page main {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .inventory-history-print {
+    display: block !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  .inventory-history-print details {
+    display: block;
+    break-inside: avoid;
+  }
+  .inventory-history-print details > div {
+    display: block !important;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;

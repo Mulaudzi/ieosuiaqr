@@ -44,7 +44,7 @@ export interface InventoryAnalytics {
     changed_at: string;
   }>;
   movements_by_action: Array<{ action_type: string; movement_count: number; units_moved: number }>;
-  movements_by_location: Array<{ location: string; movement_count: number; units_moved: number }>;
+  movements_by_location: Array<{ from_location: string; to_location: string; movement_count: number; units_moved: number }>;
   period: { key: string; days: number; generated_at: string };
 }
 
@@ -235,8 +235,10 @@ export const inventoryApi = {
 
   performAction: async (id: string, action: InventoryAction, data: Record<string, unknown>): Promise<ApiResponse<{ item: InventoryItem; movement_id: number; duplicate: boolean }>> =>
     post(`/inventory/${id}/actions/${action}`, data),
-  movements: async (id: string, params?: Record<string, unknown>): Promise<ApiResponse<InventoryMovement[]>> =>
-    get(`/inventory/${id}/movements`, params),
+  movements: async (id: string, params?: Record<string, unknown>): Promise<ApiResponse<InventoryMovement[]> & { pagination?: MovementPagination }> => {
+    const response=await get<ApiResponse<{items:InventoryMovement[];pagination:MovementPagination}>>(`/inventory/${id}/movements`, params);
+    return {...response,data:response.data.items,pagination:response.data.pagination};
+  },
   exportMovements: async (id: string, params?: Record<string, unknown>): Promise<Blob> => {
     const response = await apiClient.get(`/inventory/${id}/movements/export`, { params, responseType: "blob" });
     return response.data;
@@ -253,5 +255,7 @@ export interface InventoryMovement {
   id: string; action_type: string; quantity_delta: number; previous_quantity: number; new_quantity: number;
   previous_status: string; new_status: string; from_location: string | null; to_location: string | null;
   reason: string; performed_by_name: string; related_party: string | null; occurred_at: string; notes: string | null;
+  item_id: string; product_name: string; workflow_id: string; metadata: string | Record<string,unknown> | null;
 }
+export interface MovementPagination { page:number; per_page:number; total:number; total_pages:number; }
 export interface StockCount { id: number; expected_quantity: number; counted_quantity: number; difference: number; location: string; status: "saved" | "applied"; }

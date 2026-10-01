@@ -153,7 +153,7 @@ class InventoryController
 
         $stmt=$pdo->prepare("SELECT action_type,COUNT(*) movement_count,COALESCE(SUM(ABS(quantity_delta)),0) units_moved FROM inventory_movements WHERE user_id=? AND occurred_at>=DATE_SUB(NOW(),INTERVAL {$interval}) GROUP BY action_type ORDER BY movement_count DESC,action_type");
         $stmt->execute([$user['id']]);$movementsByAction=$stmt->fetchAll();
-        $stmt=$pdo->prepare("SELECT COALESCE(NULLIF(to_location,''),NULLIF(from_location,''),'Unassigned') location,COUNT(*) movement_count,COALESCE(SUM(ABS(quantity_delta)),0) units_moved FROM inventory_movements WHERE user_id=? AND occurred_at>=DATE_SUB(NOW(),INTERVAL {$interval}) GROUP BY location ORDER BY movement_count DESC,location LIMIT 20");
+        $stmt=$pdo->prepare("SELECT COALESCE(NULLIF(from_location,''),'Unassigned') from_location,COALESCE(NULLIF(to_location,''),'Unassigned') to_location,COUNT(*) movement_count,COALESCE(SUM(ABS(quantity_delta)),0) units_moved FROM inventory_movements WHERE user_id=? AND occurred_at>=DATE_SUB(NOW(),INTERVAL {$interval}) GROUP BY from_location,to_location ORDER BY movement_count DESC,from_location,to_location LIMIT 20");
         $stmt->execute([$user['id']]);$movementsByLocation=$stmt->fetchAll();
         $movementTotal=array_sum(array_map(static fn(array $row): int => (int)$row['movement_count'],$movementsByAction));
 
@@ -817,7 +817,7 @@ class InventoryController
         $item = $stmt->fetch();
 
         if (!$item) {
-            Response::success(['data' => []]);
+            Response::success([]);
             return;
         }
 
@@ -833,7 +833,7 @@ class InventoryController
         $stmt->execute([$item['id']]);
         $history = $stmt->fetchAll();
 
-        Response::success(['data' => $history]);
+        Response::success($history);
     }
 
     public static function performAction(int $id, string $action): void
@@ -864,8 +864,10 @@ class InventoryController
         if(!empty($_GET['status'])){$where[]='(previous_status=? OR new_status=?)';$params[]=$_GET['status'];$params[]=$_GET['status'];}
         if(!empty($_GET['from'])){$where[]='occurred_at>=?';$params[]=$_GET['from'];}
         if(!empty($_GET['to'])){$where[]='occurred_at<=?';$params[]=$_GET['to'];}
-        $stmt=$pdo->prepare('SELECT * FROM inventory_movements WHERE '.implode(' AND ',$where).' ORDER BY occurred_at DESC,id DESC LIMIT 500');
-        $stmt->execute($params); Response::success($stmt->fetchAll());
+        $page=max(1,(int)($_GET['page']??1));$perPage=min(100,max(1,(int)($_GET['per_page']??50)));$offset=($page-1)*$perPage;
+        $count=$pdo->prepare('SELECT COUNT(*) FROM inventory_movements WHERE '.implode(' AND ',$where));$count->execute($params);$total=(int)$count->fetchColumn();
+        $stmt=$pdo->prepare('SELECT m.*,i.name AS product_name FROM inventory_movements m JOIN inventory_items i ON i.id=m.item_id WHERE m.id IN (SELECT id FROM inventory_movements WHERE '.implode(' AND ',$where).') ORDER BY m.occurred_at DESC,m.id DESC LIMIT '.$perPage.' OFFSET '.$offset);
+        $stmt->execute($params); Response::success(['items'=>$stmt->fetchAll(),'pagination'=>['page'=>$page,'per_page'=>$perPage,'total'=>$total,'total_pages'=>(int)ceil($total/$perPage)]]);
     }
 
     public static function exportMovements(int $id): void
@@ -882,9 +884,9 @@ class InventoryController
         if(!empty($_GET['status'])){$where[]='(previous_status=? OR new_status=?)';$params[]=$_GET['status'];$params[]=$_GET['status'];}
         if(!empty($_GET['from'])){$where[]='occurred_at>=?';$params[]=$_GET['from'];}
         if(!empty($_GET['to'])){$where[]='occurred_at<=?';$params[]=$_GET['to'];}
-        $stmt=$pdo->prepare('SELECT occurred_at,action_type,quantity_delta,previous_quantity,new_quantity,previous_status,new_status,from_location,to_location,reason,performed_by_name,related_party,notes FROM inventory_movements WHERE '.implode(' AND ',$where).' ORDER BY occurred_at DESC,id DESC');$stmt->execute($params);
+        $stmt=$pdo->prepare('SELECT id,item_id,workflow_id,occurred_at,action_type,quantity_delta,previous_quantity,new_quantity,previous_status,new_status,from_location,to_location,reason,performed_by_name,related_party,notes,metadata FROM inventory_movements WHERE '.implode(' AND ',$where).' ORDER BY occurred_at DESC,id DESC');$stmt->execute($params);
         header('Content-Type: text/csv; charset=utf-8');header('Content-Disposition: attachment; filename="inventory-movements-'.$id.'-'.date('Y-m-d').'.csv"');
-        $out=fopen('php://output','wb');fputcsv($out,['Date','Action','Quantity change','Previous quantity','New quantity','Previous status','New status','From','To','Reason','Performed by','Related party','Notes']);
+        $out=fopen('php://output','wb');fputcsv($out,['Movement ID','Item ID','Workflow ID','Date','Action','Quantity change','Previous quantity','New quantity','Previous status','New status','From','To','Reason','Performed by','Related party','Notes','Metadata']);
         while($row=$stmt->fetch()){foreach($row as &$value){$value=self::safeCsv($value);}unset($value);fputcsv($out,array_values($row));}fclose($out);exit;
     }
 
@@ -896,8 +898,9 @@ class InventoryController
     public static function saveStockCount(int $id): void
     {
         $user=Auth::check();$data=json_decode(file_get_contents('php://input'),true)??[];
-        $key=trim((string)($data['idempotency_key']??''));$reason=trim((string)($data['reason']??''));
+        $key=trim((string)($data['idempotency_key']??''));$reason=trim((string)($data['reason']??''));$countReasons=['count_error','unrecorded_movement','damaged_stock','lost_stock','incorrect_system_quantity','other'];
         if($key===''||$reason===''||filter_var($data['counted_quantity']??null,FILTER_VALIDATE_INT)===false||(int)$data['counted_quantity']<0) Response::error('Counted quantity, reason and idempotency key are required',422);
+        if(!in_array($reason,$countReasons,true))Response::error('Invalid stock count difference reason',422);
         $pdo=Database::getInstance();$pdo->beginTransaction();
         try{$stmt=$pdo->prepare("SELECT * FROM inventory_items WHERE id=? AND deleted_at IS NULL AND inventory_type='quantity' FOR UPDATE");$stmt->execute([$id]);$item=$stmt->fetch();if(!$item)throw new \RuntimeException('Quantity inventory item not found',404);if((int)$item['user_id']!==(int)$user['id']){$access=$pdo->prepare("SELECT role FROM inventory_access WHERE owner_user_id=? AND user_id=? AND is_active=1 AND role IN ('controller','admin')");$access->execute([$item['user_id'],$user['id']]);if(!$access->fetchColumn())throw new \RuntimeException('You do not have permission to count this stock',403);}
             $location=trim((string)($data['location']??$item['location']??''));if($location==='')throw new \InvalidArgumentException('Count location is required');
@@ -905,13 +908,13 @@ class InventoryController
             $level=$pdo->prepare('SELECT quantity FROM inventory_stock_levels WHERE item_id=? AND location_name=? FOR UPDATE');$level->execute([$id,$location]);$expectedLocation=$level->fetchColumn();if($expectedLocation===false)throw new \InvalidArgumentException('This item has no stock at the selected location');
             $counted=(int)$data['counted_quantity'];$insert=$pdo->prepare('INSERT INTO inventory_stock_counts(item_id,user_id,expected_quantity,expected_location_quantity,item_version,counted_quantity,difference,location,counted_by,counted_by_name,count_date,reason,notes,idempotency_key) VALUES(?,?,?,?,?,?,?,?,?,?,COALESCE(?,NOW()),?,?,?)');
             $insert->execute([$id,$item['user_id'],$item['quantity'],$expectedLocation,$item['version'],$counted,$counted-(int)$expectedLocation,$location,$user['id'],$user['name'],$data['count_date']??null,$reason,$data['notes']??null,$key]);$countId=(int)$pdo->lastInsertId();$pdo->commit();Response::success(['id'=>$countId,'expected_quantity'=>(int)$expectedLocation,'counted_quantity'=>$counted,'difference'=>$counted-(int)$expectedLocation,'location'=>$location,'status'=>'saved'],'Stock count saved',201);
-        }catch(\PDOException $e){if($pdo->inTransaction())$pdo->rollBack();if($e->getCode()==='23000'){Response::error('This stock count was already saved',409);}throw $e;}catch(\Throwable $e){if($pdo->inTransaction())$pdo->rollBack();Response::error($e->getMessage(),$e->getCode()===404?404:422);}
+        }catch(\PDOException $e){if($pdo->inTransaction())$pdo->rollBack();if($e->getCode()==='23000'){Response::error('This stock count was already saved',409);}throw $e;}catch(\Throwable $e){if($pdo->inTransaction())$pdo->rollBack();$code=in_array($e->getCode(),[403,404,409],true)?$e->getCode():422;Response::error($e->getMessage(),$code);}
     }
 
     public static function applyStockCount(int $id, int $countId): void
     {
         $user=Auth::check();$data=json_decode(file_get_contents('php://input'),true)??[];
-        $data['apply_count_id']=$countId;$data['idempotency_key']='stock-count-'.$countId;$data['reason']=$data['reason']??'Stock count reconciliation';
+        $data['apply_count_id']=$countId;$data['idempotency_key']='stock-count-'.$countId;$data['reason']=$data['reason']??'other';
         try{Response::success(InventoryMovementService::perform($id,$user,'reconciliation',$data),'Stock reconciliation applied');}
         catch(\InvalidArgumentException|\DomainException $e){Response::error($e->getMessage(),422);}catch(\RuntimeException $e){Response::error($e->getMessage(),in_array($e->getCode(),[403,404,409],true)?$e->getCode():409);}
     }

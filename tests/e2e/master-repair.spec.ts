@@ -27,7 +27,7 @@ test('authenticated owner can open protected inventory actions and history',asyn
 
 test('inventory history export and movement analytics are authorized and usable',async({request})=>{
   test.skip(!token||!itemId,'Local owner token unavailable');
-  const filtered=await request.get(`${api}/inventory/${itemId}/movements?reason=Initial`,{headers:auth});expect(filtered.status()).toBe(200);expect(Array.isArray((await filtered.json()).data)).toBe(true);
+  const filtered=await request.get(`${api}/inventory/${itemId}/movements?reason=Initial`,{headers:auth});expect(filtered.status()).toBe(200);const filteredBody=await filtered.json();expect(Array.isArray(filteredBody.data.items)).toBe(true);expect(filteredBody.data.pagination.total).toBeGreaterThanOrEqual(0);
   const exported=await request.get(`${api}/inventory/${itemId}/movements/export?reason=Initial`,{headers:auth});expect(exported.status()).toBe(200);expect(exported.headers()['content-type']).toContain('text/csv');expect((await exported.body()).length).toBeGreaterThan(40);
   const analytics=await request.get(`${api}/inventory/analytics?period=30d`,{headers:auth});expect(analytics.status()).toBe(200);const body=await analytics.json();expect(Array.isArray(body.data.movements_by_action)).toBe(true);expect(Array.isArray(body.data.movements_by_location)).toBe(true);expect(body.data.period.days).toBe(30);
 });
@@ -40,13 +40,15 @@ test('selecting Event never crashes and invalid API dates are controlled',async(
   expect(invalid.status()).toBe(422);
 });
 
-test('all QR types still create, save, scan and resolve through the canonical API',async({request})=>{
-  test.skip(!token,'Local owner token unavailable');
+test('all QR types create, read, edit, render, download, scan, resolve and report analytics',async({request,page})=>{
+  test.skip(!token,'Local owner token unavailable');await page.addInitScript(value=>localStorage.setItem('auth_token',value),token);
   const cases:Record<string,Record<string,unknown>>={url:{content:'https://example.com'},text:{content:'hello'},email:{content:'test@example.com'},phone:{content:'+27123456789'},sms:{phoneNumber:'+27123456789',message:'hello'},whatsapp:{phoneNumber:'+27123456789',message:'hello'},wifi:{ssid:'Test',password:'secret',encryption:'WPA'},vcard:{fullName:'Test User',phone:'+27123456789'},event:{title:'Boundary event',description:'test',startDate:'2028-02-29',startTime:'23:59',endDate:'2028-03-01',endTime:'00:01',location:'HQ'},location:{latitude:'-26.2041',longitude:'28.0473',address:'',inputMode:'coordinates'},social:{links:JSON.stringify([{platform:'website',url:'https://example.com'}])},app:{appStoreUrl:'https://apps.apple.com/app/id123',playStoreUrl:'https://play.google.com/store/apps/details?id=test',linkType:'both'}};
   const ids:string[]=[];
   try{for(const [type,content] of Object.entries(cases)){const created=await request.post(`${api}/qr`,{headers:auth,data:{name:`Regression ${type}`,type,content}});expect(created.status(),`${type} create`).toBe(201);const body=await created.json();const id=String(body.data.id);ids.push(id);
     const saved=await request.get(`${api}/qr/${id}`,{headers:auth});expect(saved.status(),`${type} save/read`).toBe(200);expect((await saved.json()).data.type).toBe(type);
     const updated=await request.put(`${api}/qr/${id}`,{headers:auth,data:{name:`Regression ${type} edited`,content,custom_options:{fgColor:'#123456',bgColor:'#ffffff'}}});expect(updated.status(),`${type} edit`).toBe(200);
+    await page.goto(`/dashboard/edit/${id}`,{waitUntil:'domcontentloaded'});const preview=page.getByText('Preview',{exact:true}).locator('xpath=../..');await expect(preview.locator('svg').first(),`${type} render`).toBeVisible();
+    await page.getByRole('button',{name:'Download',exact:true}).click();const downloadPromise=page.waitForEvent('download');await page.getByRole('menuitem',{name:/SVG Vector/}).click();const download=await downloadPromise;expect(download.suggestedFilename(),`${type} download name`).toMatch(/\.svg$/i);expect((await download.createReadStream())?.readable,`${type} download bytes`).toBe(true);
     const scan=await request.get(`${api}/scan/log?id=${id}&response=json`);expect(scan.status(),`${type} scan`).toBe(200);const scanBody=await scan.json();expect(scanBody.data.type).toBe(type);expect(scanBody.data.redirect_url||scanBody.data.content,`${type} destination`).toBeTruthy();
     const scans=await request.get(`${api}/qr/${id}/scans`,{headers:auth});expect(scans.status(),`${type} analytics`).toBe(200);const stats=await request.get(`${api}/qr/${id}/stats`,{headers:auth});expect(stats.status(),`${type} stats`).toBe(200);
   }}

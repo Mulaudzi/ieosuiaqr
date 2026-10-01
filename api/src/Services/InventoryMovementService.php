@@ -8,6 +8,12 @@ final class InventoryMovementService
 {
     private const OPERATE = ['add_stock','remove_stock','checkout','return','transfer','damaged','lost','missing','maintenance_send','maintenance_release'];
     private const CONTROL = ['adjust','reconciliation'];
+    private const REASONS = [
+        'add_stock'=>['new_stock_received','restock','returned_to_inventory','stock_correction','other'],
+        'remove_stock'=>['issued_for_internal_use','sold_or_used_outside_system','expired','damaged','lost_or_missing','stock_correction','other'],
+        'adjust'=>['incorrect_count','data_entry_error','damaged_stock_correction','lost_stock_correction','duplicate_record','system_correction','other'],
+        'reconciliation'=>['count_error','unrecorded_movement','damaged_stock','lost_stock','incorrect_system_quantity','other'],
+    ];
 
     public static function perform(int $itemId, array $actor, string $action, array $data): array
     {
@@ -20,6 +26,7 @@ final class InventoryMovementService
         }
         $reason = trim((string)($data['reason'] ?? ''));
         if ($reason === '' || strlen($reason) > 150) throw new \InvalidArgumentException('Reason is required');
+        if(isset(self::REASONS[$action])&&!in_array($reason,self::REASONS[$action],true))throw new \InvalidArgumentException('Invalid reason for this inventory action');
         $notes = isset($data['notes']) ? trim((string)$data['notes']) : null;
         if ($notes !== null && mb_strlen($notes) > 5000) throw new \InvalidArgumentException('Notes must not exceed 5000 characters');
         $data = self::validateActionData($action, $data);
@@ -88,8 +95,9 @@ final class InventoryMovementService
             if ($update->rowCount() !== 1) throw new \RuntimeException('Inventory changed concurrently; please retry',409);
 
             $workflowId = self::uuid();
+            $ledgerDelta=$action==='transfer'?self::positive($data['quantity']??1):$delta;
             $movement = $pdo->prepare('INSERT INTO inventory_movements (item_id,user_id,action_type,quantity_delta,previous_quantity,new_quantity,previous_status,new_status,from_location,to_location,reason,performed_by,performed_by_name,related_party,occurred_at,notes,workflow_id,idempotency_key,metadata) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-            $movement->execute([$itemId,$item['user_id'],$action,$delta,$beforeQty,$afterQty,$beforeStatus,$afterStatus,$fromLocation,$movementToLocation,$reason,$actor['id'],$actor['name'],self::nullableText($data['related_party'] ?? null,255),$data['occurred_at'],$notes,$workflowId,$idempotencyKey,json_encode($data['metadata'] ?? new \stdClass())]);
+            $movement->execute([$itemId,$item['user_id'],$action,$ledgerDelta,$beforeQty,$afterQty,$beforeStatus,$afterStatus,$fromLocation,$movementToLocation,$reason,$actor['id'],$actor['name'],self::nullableText($data['related_party'] ?? null,255),$data['occurred_at'],$notes,$workflowId,$idempotencyKey,json_encode($data['metadata'] ?? new \stdClass())]);
             $movementId = (int)$pdo->lastInsertId();
             if ($stockCount) {
                 $apply=$pdo->prepare("UPDATE inventory_stock_counts SET status='applied',applied_movement_id=?,applied_at=NOW() WHERE id=? AND status='saved'");
@@ -173,20 +181,22 @@ final class InventoryMovementService
             $data['related_party']=$require('related_party','Person or department');
             $require('location','Checkout location');
             $metadata['expected_return_date']=self::requiredDate($data['expected_return_date']??$metadata['expected_return_date']??null,'Expected return date is required',true);
+            if($metadata['expected_return_date']<substr($occurred,0,10))throw new \InvalidArgumentException('Expected return date cannot be before checkout date');
             $require('purpose','Purpose',500);
         }elseif($action==='return'){
             $require('returned_by','Returned by'); $require('location','Return location');
             $enum('condition','return condition',['good','damaged','needs_inspection','missing_parts']);
         }elseif($action==='damaged'){
             $require('location','Damage location');
-            $enum('damage_reason','damage reason',['accident','wear_and_tear','misuse','environmental','unknown','other']);
+            $enum('damage_reason','damage reason',['broken','defective','water_damage','missing_parts','expired','unsafe_to_use','other']);
         }elseif(in_array($action,['lost','missing'],true)){
             $require('location','Last known location'); $require('reported_by','Reported by');
             $enum('loss_reason','loss reason',['misplaced','theft','unreturned','unknown','other']);
         }elseif($action==='maintenance_send'){
             $require('location','Maintenance location');
-            $enum('maintenance_reason','maintenance reason',['preventive','repair','inspection','calibration','upgrade','other']);
+            $enum('maintenance_reason','maintenance reason',['repair','inspection','cleaning','preventive_maintenance','calibration','other']);
             $metadata['expected_completion_date']=self::requiredDate($data['expected_completion_date']??$metadata['expected_completion_date']??null,'Expected completion date is required',true);
+            if($metadata['expected_completion_date']<substr($occurred,0,10))throw new \InvalidArgumentException('Expected completion date cannot be before maintenance date');
             $require('technician','Technician or department');
         }elseif($action==='maintenance_release'){
             $require('location','Return location');

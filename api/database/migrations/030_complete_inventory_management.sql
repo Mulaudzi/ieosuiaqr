@@ -71,6 +71,8 @@ CREATE TABLE IF NOT EXISTS inventory_movements (
 
 ALTER TABLE inventory_movements DROP FOREIGN KEY IF EXISTS inventory_movements_item_fk;
 ALTER TABLE inventory_movements ADD CONSTRAINT inventory_movements_item_fk FOREIGN KEY(item_id) REFERENCES inventory_items(id) ON DELETE RESTRICT;
+ALTER TABLE inventory_movements DROP FOREIGN KEY IF EXISTS inventory_movements_owner_fk;
+ALTER TABLE inventory_movements ADD CONSTRAINT inventory_movements_owner_fk FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE RESTRICT;
 
 CREATE TABLE IF NOT EXISTS inventory_stock_levels (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -132,6 +134,11 @@ JOIN inventory_items i ON i.id=c.item_id
 SET c.expected_location_quantity=COALESCE(c.expected_location_quantity,c.expected_quantity),
     c.item_version=COALESCE(c.item_version,i.version)
 WHERE c.status='saved';
+
+ALTER TABLE inventory_stock_counts DROP FOREIGN KEY IF EXISTS inventory_counts_item_fk;
+ALTER TABLE inventory_stock_counts ADD CONSTRAINT inventory_counts_item_fk FOREIGN KEY(item_id) REFERENCES inventory_items(id) ON DELETE RESTRICT;
+ALTER TABLE inventory_stock_counts DROP FOREIGN KEY IF EXISTS inventory_counts_user_fk;
+ALTER TABLE inventory_stock_counts ADD CONSTRAINT inventory_counts_user_fk FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE RESTRICT;
 
 CREATE TABLE IF NOT EXISTS inventory_access (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
