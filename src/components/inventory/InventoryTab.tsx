@@ -557,8 +557,6 @@ function InventoryForm({
   const [name, setName] = useState(initialData?.name || "");
   const [category, setCategory] = useState(initialData?.category || "Equipment");
   const [notes, setNotes] = useState(initialData?.notes || "");
-  const [status, setStatus] = useState<InventoryStatus>(initialData?.status || "in_stock");
-  const [location, setLocation] = useState(initialData?.location || "");
   const [linkToQR, setLinkToQR] = useState(Boolean(initialData?.qr_id));
   const [selectedQRId, setSelectedQRId] = useState<string>(initialData?.qr_id || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -575,7 +573,6 @@ function InventoryForm({
       name, 
       category, 
       notes: notes || undefined, 
-      ...(!isEdit ? { status, location: location || undefined } : {}),
       qr_id: linkToQR && selectedQRId ? selectedQRId : (isEdit ? null : undefined),
     });
     setIsSubmitting(false);
@@ -607,30 +604,6 @@ function InventoryForm({
           </SelectContent>
         </Select>
       </div>
-
-      {!isEdit && <div className="space-y-2">
-        <Label htmlFor="status">Status</Label>
-        <Select value={status} onValueChange={(v) => setStatus(v as InventoryStatus)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="in_stock">In Stock</SelectItem>
-            <SelectItem value="out">Checked Out</SelectItem>
-            <SelectItem value="maintenance">Maintenance</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>}
-
-      {!isEdit && <div className="space-y-2">
-        <Label htmlFor="location">Location</Label>
-        <Input
-          id="location"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          placeholder="e.g., Office A, Warehouse, Room 101"
-        />
-      </div>}
 
       <div className="space-y-2">
         <Label htmlFor="notes">Notes</Label>
@@ -708,7 +681,7 @@ function InventoryForm({
               )}
               
               <p className="text-xs text-muted-foreground">
-                💡 Scanning this QR will update the item's last scan date and location.
+                Scanning this QR identifies the item and records scan analytics. Inventory status and location only change through authorized inventory actions.
               </p>
             </div>
           )}

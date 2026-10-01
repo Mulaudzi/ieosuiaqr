@@ -380,6 +380,11 @@ export default function InventoryAnalyticsPage() {
           </motion.div>
         </div>
 
+        <div className="grid grid-cols-1 gap-6 mb-6 lg:grid-cols-2">
+          <Card><CardHeader><CardTitle>Movements by action</CardTitle><CardDescription>{analytics.summary.movement_total} movements in the selected {analytics.period.days}-day period</CardDescription></CardHeader><CardContent className="space-y-2">{analytics.movements_by_action.length===0?<p className="text-sm text-muted-foreground">No inventory movements in this period.</p>:analytics.movements_by_action.map(row=><div key={row.action_type} className="flex items-center justify-between rounded-lg border p-3 text-sm"><span className="capitalize">{row.action_type.replaceAll('_',' ')}</span><span><strong>{row.movement_count}</strong> · {row.units_moved} units</span></div>)}</CardContent></Card>
+          <Card><CardHeader><CardTitle>Movements by location</CardTitle><CardDescription>Activity across inventory locations</CardDescription></CardHeader><CardContent className="space-y-2">{analytics.movements_by_location.length===0?<p className="text-sm text-muted-foreground">No location activity in this period.</p>:analytics.movements_by_location.map(row=><div key={row.location} className="flex items-center justify-between rounded-lg border p-3 text-sm"><span>{row.location}</span><span><strong>{row.movement_count}</strong> · {row.units_moved} units</span></div>)}</CardContent></Card>
+        </div>
+
         {/* Charts Row 1 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Status Distribution */}

@@ -22,6 +22,7 @@ final class InventoryMovementService
         if ($reason === '' || strlen($reason) > 150) throw new \InvalidArgumentException('Reason is required');
         $notes = isset($data['notes']) ? trim((string)$data['notes']) : null;
         if ($notes !== null && mb_strlen($notes) > 5000) throw new \InvalidArgumentException('Notes must not exceed 5000 characters');
+        $data = self::validateActionData($action, $data);
 
         $pdo = Database::getInstance();
         $pdo->beginTransaction();
@@ -41,7 +42,23 @@ final class InventoryMovementService
                 $stockCount = $countStmt->fetch();
                 if (!$stockCount) throw new \RuntimeException('Stock count not found',404);
                 if ($stockCount['status'] !== 'saved') throw new \DomainException('This stock count has already been finalized');
-                $data['new_quantity'] = (int)$stockCount['counted_quantity'];
+                if ((int)$stockCount['item_version'] !== (int)$item['version']) {
+                    throw new \RuntimeException('Inventory changed after this count was saved; save a new count',409);
+                }
+                $levelStmt=$pdo->prepare('SELECT quantity FROM inventory_stock_levels WHERE item_id=? AND location_name=? FOR UPDATE');
+                $levelStmt->execute([$itemId,$stockCount['location']]);
+                $currentLocationQuantity=$levelStmt->fetchColumn();
+                if ($currentLocationQuantity===false || (int)$currentLocationQuantity !== (int)$stockCount['expected_location_quantity']) {
+                    throw new \RuntimeException('Stock at this location changed after the count was saved; save a new count',409);
+                }
+                $data['location']=$stockCount['location'];
+                $data['location_delta']=(int)$stockCount['counted_quantity']-(int)$stockCount['expected_location_quantity'];
+                $data['new_quantity']=(int)$item['quantity']+(int)$data['location_delta'];
+                $data['metadata']=array_merge((array)($data['metadata']??[]),[
+                    'stock_count_id'=>(int)$stockCount['id'],
+                    'location_expected_quantity'=>(int)$stockCount['expected_location_quantity'],
+                    'location_counted_quantity'=>(int)$stockCount['counted_quantity'],
+                ]);
             }
 
             $beforeQty = (int)$item['quantity'];
@@ -71,8 +88,8 @@ final class InventoryMovementService
             if ($update->rowCount() !== 1) throw new \RuntimeException('Inventory changed concurrently; please retry',409);
 
             $workflowId = self::uuid();
-            $movement = $pdo->prepare('INSERT INTO inventory_movements (item_id,user_id,action_type,quantity_delta,previous_quantity,new_quantity,previous_status,new_status,from_location,to_location,reason,performed_by,performed_by_name,related_party,occurred_at,notes,workflow_id,idempotency_key,metadata) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW(),?,?,?,?)');
-            $movement->execute([$itemId,$item['user_id'],$action,$delta,$beforeQty,$afterQty,$beforeStatus,$afterStatus,$fromLocation,$movementToLocation,$reason,$actor['id'],$actor['name'],self::nullableText($data['related_party'] ?? null,255),$notes,$workflowId,$idempotencyKey,json_encode($data['metadata'] ?? new \stdClass())]);
+            $movement = $pdo->prepare('INSERT INTO inventory_movements (item_id,user_id,action_type,quantity_delta,previous_quantity,new_quantity,previous_status,new_status,from_location,to_location,reason,performed_by,performed_by_name,related_party,occurred_at,notes,workflow_id,idempotency_key,metadata) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+            $movement->execute([$itemId,$item['user_id'],$action,$delta,$beforeQty,$afterQty,$beforeStatus,$afterStatus,$fromLocation,$movementToLocation,$reason,$actor['id'],$actor['name'],self::nullableText($data['related_party'] ?? null,255),$data['occurred_at'],$notes,$workflowId,$idempotencyKey,json_encode($data['metadata'] ?? new \stdClass())]);
             $movementId = (int)$pdo->lastInsertId();
             if ($stockCount) {
                 $apply=$pdo->prepare("UPDATE inventory_stock_counts SET status='applied',applied_movement_id=?,applied_at=NOW() WHERE id=? AND status='saved'");
@@ -132,7 +149,65 @@ final class InventoryMovementService
         $location=self::nullableText($data['location']??$source,255)??$source;
         self::assertLocation($pdo,(int)$item['user_id'],$location);
         self::ensureLevel($pdo,(int)$item['id'],$location);
-        self::changeLevel($pdo,(int)$item['id'],$location,$delta);
+        self::changeLevel($pdo,(int)$item['id'],$location,isset($data['location_delta'])?(int)$data['location_delta']:$delta);
+    }
+
+    private static function validateActionData(string $action,array $data): array
+    {
+        $datedActions=['checkout','return','damaged','lost','missing','maintenance_send','maintenance_release'];
+        $occurred=in_array($action,$datedActions,true)
+            ? self::requiredDate($data['action_date']??null,'Action date is required')
+            : self::optionalDate($data['action_date']??null);
+        $metadata=(array)($data['metadata']??[]);
+        $metadata['action_date']=$occurred;
+        $require=function(string $field,string $label,int $max=255)use(&$data,&$metadata):string{
+            $value=self::requiredText($data[$field]??$metadata[$field]??null,"{$label} is required",$max);
+            $metadata[$field]=$value; return $value;
+        };
+        $enum=function(string $field,string $label,array $allowed)use(&$data,&$metadata,$require):string{
+            $value=$require($field,$label,80);
+            if(!in_array($value,$allowed,true))throw new \InvalidArgumentException("Invalid {$label}");
+            return $value;
+        };
+        if($action==='checkout'){
+            $data['related_party']=$require('related_party','Person or department');
+            $require('location','Checkout location');
+            $metadata['expected_return_date']=self::requiredDate($data['expected_return_date']??$metadata['expected_return_date']??null,'Expected return date is required',true);
+            $require('purpose','Purpose',500);
+        }elseif($action==='return'){
+            $require('returned_by','Returned by'); $require('location','Return location');
+            $enum('condition','return condition',['good','damaged','needs_inspection','missing_parts']);
+        }elseif($action==='damaged'){
+            $require('location','Damage location');
+            $enum('damage_reason','damage reason',['accident','wear_and_tear','misuse','environmental','unknown','other']);
+        }elseif(in_array($action,['lost','missing'],true)){
+            $require('location','Last known location'); $require('reported_by','Reported by');
+            $enum('loss_reason','loss reason',['misplaced','theft','unreturned','unknown','other']);
+        }elseif($action==='maintenance_send'){
+            $require('location','Maintenance location');
+            $enum('maintenance_reason','maintenance reason',['preventive','repair','inspection','calibration','upgrade','other']);
+            $metadata['expected_completion_date']=self::requiredDate($data['expected_completion_date']??$metadata['expected_completion_date']??null,'Expected completion date is required',true);
+            $require('technician','Technician or department');
+        }elseif($action==='maintenance_release'){
+            $require('location','Return location');
+            $enum('condition','maintenance condition',['good','still_damaged','needs_further_maintenance']);
+        }
+        $data['occurred_at']=$occurred;
+        $data['metadata']=$metadata;
+        return $data;
+    }
+
+    private static function requiredDate(mixed $value,string $message,bool $dateOnly=false): string
+    {
+        $raw=trim((string)$value); if($raw==='')throw new \InvalidArgumentException($message);
+        try{$date=new \DateTimeImmutable($raw);}catch(\Throwable){throw new \InvalidArgumentException($message);}
+        return $dateOnly?$date->format('Y-m-d'):$date->format('Y-m-d H:i:s');
+    }
+
+    private static function optionalDate(mixed $value): string
+    {
+        $raw=trim((string)$value); if($raw==='')return date('Y-m-d H:i:s');
+        return self::requiredDate($raw,'Invalid action date');
     }
 
     private static function ensureLevel(\PDO $pdo,int $itemId,string $location): void

@@ -151,6 +151,12 @@ class InventoryController
         $stmt->execute([$user['id']]);
         $qrCoverage = $stmt->fetch();
 
+        $stmt=$pdo->prepare("SELECT action_type,COUNT(*) movement_count,COALESCE(SUM(ABS(quantity_delta)),0) units_moved FROM inventory_movements WHERE user_id=? AND occurred_at>=DATE_SUB(NOW(),INTERVAL {$interval}) GROUP BY action_type ORDER BY movement_count DESC,action_type");
+        $stmt->execute([$user['id']]);$movementsByAction=$stmt->fetchAll();
+        $stmt=$pdo->prepare("SELECT COALESCE(NULLIF(to_location,''),NULLIF(from_location,''),'Unassigned') location,COUNT(*) movement_count,COALESCE(SUM(ABS(quantity_delta)),0) units_moved FROM inventory_movements WHERE user_id=? AND occurred_at>=DATE_SUB(NOW(),INTERVAL {$interval}) GROUP BY location ORDER BY movement_count DESC,location LIMIT 20");
+        $stmt->execute([$user['id']]);$movementsByLocation=$stmt->fetchAll();
+        $movementTotal=array_sum(array_map(static fn(array $row): int => (int)$row['movement_count'],$movementsByAction));
+
         Response::success([
             'summary' => [
                 'total_items' => (int)($statusCounts['total'] ?? 0),
@@ -166,6 +172,7 @@ class InventoryController
                 'maintenance_items' => (int)($inventoryCounts['maintenance_items'] ?? 0),
                 'damaged_items' => (int)($inventoryCounts['damaged_items'] ?? 0),
                 'lost_items' => (int)($inventoryCounts['lost_items'] ?? 0),
+                'movement_total' => $movementTotal,
             ],
             'status_distribution' => [
                 ['status' => 'in_stock', 'count' => (int)($statusCounts['in_stock'] ?? 0), 'label' => 'In Stock'],
@@ -178,6 +185,9 @@ class InventoryController
             'status_changes' => $statusChanges,
             'top_items' => $topItems,
             'recent_changes' => $recentChanges,
+            'movements_by_action' => $movementsByAction,
+            'movements_by_location' => $movementsByLocation,
+            'period' => ['key'=>$period,'days'=>(int)$interval,'generated_at'=>date(DATE_ATOM)],
         ]);
     }
 
@@ -723,43 +733,6 @@ class InventoryController
         Response::success(null, 'Item deleted successfully');
     }
 
-    public static function logScan(): void
-    {
-        // Public endpoint - update item on scan
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
-
-        if (empty($data['qr_id'])) {
-            Response::error('QR ID is required', 400);
-        }
-
-        $pdo = Database::getInstance();
-
-        // Find item linked to this QR
-        $stmt = $pdo->prepare("SELECT id FROM inventory_items WHERE qr_id = ?");
-        $stmt->execute([$data['qr_id']]);
-        $item = $stmt->fetch();
-
-        if ($item) {
-            // A scan is identification/analytics only. Never change inventory
-            // state or location from public input.
-            $updates = ["last_scan_date = NOW()"];
-            $params = [];
-
-            $params[] = $item['id'];
-            $stmt = $pdo->prepare("UPDATE inventory_items SET " . implode(', ', $updates) . " WHERE id = ?");
-            $stmt->execute($params);
-
-            // Fetch updated item
-            $stmt = $pdo->prepare("SELECT * FROM inventory_items WHERE id = ?");
-            $stmt->execute([$item['id']]);
-            $updatedItem = $stmt->fetch();
-
-            Response::success(['item' => $updatedItem], 'Scan logged');
-        } else {
-            Response::success(['item' => null], 'No inventory item linked to this QR');
-        }
-    }
-
     public static function getLimits(): void
     {
         $user = Auth::check();
@@ -831,126 +804,6 @@ class InventoryController
     }
 
     /**
-     * Public endpoint: Update item status (owner or shared access only)
-     */
-    public static function updateStatusByQrCode(int $qrId): void
-    {
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
-        $pdo = Database::getInstance();
-
-        // Find item with owner info
-        $stmt = $pdo->prepare("
-            SELECT i.*, i.user_id as owner_id, u.email as owner_email, u.name as owner_name, 
-                   COALESCE(u.notify_status_change, 1) as notify_status_change
-            FROM inventory_items i
-            LEFT JOIN users u ON i.user_id = u.id
-            WHERE i.qr_id = ?
-        ");
-        $stmt->execute([$qrId]);
-        $item = $stmt->fetch();
-
-        if (!$item) {
-            Response::error('Item not found', 404);
-        }
-
-        // Check authorization
-        $user = Auth::check(); // Requires auth
-        $canUpdate = false;
-        if ($user['id'] == $item['owner_id']) {
-            $canUpdate = true;
-        }
-        // Check shared access.
-        if (!empty($item['shared_access'])) {
-            $sharedAccess = json_decode($item['shared_access'], true) ?? [];
-            if (in_array($user['id'], $sharedAccess)) {
-                $canUpdate = true;
-            }
-        }
-
-        if (!$canUpdate) {
-            Response::error('You do not have permission to update this item', 403);
-        }
-
-        // Validate status
-        $allowedStatuses = ['in_stock', 'out', 'maintenance', 'checked_out'];
-        if (!empty($data['status']) && !in_array($data['status'], $allowedStatuses)) {
-            Response::error('Invalid status', 400);
-        }
-
-        // Store old values for history
-        $oldStatus = $item['status'];
-        $oldLocation = $item['location'];
-        $newStatus = $data['status'] ?? $oldStatus;
-        $newLocation = $data['location'] ?? $oldLocation;
-
-        // Update item
-        $updates = ["updated_at = NOW()"];
-        $params = [];
-
-        if (!empty($data['status'])) {
-            $updates[] = "status = ?";
-            $params[] = $data['status'];
-        }
-        if (isset($data['location'])) {
-            $updates[] = "location = ?";
-            $params[] = $data['location'];
-        }
-
-        if (count($updates) === 1) {
-            Response::error('No valid fields to update', 400);
-        }
-
-        $params[] = $item['id'];
-        $stmt = $pdo->prepare("UPDATE inventory_items SET " . implode(', ', $updates) . " WHERE id = ?");
-        $stmt->execute($params);
-
-        // Log status change history
-        if ($oldStatus !== $newStatus || $oldLocation !== $newLocation) {
-            try {
-                $stmt = $pdo->prepare("
-                    INSERT INTO inventory_status_history 
-                    (item_id, old_status, new_status, old_location, new_location, changed_by, changed_by_name, changed_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-                ");
-                $stmt->execute([
-                    $item['id'],
-                    $oldStatus,
-                    $newStatus,
-                    $oldLocation,
-                    $newLocation,
-                    $user['id'],
-                    $user['name']
-                ]);
-            } catch (\Exception $e) {
-                error_log("Failed to log status history: " . $e->getMessage());
-            }
-
-            // Send email notification if status changed and notifications enabled
-            if ($oldStatus !== $newStatus && $item['notify_status_change'] && $item['owner_email']) {
-                try {
-                    MailService::sendStatusChangeEmail(
-                        $item['owner_email'],
-                        $item['owner_name'],
-                        $item['name'],
-                        $oldStatus,
-                        $newStatus,
-                        $newLocation
-                    );
-                } catch (\Exception $e) {
-                    error_log("Failed to send status change email: " . $e->getMessage());
-                }
-            }
-        }
-
-        // Return updated item
-        $stmt = $pdo->prepare("SELECT * FROM inventory_items WHERE id = ?");
-        $stmt->execute([$item['id']]);
-        $updatedItem = $stmt->fetch();
-
-        Response::success($updatedItem, 'Item updated successfully');
-    }
-
-    /**
      * Get status history for an item by QR code (authorized users only)
      */
     public static function getHistoryByQrCode(int $qrId): void
@@ -1004,7 +857,8 @@ class InventoryController
         if(!$ownerId) Response::error('Inventory item not found',404);
         if((int)$ownerId!==(int)$user['id']){$access=$pdo->prepare('SELECT role FROM inventory_access WHERE owner_user_id=? AND user_id=? AND is_active=1');$access->execute([$ownerId,$user['id']]);if(!$access->fetchColumn())Response::error('You do not have permission to view this history',403);}
         $where=['item_id=?'];$params=[$id];
-        foreach(['action_type','reason'] as $field){if(!empty($_GET[$field])){$where[]="$field=?";$params[]=$_GET[$field];}}
+        if(!empty($_GET['action_type'])){$where[]='action_type=?';$params[]=$_GET['action_type'];}
+        if(!empty($_GET['reason'])){$where[]='reason LIKE ?';$params[]='%'.$_GET['reason'].'%';}
         if(!empty($_GET['user'])){$where[]='performed_by_name LIKE ?';$params[]='%'.$_GET['user'].'%';}
         if(!empty($_GET['location'])){$where[]='(from_location=? OR to_location=?)';$params[]=$_GET['location'];$params[]=$_GET['location'];}
         if(!empty($_GET['status'])){$where[]='(previous_status=? OR new_status=?)';$params[]=$_GET['status'];$params[]=$_GET['status'];}
@@ -1014,6 +868,31 @@ class InventoryController
         $stmt->execute($params); Response::success($stmt->fetchAll());
     }
 
+    public static function exportMovements(int $id): void
+    {
+        $user=Auth::check();$pdo=Database::getInstance();
+        $owner=$pdo->prepare('SELECT user_id FROM inventory_items WHERE id=? AND deleted_at IS NULL');$owner->execute([$id]);$ownerId=$owner->fetchColumn();
+        if(!$ownerId)Response::error('Inventory item not found',404);
+        if((int)$ownerId!==(int)$user['id']){$access=$pdo->prepare('SELECT 1 FROM inventory_access WHERE owner_user_id=? AND user_id=? AND is_active=1');$access->execute([$ownerId,$user['id']]);if(!$access->fetchColumn())Response::error('You do not have permission to export this history',403);}
+        $where=['item_id=?'];$params=[$id];
+        if(!empty($_GET['action_type'])){$where[]='action_type=?';$params[]=$_GET['action_type'];}
+        if(!empty($_GET['reason'])){$where[]='reason LIKE ?';$params[]='%'.$_GET['reason'].'%';}
+        if(!empty($_GET['user'])){$where[]='performed_by_name LIKE ?';$params[]='%'.$_GET['user'].'%';}
+        if(!empty($_GET['location'])){$where[]='(from_location=? OR to_location=?)';$params[]=$_GET['location'];$params[]=$_GET['location'];}
+        if(!empty($_GET['status'])){$where[]='(previous_status=? OR new_status=?)';$params[]=$_GET['status'];$params[]=$_GET['status'];}
+        if(!empty($_GET['from'])){$where[]='occurred_at>=?';$params[]=$_GET['from'];}
+        if(!empty($_GET['to'])){$where[]='occurred_at<=?';$params[]=$_GET['to'];}
+        $stmt=$pdo->prepare('SELECT occurred_at,action_type,quantity_delta,previous_quantity,new_quantity,previous_status,new_status,from_location,to_location,reason,performed_by_name,related_party,notes FROM inventory_movements WHERE '.implode(' AND ',$where).' ORDER BY occurred_at DESC,id DESC');$stmt->execute($params);
+        header('Content-Type: text/csv; charset=utf-8');header('Content-Disposition: attachment; filename="inventory-movements-'.$id.'-'.date('Y-m-d').'.csv"');
+        $out=fopen('php://output','wb');fputcsv($out,['Date','Action','Quantity change','Previous quantity','New quantity','Previous status','New status','From','To','Reason','Performed by','Related party','Notes']);
+        while($row=$stmt->fetch()){foreach($row as &$value){$value=self::safeCsv($value);}unset($value);fputcsv($out,array_values($row));}fclose($out);exit;
+    }
+
+    private static function safeCsv(mixed $value): string
+    {
+        $text=(string)($value??'');return preg_match('/^[=+\-@\t\r]/',$text)?"'".$text:$text;
+    }
+
     public static function saveStockCount(int $id): void
     {
         $user=Auth::check();$data=json_decode(file_get_contents('php://input'),true)??[];
@@ -1021,8 +900,11 @@ class InventoryController
         if($key===''||$reason===''||filter_var($data['counted_quantity']??null,FILTER_VALIDATE_INT)===false||(int)$data['counted_quantity']<0) Response::error('Counted quantity, reason and idempotency key are required',422);
         $pdo=Database::getInstance();$pdo->beginTransaction();
         try{$stmt=$pdo->prepare("SELECT * FROM inventory_items WHERE id=? AND deleted_at IS NULL AND inventory_type='quantity' FOR UPDATE");$stmt->execute([$id]);$item=$stmt->fetch();if(!$item)throw new \RuntimeException('Quantity inventory item not found',404);if((int)$item['user_id']!==(int)$user['id']){$access=$pdo->prepare("SELECT role FROM inventory_access WHERE owner_user_id=? AND user_id=? AND is_active=1 AND role IN ('controller','admin')");$access->execute([$item['user_id'],$user['id']]);if(!$access->fetchColumn())throw new \RuntimeException('You do not have permission to count this stock',403);}
-            $counted=(int)$data['counted_quantity'];$insert=$pdo->prepare('INSERT INTO inventory_stock_counts(item_id,user_id,expected_quantity,counted_quantity,difference,location,counted_by,counted_by_name,count_date,reason,notes,idempotency_key) VALUES(?,?,?,?,?,?,?,?,COALESCE(?,NOW()),?,?,?)');
-            $insert->execute([$id,$item['user_id'],$item['quantity'],$counted,$counted-(int)$item['quantity'],$data['location']??$item['location'],$user['id'],$user['name'],$data['count_date']??null,$reason,$data['notes']??null,$key]);$countId=(int)$pdo->lastInsertId();$pdo->commit();Response::success(['id'=>$countId,'expected_quantity'=>(int)$item['quantity'],'counted_quantity'=>$counted,'difference'=>$counted-(int)$item['quantity'],'status'=>'saved'],'Stock count saved',201);
+            $location=trim((string)($data['location']??$item['location']??''));if($location==='')throw new \InvalidArgumentException('Count location is required');
+            $known=$pdo->prepare('SELECT 1 FROM inventory_locations WHERE user_id=? AND name=? AND is_active=1');$known->execute([$item['user_id'],$location]);if(!$known->fetchColumn())throw new \InvalidArgumentException('Unknown inventory location');
+            $level=$pdo->prepare('SELECT quantity FROM inventory_stock_levels WHERE item_id=? AND location_name=? FOR UPDATE');$level->execute([$id,$location]);$expectedLocation=$level->fetchColumn();if($expectedLocation===false)throw new \InvalidArgumentException('This item has no stock at the selected location');
+            $counted=(int)$data['counted_quantity'];$insert=$pdo->prepare('INSERT INTO inventory_stock_counts(item_id,user_id,expected_quantity,expected_location_quantity,item_version,counted_quantity,difference,location,counted_by,counted_by_name,count_date,reason,notes,idempotency_key) VALUES(?,?,?,?,?,?,?,?,?,?,COALESCE(?,NOW()),?,?,?)');
+            $insert->execute([$id,$item['user_id'],$item['quantity'],$expectedLocation,$item['version'],$counted,$counted-(int)$expectedLocation,$location,$user['id'],$user['name'],$data['count_date']??null,$reason,$data['notes']??null,$key]);$countId=(int)$pdo->lastInsertId();$pdo->commit();Response::success(['id'=>$countId,'expected_quantity'=>(int)$expectedLocation,'counted_quantity'=>$counted,'difference'=>$counted-(int)$expectedLocation,'location'=>$location,'status'=>'saved'],'Stock count saved',201);
         }catch(\PDOException $e){if($pdo->inTransaction())$pdo->rollBack();if($e->getCode()==='23000'){Response::error('This stock count was already saved',409);}throw $e;}catch(\Throwable $e){if($pdo->inTransaction())$pdo->rollBack();Response::error($e->getMessage(),$e->getCode()===404?404:422);}
     }
 

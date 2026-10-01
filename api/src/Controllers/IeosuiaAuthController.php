@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Config\Database;
+use App\Helpers\Response;
 use App\Middleware\Auth;
 
 final class IeosuiaAuthController
@@ -72,7 +73,7 @@ final class IeosuiaAuthController
         exit;
     }
 
-    public static function disabled(): void { http_response_code(410); header('Content-Type: application/json'); echo json_encode(['error'=>'Use central IEOSUIA authentication.']); }
+    public static function disabled(): void { Response::error('Use central IEOSUIA authentication.',410); }
 
     private static function request(string $path, ?array $fields = null, string $bearer = ''): array
     {

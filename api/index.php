@@ -305,6 +305,9 @@ try {
     elseif (preg_match('#^/inventory/(\d+)/movements$#', $uri, $matches) && $method === 'GET') {
         InventoryController::getMovements((int)$matches[1]);
     }
+    elseif (preg_match('#^/inventory/(\d+)/movements/export$#', $uri, $matches) && $method === 'GET') {
+        InventoryController::exportMovements((int)$matches[1]);
+    }
     elseif (preg_match('#^/inventory/(\d+)/stock-counts$#', $uri, $matches) && $method === 'POST') {
         InventoryController::saveStockCount((int)$matches[1]);
     }

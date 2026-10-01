@@ -20,6 +20,7 @@ export interface InventoryAnalytics {
     maintenance_items: number;
     damaged_items: number;
     lost_items: number;
+    movement_total: number;
   };
   status_distribution: Array<{ status: string; count: number; label: string }>;
   by_category: Array<{ category: string; count: number }>;
@@ -42,6 +43,9 @@ export interface InventoryAnalytics {
     changed_by_name: string | null;
     changed_at: string;
   }>;
+  movements_by_action: Array<{ action_type: string; movement_count: number; units_moved: number }>;
+  movements_by_location: Array<{ location: string; movement_count: number; units_moved: number }>;
+  period: { key: string; days: number; generated_at: string };
 }
 
 export interface InventoryAlert {
@@ -233,6 +237,10 @@ export const inventoryApi = {
     post(`/inventory/${id}/actions/${action}`, data),
   movements: async (id: string, params?: Record<string, unknown>): Promise<ApiResponse<InventoryMovement[]>> =>
     get(`/inventory/${id}/movements`, params),
+  exportMovements: async (id: string, params?: Record<string, unknown>): Promise<Blob> => {
+    const response = await apiClient.get(`/inventory/${id}/movements/export`, { params, responseType: "blob" });
+    return response.data;
+  },
   saveStockCount: async (id: string, data: Record<string, unknown>): Promise<ApiResponse<StockCount>> =>
     post(`/inventory/${id}/stock-counts`, data),
   applyStockCount: async (id: string, countId: number, reason?: string): Promise<ApiResponse<{ item: InventoryItem }>> =>
@@ -246,4 +254,4 @@ export interface InventoryMovement {
   previous_status: string; new_status: string; from_location: string | null; to_location: string | null;
   reason: string; performed_by_name: string; related_party: string | null; occurred_at: string; notes: string | null;
 }
-export interface StockCount { id: number; expected_quantity: number; counted_quantity: number; difference: number; status: "saved" | "applied"; }
+export interface StockCount { id: number; expected_quantity: number; counted_quantity: number; difference: number; location: string; status: "saved" | "applied"; }

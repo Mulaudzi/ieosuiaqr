@@ -121,6 +121,18 @@ CREATE TABLE IF NOT EXISTS inventory_stock_counts (
   CONSTRAINT inventory_counts_actor_fk FOREIGN KEY(counted_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- A saved count is a location-scoped observation. These snapshots let apply
+-- reject a reconciliation when either the item or that location changed.
+ALTER TABLE inventory_stock_counts
+  ADD COLUMN IF NOT EXISTS expected_location_quantity INT UNSIGNED NULL AFTER expected_quantity,
+  ADD COLUMN IF NOT EXISTS item_version INT UNSIGNED NULL AFTER expected_location_quantity;
+
+UPDATE inventory_stock_counts c
+JOIN inventory_items i ON i.id=c.item_id
+SET c.expected_location_quantity=COALESCE(c.expected_location_quantity,c.expected_quantity),
+    c.item_version=COALESCE(c.item_version,i.version)
+WHERE c.status='saved';
+
 CREATE TABLE IF NOT EXISTS inventory_access (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   owner_user_id INT UNSIGNED NOT NULL,
