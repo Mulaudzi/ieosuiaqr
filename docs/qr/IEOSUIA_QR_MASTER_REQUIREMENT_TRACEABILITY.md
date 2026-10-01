@@ -14,7 +14,7 @@ Scope: local completion candidate only. Production deployment is excluded.
 | Movement analytics | Movement totals grouped by action and location with explicit period metadata | API/UI compilation and browser smoke | Implemented; independent review pending |
 | Scan privacy and no inventory mutation | Public safe projection; movement-only inventory writes | Anonymous scan browser test and source-route audit | Implemented; independent review pending |
 | QR type compatibility | Registry-derived 12-type matrix in `CreateQRCode`; API create/read/edit/scan/destination/stats test | `master-repair.spec.ts` all-type matrix | Implemented; independent review pending |
-| Mobile/tablet/desktop responsiveness | Shared viewport-safe primitives and route-specific repairs | `responsive-ui.spec.ts` at 320 through 1440 pixels | Implemented; final full run pending |
+| Mobile/tablet/desktop responsiveness | Shared viewport-safe primitives and route-specific repairs | `responsive-ui.spec.ts`: 17/17 at 320 through 1440 pixels | Implemented; independent review pending |
 | Legacy contradictory form/dead paths | Removed legacy status/location inputs and dead controller methods | Typecheck plus symbol search | Implemented; independent review pending |
 
 ## QR type matrix
