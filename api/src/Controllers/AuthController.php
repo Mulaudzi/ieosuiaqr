@@ -215,7 +215,7 @@ class AuthController
             $params[] = strtolower(trim($data['email']));
         }
 
-        if (isset($data['avatar_url'])) {
+        if (array_key_exists('avatar_url', $data)) {
             $updates[] = "avatar_url = ?";
             $params[] = $data['avatar_url'];
         }
@@ -658,6 +658,29 @@ class AuthController
             'id' => $logoId,
             'logo_path' => $logoPath
         ], 'Logo uploaded successfully', 201);
+    }
+
+    public static function deleteLogo(int $logoId): void
+    {
+        $user = Auth::check();
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare('SELECT logo_path FROM user_logos WHERE id = ? AND user_id = ?');
+        $stmt->execute([$logoId, $user['id']]);
+        $logoPath = $stmt->fetchColumn();
+        if ($logoPath === false) {
+            Response::error('Logo not found', 404);
+        }
+
+        $path = parse_url((string)$logoPath, PHP_URL_PATH) ?: (string)$logoPath;
+        if (str_starts_with($path, '/api/uploads/logos/')) {
+            $diskPath = __DIR__ . '/../../uploads/logos/' . basename($path);
+            if (is_file($diskPath)) {
+                unlink($diskPath);
+            }
+        }
+        $delete = $pdo->prepare('DELETE FROM user_logos WHERE id = ? AND user_id = ?');
+        $delete->execute([$logoId, $user['id']]);
+        Response::success(null, 'Logo deleted successfully');
     }
 
     /**

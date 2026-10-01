@@ -1,6 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 import fs from 'node:fs';
 
+let createdLogoQrId = 0;
+test.afterEach(async ({ request }) => {
+  if (!createdLogoQrId) return;
+  const token = process.env.QR_TEST_TOKEN || '';
+  await request.delete(`http://localhost:8081/api/qr/${createdLogoQrId}`, { headers: { Authorization: `Bearer ${token}` } });
+  createdLogoQrId = 0;
+});
+
 function collectRuntimeFailures(page: Page) {
   const failures: string[] = [];
   page.on('pageerror', (error) => failures.push(`pageerror: ${error.message}`));
@@ -94,6 +102,7 @@ test('logo loads in QR preview, persists, and is present in a downloaded PNG', a
   const createResponse = await createResponsePromise;
   expect(createResponse.status()).toBe(201);
   const created = await createResponse.json();
+  createdLogoQrId = Number(created.data.id);
   expect(created.data.custom_options.logo_path).toMatch(/^\/api\/uploads\/logos\//);
   await expect(page).toHaveURL(/\/dashboard/);
 });

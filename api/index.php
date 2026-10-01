@@ -261,6 +261,9 @@ try {
     elseif ($uri === '/user/logos' && $method === 'POST') {
         AuthController::uploadLogo();
     }
+    elseif (preg_match('#^/user/logos/(\d+)$#', $uri, $matches) && $method === 'DELETE') {
+        AuthController::deleteLogo((int)$matches[1]);
+    }
 
     // Inventory
     elseif ($uri === '/inventory' && $method === 'GET') {

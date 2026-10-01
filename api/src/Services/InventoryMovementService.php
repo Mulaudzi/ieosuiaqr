@@ -76,16 +76,23 @@ final class InventoryMovementService
             $beforeStatus = (string)$item['status'];
             $afterStatus = $beforeStatus;
             $type = (string)$item['inventory_type'];
-            $fromLocation = $action==='transfer'&&$type==='quantity'?(self::nullableText($data['from_location']??$item['location'],255)??'Unassigned'):$item['location'];
+            $fromLocation = $item['location'];
             $toLocation = array_key_exists('to_location',$data) ? self::nullableText($data['to_location'],255) : $fromLocation;
             $movementToLocation = $toLocation;
             $assignedTo = $item['assigned_to'];
             $delta = 0;
             if ($type === 'quantity') {
-                [$afterQty,$delta,$afterStatus,$itemLocation] = self::quantityTransition($item,$action,$data,$toLocation,$fromLocation);
-                if ($action !== 'transfer') {
-                    $movementToLocation = self::nullableText($data['location'] ?? $fromLocation,255);
+                $stockLocation=self::nullableText($data['location']??$item['location'],255)??'Unassigned';
+                if($action==='transfer'){
+                    $fromLocation=self::nullableText($data['from_location']??$item['location'],255)??'Unassigned';
+                }elseif($action==='add_stock'){
+                    $fromLocation=null;$movementToLocation=$stockLocation;
+                }elseif(in_array($action,['remove_stock','damaged','lost','missing'],true)){
+                    $fromLocation=$stockLocation;$movementToLocation=null;
+                }else{
+                    $fromLocation=$stockLocation;$movementToLocation=$stockLocation;
                 }
+                [$afterQty,$delta,$afterStatus,$itemLocation] = self::quantityTransition($item,$action,$data,$toLocation,$fromLocation);
                 self::updateStockLevels($pdo,$item,$action,$data,$delta,$movementToLocation);
                 $toLocation = $itemLocation;
             } else {

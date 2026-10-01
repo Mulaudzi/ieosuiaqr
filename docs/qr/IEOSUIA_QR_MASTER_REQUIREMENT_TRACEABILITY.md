@@ -57,6 +57,6 @@ Each row is independently exercised by `tests/e2e/master-repair.spec.ts`. Downlo
 - `npm run test:deep:local` (creates required local environment variables and fails rather than skipping when fixtures are absent)
 - `npm run build:web`
 
-Latest complete local run (2026-10-01): typecheck PASS; 23/23 unit tests PASS; inventory A-L acceptance PASS; fresh and legacy migration acceptance PASS; production build PASS; 62/62 Playwright tests PASS with no skips.
+Latest complete local run (2026-10-01): typecheck PASS; 23/23 unit tests PASS; inventory A-L acceptance PASS; fresh and legacy migration acceptance PASS; production build PASS; 62/62 Playwright tests PASS with no skips. The post-run worktree and named test-fixture audit were clean. Successful Central Auth admin entitlement/session and protected admin feature operation remain an external, unverified boundary; local acceptance covers handoff and unauthorized fail-closed behavior only.
 
 Change a row back to RED if its listed evidence fails after a code change.

@@ -80,6 +80,8 @@ try {
     check((int)($levels['Warehouse']??-1)===8 && (int)($levels['Office']??-1)===3,'Atomic transfer balances are incorrect');
     InventoryMovementService::perform($quantityId,$owner,'transfer',['quantity'=>1,'from_location'=>'Office','to_location'=>'Warehouse','reason'=>'Return transfer','idempotency_key'=>'reverse-transfer-'.$suffix]);
     $reverse=row($pdo,"SELECT from_location,to_location FROM inventory_movements WHERE item_id=? AND idempotency_key=?",[$quantityId,'reverse-transfer-'.$suffix]);check($reverse['from_location']==='Office'&&$reverse['to_location']==='Warehouse','Transfer ledger did not preserve the selected source');
+    InventoryMovementService::perform($quantityId,$owner,'remove_stock',['quantity'=>1,'location'=>'Office','reason'=>'issued_for_internal_use','idempotency_key'=>'office-removal-'.$suffix]);
+    $removal=row($pdo,"SELECT from_location,to_location FROM inventory_movements WHERE item_id=? AND idempotency_key=?",[$quantityId,'office-removal-'.$suffix]);check($removal['from_location']==='Office'&&$removal['to_location']===null,'Removal ledger did not preserve the selected source location');
     try { InventoryMovementService::perform($quantityId,$viewer,'add_stock',['quantity'=>1,'reason'=>'other','idempotency_key'=>'viewer-'.$suffix]); throw new RuntimeException('Viewer mutation was accepted'); } catch (RuntimeException $e) { check($e->getCode()===403,'Unexpected viewer error'); }
     try { InventoryMovementService::perform($quantityId,$owner,'remove_stock',['quantity'=>99,'reason'=>'other','idempotency_key'=>'over-'.$suffix]); throw new RuntimeException('Negative stock was accepted'); } catch (DomainException) {}
     try { InventoryMovementService::perform($quantityId,$operator,'adjust',['new_quantity'=>7,'reason'=>'system_correction','idempotency_key'=>'operator-adjust-'.$suffix]); throw new RuntimeException('Operator adjustment was accepted'); } catch (RuntimeException $e) { check($e->getCode()===403,'Unexpected adjustment permission error'); }
@@ -116,9 +118,9 @@ try {
     $reconcileData=['apply_count_id'=>$countId,'reason'=>'count_error','idempotency_key'=>'stock-count-'.$countId];InventoryMovementService::perform($quantityId,$owner,'reconciliation',$reconcileData);check(InventoryMovementService::perform($quantityId,$owner,'reconciliation',$reconcileData)['duplicate']===true,'Reconciliation retry was not idempotent');
     $count=row($pdo,'SELECT * FROM inventory_stock_counts WHERE id=?',[$countId]);
     check($count['status']==='applied' && !empty($count['applied_movement_id']),'Reconciliation was not linked atomically');
-    check((int)row($pdo,'SELECT quantity FROM inventory_items WHERE id=?',[$quantityId])['quantity']===12,'Location reconciliation changed aggregate quantity incorrectly');
+    check((int)row($pdo,'SELECT quantity FROM inventory_items WHERE id=?',[$quantityId])['quantity']===11,'Location reconciliation changed aggregate quantity incorrectly');
     check((int)row($pdo,"SELECT quantity FROM inventory_stock_levels WHERE item_id=? AND location_name='Warehouse'",[$quantityId])['quantity']===10,'Location reconciliation did not update the counted location');
-    check((int)row($pdo,'SELECT COUNT(*) c FROM inventory_movements WHERE item_id=?',[$quantityId])['c']===5,'Unexpected quantity movement count');
+    check((int)row($pdo,'SELECT COUNT(*) c FROM inventory_movements WHERE item_id=?',[$quantityId])['c']===6,'Unexpected quantity movement count');
 
     // A: two removals racing for the last available stock admit only one overdraw-prone request.
     $pdo->prepare("INSERT INTO inventory_items(user_id,public_token,name,category,inventory_type,quantity,minimum_stock_level,status,location,version) VALUES(?,UUID(),'Race stock','Supplies','quantity',10,0,'in_stock','Warehouse',0)")->execute([$owner['id']]);

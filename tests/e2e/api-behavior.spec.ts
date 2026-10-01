@@ -15,8 +15,25 @@ test.describe.serial('exact API behavior and lifecycle', () => {
   let qrId = 0;
   let presetId = '';
   let inventoryId = 0;
+  let logoId = 0;
+  let uploadedAvatarPath: string | null = null;
+  let previousAvatarUrl: string | null = null;
+  let previousAvatarPath: string | null = null;
+  let previousAvatarBytes: Buffer | null = null;
   const account = fields('LOCAL_TEST_ACCOUNT.md');
 const auth = () => ({ Authorization: `Bearer ${token}` });
+
+  test.afterAll(async ({ request }) => {
+    if (logoId) await request.delete(`${api}/user/logos/${logoId}`, { headers: auth() });
+    if (previousAvatarPath && previousAvatarBytes) {
+      fs.mkdirSync(path.dirname(previousAvatarPath), { recursive: true });
+      fs.writeFileSync(previousAvatarPath, previousAvatarBytes);
+    }
+    await request.put(`${api}/user/profile`, { headers: auth(), data: { avatar_url: previousAvatarUrl } });
+    if (uploadedAvatarPath && uploadedAvatarPath !== previousAvatarPath && fs.existsSync(uploadedAvatarPath)) {
+      fs.unlinkSync(uploadedAvatarPath);
+    }
+  });
 
   test('local credential authentication is retired without leaking details', async ({ request }) => {
     const malformed = await request.post(`${api}/auth/login`, { data: { email: 'not-an-email', password: 'x' } });
@@ -44,6 +61,7 @@ const auth = () => ({ Authorization: `Bearer ${token}` });
     });
     expect(upload.status()).toBe(201);
     const saved = (await upload.json()).data;
+    logoId = Number(saved.id);
     expect(saved.logo_path).toMatch(/^\/api\/uploads\/logos\//);
     const file = await request.get(`http://localhost:8081${saved.logo_path}`);
     expect(file.status()).toBe(200);
@@ -54,6 +72,17 @@ const auth = () => ({ Authorization: `Bearer ${token}` });
   });
 
   test('avatar upload returns an image URL that a browser can retrieve', async ({ request }) => {
+    const profile = await request.get(`${api}/user/profile`, { headers: auth() });
+    const currentAvatar = (await profile.json()).data.avatar_url as string | null;
+    if (currentAvatar) {
+      const currentUrl = currentAvatar.replace('http://localhost:5173/api/', 'http://localhost:8081/api/');
+      const currentFile = await request.get(currentUrl);
+      if (currentFile.ok()) {
+        previousAvatarUrl = currentAvatar;
+        previousAvatarBytes = await currentFile.body();
+        previousAvatarPath = path.resolve('api/uploads/avatars', path.basename(new URL(currentUrl).pathname));
+      }
+    }
     const image = fs.readFileSync(path.resolve('public/favicon.png'));
     const upload = await request.post(`${api}/user/avatar`, {
       headers: auth(), multipart: { avatar: { name: 'codex-avatar.png', mimeType: 'image/png', buffer: image } },
@@ -61,6 +90,7 @@ const auth = () => ({ Authorization: `Bearer ${token}` });
     expect(upload.status()).toBe(200);
     const avatarUrl = (await upload.json()).data.avatar_url as string;
     const normalizedUrl = avatarUrl.replace('http://localhost:5173/api/', 'http://localhost:8081/api/');
+    uploadedAvatarPath = path.resolve('api/uploads/avatars', path.basename(new URL(normalizedUrl).pathname));
     const file = await request.get(normalizedUrl);
     expect(file.status()).toBe(200);
     expect(file.headers()['content-type']).toMatch(/^image\/png/);
