@@ -109,8 +109,12 @@ test('logo loads in QR preview, persists, and is present in a downloaded PNG', a
 
 test('unauthenticated visitors cannot enter protected routes', async ({ page }) => {
   for (const route of ['/dashboard', '/dashboard/create', '/dashboard/settings', '/dashboard/profile']) {
-    await page.goto(route);
-    await expect(page).toHaveURL(/\/login/);
+    try { await page.goto(route, { waitUntil: 'domcontentloaded' }); } catch { /* Central Auth may interrupt the local navigation. */ }
+    await expect.poll(() => {
+      if (!page.url()) return false;
+      const current = new URL(page.url());
+      return current.hostname === 'auth.ieosuia.com' || current.pathname.startsWith('/login');
+    }).toBe(true);
   }
 });
 

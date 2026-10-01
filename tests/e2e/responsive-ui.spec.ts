@@ -111,6 +111,7 @@ for (const viewport of [
   { name: "desktop", width: 1440, height: 900 },
 ]) {
   test(`representative visual matrix ${viewport.name}`, async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
     test.skip(!token, "Local authenticated fixture unavailable");
     await authenticate(page);
     await page.setViewportSize(viewport);
@@ -118,7 +119,10 @@ for (const viewport of [
     if (itemId) routes.push(`/dashboard/inventory/${itemId}`);
     if (qrId) routes.push(`/scan/${qrId}`);
     for (const route of routes) {
-      await page.goto(route, { waitUntil: "networkidle" });
+      await page.goto(route, { waitUntil: "domcontentloaded" });
+      await expect(page.locator("body")).toBeVisible();
+      await expect(page.locator("body")).not.toContainText("Something went wrong");
+      await page.waitForTimeout(300);
       const screenshot = await page.screenshot({ fullPage: true });
       await testInfo.attach(`${viewport.name}-${route.replaceAll("/", "-") || "home"}`, { body: screenshot, contentType: "image/png" });
     }

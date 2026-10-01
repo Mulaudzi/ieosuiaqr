@@ -19,3 +19,10 @@ test('admin API fails closed without a Central Auth admin session',async({reques
 test('admin browser entry hands off to Central Auth',async({page})=>{
   await page.goto('/admin/login',{waitUntil:'domcontentloaded'});await page.waitForURL(url=>url.hostname==='auth.ieosuia.com');expect(new URL(page.url()).hostname).toBe('auth.ieosuia.com');
 });
+
+test('invalid stored admin token never renders protected admin content',async({page})=>{
+  await page.addInitScript(()=>localStorage.setItem('admin_token','definitely-invalid'));
+  await page.goto('/admin/dashboard',{waitUntil:'domcontentloaded'});
+  await expect(page.getByText('Quick Access',{exact:true})).toHaveCount(0);
+  await page.waitForURL(url=>url.hostname==='auth.ieosuia.com');
+});

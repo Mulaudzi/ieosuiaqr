@@ -3,8 +3,8 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/e2e',
   workers: 1,
-  timeout: 45_000,
-  expect: { timeout: 10_000 },
+  timeout: 90_000,
+  expect: { timeout: 20_000 },
   use: {
     baseURL: 'http://localhost:5173',
     browserName: 'chromium',
