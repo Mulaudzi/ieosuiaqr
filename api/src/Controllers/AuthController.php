@@ -566,9 +566,11 @@ class AuthController
         $stmt->execute([$user['id']]);
         $logos = $stmt->fetchAll() ?: [];
 
-        // Drop broken entries and normalize logo_path to same-origin relative paths.
-        $logos = array_values(array_filter(array_map(function ($logo) {
+        // Remove broken entries and normalize logo_path to same-origin relative paths.
+        $brokenIds = [];
+        $logos = array_values(array_filter(array_map(function ($logo) use (&$brokenIds) {
             if (empty($logo['logo_path'])) {
+                $brokenIds[] = (int)$logo['id'];
                 return null;
             }
 
@@ -577,12 +579,19 @@ class AuthController
             $diskPath = __DIR__ . '/../../' . ltrim(str_replace('/api/', '', $relativePath), '/');
 
             if (!file_exists($diskPath)) {
+                $brokenIds[] = (int)$logo['id'];
                 return null;
             }
 
             $logo['logo_path'] = $relativePath;
             return $logo;
         }, $logos)));
+
+        if ($brokenIds !== []) {
+            $placeholders = implode(',', array_fill(0, count($brokenIds), '?'));
+            $delete = $pdo->prepare("DELETE FROM user_logos WHERE user_id = ? AND id IN ({$placeholders})");
+            $delete->execute(array_merge([(int)$user['id']], $brokenIds));
+        }
 
         Response::success($logos);
     }

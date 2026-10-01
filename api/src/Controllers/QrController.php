@@ -258,6 +258,7 @@ class QrController
 
         $pdo = Database::getInstance();
         $created = 0;
+          $createdIds = [];
         $errors = [];
         $row = 1;
 
@@ -304,6 +305,7 @@ class QrController
                         bin2hex(random_bytes(8))
                     ]);
                     $created++;
+                      $createdIds[] = (int)$pdo->lastInsertId();
                 } catch (\Exception $e) {
                     $errors[] = "Row {$row}: Failed to create";
                 }
@@ -314,6 +316,7 @@ class QrController
 
             Response::success([
                 'created' => $created,
+                  'created_ids' => $createdIds,
                 'errors' => $errors
             ], "Bulk import complete. {$created} QR codes created.");
 

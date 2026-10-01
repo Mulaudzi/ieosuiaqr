@@ -12,6 +12,7 @@ import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import CentralAuthRedirect from "@/components/auth/CentralAuthRedirect";
+import { AdminProtectedRoute } from "@/components/auth/AdminProtectedRoute";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const CreateQRCode = lazy(() => import("./pages/CreateQRCode"));
@@ -91,13 +92,13 @@ const App = () => (
               <Route path="/solutions/:solutionId" element={<SolutionDetail />} />
               <Route path="/admin" element={<AdminIndex />} />
               <Route path="/admin/login" element={<CentralAuthRedirect mode="admin" />} />
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              <Route path="/admin/emails" element={<AdminEmails />} />
-              <Route path="/admin/settings" element={<AdminSettings />} />
-              <Route path="/admin/stats" element={<AdminStats />} />
-              <Route path="/admin/create" element={<AdminCreate />} />
-              <Route path="/admin/users" element={<AdminUsers />} />
-              <Route path="/admin/audit" element={<AdminAuditLog />} />
+              <Route path="/admin/dashboard" element={<AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>} />
+              <Route path="/admin/emails" element={<AdminProtectedRoute><AdminEmails /></AdminProtectedRoute>} />
+              <Route path="/admin/settings" element={<AdminProtectedRoute><AdminSettings /></AdminProtectedRoute>} />
+              <Route path="/admin/stats" element={<AdminProtectedRoute><AdminStats /></AdminProtectedRoute>} />
+              <Route path="/admin/create" element={<AdminProtectedRoute><AdminCreate /></AdminProtectedRoute>} />
+              <Route path="/admin/users" element={<AdminProtectedRoute><AdminUsers /></AdminProtectedRoute>} />
+              <Route path="/admin/audit" element={<AdminProtectedRoute><AdminAuditLog /></AdminProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             </Suspense>

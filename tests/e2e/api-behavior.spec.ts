@@ -15,6 +15,7 @@ test.describe.serial('exact API behavior and lifecycle', () => {
   let qrId = 0;
   let presetId = '';
   let inventoryId = 0;
+  let bulkQrIds: number[] = [];
   let logoId = 0;
   let uploadedAvatarPath: string | null = null;
   let previousAvatarUrl: string | null = null;
@@ -25,6 +26,7 @@ const auth = () => ({ Authorization: `Bearer ${token}` });
 
   test.afterAll(async ({ request }) => {
     if (logoId) await request.delete(`${api}/user/logos/${logoId}`, { headers: auth() });
+    for (const id of bulkQrIds) await request.delete(`${api}/qr/${id}`, { headers: auth() });
     if (previousAvatarPath && previousAvatarBytes) {
       fs.mkdirSync(path.dirname(previousAvatarPath), { recursive: true });
       fs.writeFileSync(previousAvatarPath, previousAvatarBytes);
@@ -145,6 +147,8 @@ const auth = () => ({ Authorization: `Bearer ${token}` });
     expect(response.status()).toBe(200);
     const data = (await response.json()).data;
     expect(data.created).toBe(1);
+    bulkQrIds = data.created_ids.map(Number);
+    expect(bulkQrIds).toHaveLength(1);
     expect(data.errors).toHaveLength(1);
   });
 
