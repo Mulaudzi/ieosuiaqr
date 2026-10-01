@@ -210,6 +210,7 @@ final class InventoryMovementService
     private static function requiredDate(mixed $value,string $message,bool $dateOnly=false): string
     {
         $raw=trim((string)$value); if($raw==='')throw new \InvalidArgumentException($message);
+        if(!preg_match('/^(\d{4})-(\d{2})-(\d{2})/',$raw,$parts)||!checkdate((int)$parts[2],(int)$parts[3],(int)$parts[1]))throw new \InvalidArgumentException($message);
         try{$date=new \DateTimeImmutable($raw);}catch(\Throwable){throw new \InvalidArgumentException($message);}
         return $dateOnly?$date->format('Y-m-d'):$date->format('Y-m-d H:i:s');
     }

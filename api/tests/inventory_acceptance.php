@@ -127,6 +127,7 @@ try {
     check((int)row($pdo,'SELECT quantity FROM inventory_items WHERE id=?',[$raceId])['quantity']===4,'Concurrent removal produced an invalid quantity');
     check((int)row($pdo,'SELECT COUNT(*) c FROM inventory_movements WHERE item_id=?',[$raceId])['c']===1,'Concurrent removal produced duplicate movements');
 
+    // J: simultaneous retries with one add-stock idempotency key apply exactly once.
     $pdo->prepare("INSERT INTO inventory_items(user_id,public_token,name,category,inventory_type,quantity,status,location,version) VALUES(?,UUID(),'Retry stock','Supplies','quantity',5,'in_stock','Warehouse',0)")->execute([$owner['id']]);
     $retryId=(int)$pdo->lastInsertId();$ids['items'][]=$retryId;$pdo->prepare("INSERT INTO inventory_stock_levels(item_id,location_name,quantity) VALUES(?,'Warehouse',5)")->execute([$retryId]);
     $workers=[];$sameKey='same-add-'.$suffix;foreach([1,2] as $number){$pipes=[];$workers[]=[$process=proc_open([PHP_BINARY,__FILE__,'worker-add',(string)$retryId,(string)$owner['id'],$sameKey],[['pipe','r'],['pipe','w'],['pipe','w']],$pipes),$pipes];}

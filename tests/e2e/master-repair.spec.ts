@@ -5,6 +5,7 @@ const itemId=process.env.QR_TEST_ITEM_ID || '';
 const qrId=process.env.QR_TEST_QR_ID || '';
 const api='http://127.0.0.1:8081/api';
 const auth={ Authorization:`Bearer ${token}` };
+if(process.env.QR_REQUIRE_FIXTURES==='1'&&(!token||!itemId||!qrId))throw new Error('Required deep-acceptance fixtures are missing');
 
 test('anonymous inventory QR resolves to safe public detail without login',async({page})=>{
   test.skip(!qrId,'No linked local inventory QR');
@@ -23,11 +24,14 @@ test('authenticated owner can open protected inventory actions and history',asyn
   test.skip(!token||!itemId,'Local owner token unavailable');await page.addInitScript(value=>localStorage.setItem('auth_token',value),token);
   await page.goto(`/dashboard/inventory/${itemId}`);await expect(page).toHaveURL(new RegExp(`/dashboard/inventory/${itemId}`));
   await expect(page.getByText('Actions',{exact:true})).toBeVisible();await expect(page.getByText('Movement history',{exact:true})).toBeVisible();
+  const detail=page.locator('.inventory-history-print details').first();if(await detail.count()){await detail.evaluate(element=>{(element as HTMLDetailsElement).open=true;});await expect(detail.getByText('Workflow:',{exact:false})).toBeVisible();}
+  await page.emulateMedia({media:'print'});await expect(page.locator('.inventory-history-print')).toBeVisible();await expect(page.locator('aside')).toBeHidden();await page.emulateMedia({media:'screen'});
 });
 
 test('inventory history export and movement analytics are authorized and usable',async({request})=>{
   test.skip(!token||!itemId,'Local owner token unavailable');
-  const filtered=await request.get(`${api}/inventory/${itemId}/movements?reason=Initial`,{headers:auth});expect(filtered.status()).toBe(200);const filteredBody=await filtered.json();expect(Array.isArray(filteredBody.data.items)).toBe(true);expect(filteredBody.data.pagination.total).toBeGreaterThanOrEqual(0);
+  const filtered=await request.get(`${api}/inventory/${itemId}/movements?reason=Initial&page=1&per_page=1`,{headers:auth});expect(filtered.status()).toBe(200);const filteredBody=await filtered.json();expect(Array.isArray(filteredBody.data.items)).toBe(true);expect(filteredBody.data.items.length).toBeLessThanOrEqual(1);expect(filteredBody.data.pagination).toMatchObject({page:1,per_page:1});expect(filteredBody.data.pagination.total_pages).toBe(Math.ceil(filteredBody.data.pagination.total));
+  const beyond=await request.get(`${api}/inventory/${itemId}/movements?reason=Initial&page=${filteredBody.data.pagination.total_pages+1}&per_page=1`,{headers:auth});expect(beyond.status()).toBe(200);expect((await beyond.json()).data.items).toEqual([]);
   const exported=await request.get(`${api}/inventory/${itemId}/movements/export?reason=Initial`,{headers:auth});expect(exported.status()).toBe(200);expect(exported.headers()['content-type']).toContain('text/csv');expect((await exported.body()).length).toBeGreaterThan(40);
   const analytics=await request.get(`${api}/inventory/analytics?period=30d`,{headers:auth});expect(analytics.status()).toBe(200);const body=await analytics.json();expect(Array.isArray(body.data.movements_by_action)).toBe(true);expect(Array.isArray(body.data.movements_by_location)).toBe(true);expect(body.data.period.days).toBe(30);
 });
@@ -60,5 +64,7 @@ test('atomic QR plus inventory creation is retry-safe and resolves to the new it
   try{const first=await request.post(`${api}/inventory/with-qr`,{headers:auth,data:{name:'Atomic inventory test',category:'Supplies',inventory_type:'quantity',quantity:8,minimum_stock_level:3,location:'Warehouse',idempotency_key:key}});expect(first.status()).toBe(201);const body=await first.json();item=String(body.data.item.id);qr=String(body.data.qr_id);
     const retry=await request.post(`${api}/inventory/with-qr`,{headers:auth,data:{name:'Atomic inventory test',category:'Supplies',inventory_type:'quantity',quantity:8,minimum_stock_level:3,location:'Warehouse',idempotency_key:key}});expect(retry.status()).toBe(200);expect((await retry.json()).data.duplicate).toBe(true);
     const scan=await request.get(`${api}/scan/log?id=${qr}&response=json`);expect((await scan.json()).data.redirect_url).toContain(`/scan/${qr}`);
+    const invalidDate=await request.post(`${api}/inventory/${item}/stock-counts`,{headers:auth,data:{counted_quantity:8,location:'Warehouse',reason:'count_error',count_date:'2027-02-29 10:00:00',idempotency_key:crypto.randomUUID()}});expect(invalidDate.status()).toBe(422);
+    const longNotes=await request.post(`${api}/inventory/${item}/stock-counts`,{headers:auth,data:{counted_quantity:8,location:'Warehouse',reason:'count_error',notes:'x'.repeat(5001),idempotency_key:crypto.randomUUID()}});expect(longNotes.status()).toBe(422);
   }finally{if(item)await request.delete(`${api}/inventory/${item}`,{headers:auth});if(qr)await request.delete(`${api}/qr/${qr}`,{headers:auth});}
 });

@@ -12,6 +12,7 @@
     "deploy:package": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\package-build.ps1",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:deep:local": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\run-deep-acceptance.ps1",
     "test:watch": "vitest",
     "lint": "eslint .",
     "preview": "vite preview"

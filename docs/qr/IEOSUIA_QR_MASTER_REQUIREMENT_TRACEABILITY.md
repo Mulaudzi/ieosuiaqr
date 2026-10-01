@@ -54,8 +54,7 @@ Each row is independently exercised by `tests/e2e/master-repair.spec.ts`. Downlo
 - `npm run test`
 - `docker compose exec -T api php tests/inventory_acceptance.php`
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-database-migrations.ps1`
-- `npx playwright test tests/e2e/api-behavior.spec.ts tests/e2e/master-repair.spec.ts`
-- `npx playwright test tests/e2e/responsive-ui.spec.ts`
+- `npm run test:deep:local` (creates required local environment variables and fails rather than skipping when fixtures are absent)
 - `npm run build:web`
 
 Change a row back to RED if its listed evidence fails after a code change.
