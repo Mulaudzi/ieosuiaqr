@@ -1,7 +1,9 @@
 import apiClient, { del, get, post, put } from "./client";
 import { ApiResponse, PaginatedResponse } from "./types";
 
-export type InventoryStatus = "in_stock" | "out" | "maintenance" | "checked_out";
+export type InventoryStatus = "in_stock" | "available" | "low_stock" | "out_of_stock" | "checked_out" | "maintenance" | "damaged" | "lost" | "missing" | "unavailable" | "out";
+export type InventoryType = "quantity" | "serialized";
+export type InventoryAction = "add_stock" | "remove_stock" | "checkout" | "return" | "transfer" | "damaged" | "lost" | "missing" | "maintenance_send" | "maintenance_release" | "adjust" | "reconciliation";
 
 export interface InventoryAnalytics {
   summary: {
@@ -9,6 +11,15 @@ export interface InventoryAnalytics {
     total_scans: number;
     items_with_qr: number;
     items_without_qr: number;
+    quantity_products: number;
+    serialized_items: number;
+    units_in_stock: number;
+    low_stock_products: number;
+    out_of_stock_products: number;
+    checked_out_items: number;
+    maintenance_items: number;
+    damaged_items: number;
+    lost_items: number;
   };
   status_distribution: Array<{ status: string; count: number; label: string }>;
   by_category: Array<{ category: string; count: number }>;
@@ -54,6 +65,11 @@ export interface InventoryItem {
   qr_id: string | null;
   name: string;
   category: string;
+  inventory_type: InventoryType;
+  inventory_identifier: string | null;
+  quantity: number;
+  minimum_stock_level: number;
+  assigned_to: string | null;
   notes: string | null;
   status: InventoryStatus;
   location: string | null;
@@ -62,6 +78,9 @@ export interface InventoryItem {
   created_at: string;
   updated_at: string;
   shared_access?: string[]; // User IDs with access
+  access_role?: "owner" | "viewer" | "operator" | "controller" | "admin";
+  capabilities?: { operate: boolean; control: boolean; administer: boolean };
+  stock_levels?: Array<{ location_name: string; quantity: number }>;
 }
 
 export interface CreateInventoryRequest {
@@ -71,6 +90,10 @@ export interface CreateInventoryRequest {
   notes?: string;
   status?: InventoryStatus;
   location?: string;
+  inventory_type?: InventoryType;
+  inventory_identifier?: string;
+  quantity?: number;
+  minimum_stock_level?: number;
 }
 
 export interface UpdateInventoryRequest {
@@ -93,6 +116,10 @@ export const inventoryApi = {
     search?: string;
     category?: string;
     status?: InventoryStatus;
+    location?: string;
+    assigned_to?: string;
+    inventory_type?: InventoryType;
+    low_stock?: number;
   }): Promise<PaginatedResponse<InventoryItem>> => {
     return get("/inventory", params);
   },
@@ -112,6 +139,7 @@ export const inventoryApi = {
   create: async (data: CreateInventoryRequest): Promise<ApiResponse<InventoryItem>> => {
     return post("/inventory", data);
   },
+  createWithQr: async (data: CreateInventoryRequest & { idempotency_key: string }): Promise<ApiResponse<{ item: InventoryItem; qr_id: number; scan_url: string; duplicate: boolean }>> => post('/inventory/with-qr',data),
 
   /**
    * Update an existing inventory item
@@ -127,14 +155,6 @@ export const inventoryApi = {
    */
   delete: async (id: string): Promise<ApiResponse<null>> => {
     return del(`/inventory/${id}`);
-  },
-
-  /**
-   * Log a scan for an inventory item (public)
-   * POST /api/inventory/scan
-   */
-  logScan: async (qrId: string, location?: string): Promise<ApiResponse<{ item: InventoryItem }>> => {
-    return post("/inventory/scan", { qr_id: qrId, location });
   },
 
   /**
@@ -209,11 +229,21 @@ export const inventoryApi = {
     return get(`/inventory/qr/${qrId}`, { location });
   },
 
-  /**
-   * Public endpoint to update item status (authorized users only)
-   * POST /api/inventory/qr/:qrId/status
-   */
-  publicUpdateStatus: async (qrId: string, data: { status: InventoryStatus; location?: string }): Promise<ApiResponse<InventoryItem>> => {
-    return post(`/inventory/qr/${qrId}/status`, data);
-  },
+  performAction: async (id: string, action: InventoryAction, data: Record<string, unknown>): Promise<ApiResponse<{ item: InventoryItem; movement_id: number; duplicate: boolean }>> =>
+    post(`/inventory/${id}/actions/${action}`, data),
+  movements: async (id: string, params?: Record<string, unknown>): Promise<ApiResponse<InventoryMovement[]>> =>
+    get(`/inventory/${id}/movements`, params),
+  saveStockCount: async (id: string, data: Record<string, unknown>): Promise<ApiResponse<StockCount>> =>
+    post(`/inventory/${id}/stock-counts`, data),
+  applyStockCount: async (id: string, countId: number, reason?: string): Promise<ApiResponse<{ item: InventoryItem }>> =>
+    post(`/inventory/${id}/stock-counts/${countId}/apply`, { reason }),
+  locations: async (itemId?: string): Promise<ApiResponse<Array<{ id: string; name: string; code: string | null }>>> => get('/inventory/locations',itemId?{item_id:itemId}:undefined),
+  createLocation: async (name: string): Promise<ApiResponse<{ id: number; name: string }>> => post('/inventory/locations',{name}),
 };
+
+export interface InventoryMovement {
+  id: string; action_type: string; quantity_delta: number; previous_quantity: number; new_quantity: number;
+  previous_status: string; new_status: string; from_location: string | null; to_location: string | null;
+  reason: string; performed_by_name: string; related_party: string | null; occurred_at: string; notes: string | null;
+}
+export interface StockCount { id: number; expected_quantity: number; counted_quantity: number; difference: number; status: "saved" | "applied"; }

@@ -421,8 +421,8 @@ export default function Solutions() {
                     transition={{ duration: 0.5, delay: index * 0.05 }}
                   >
                   <Link to={`/solutions/${solution.id}`} className="block h-full">
-                    <div className="h-full p-8 rounded-3xl bg-card border border-border hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 group">
-                      <div className="flex items-start gap-6">
+                    <div className="group h-full rounded-3xl border border-border bg-card p-5 transition-all duration-300 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5 sm:p-8">
+                      <div className="flex min-w-0 flex-col items-start gap-4 sm:flex-row sm:gap-6">
                         <div
                           className={`w-16 h-16 rounded-2xl ${
                             colorClasses[solution.color as keyof typeof colorClasses]
@@ -430,13 +430,13 @@ export default function Solutions() {
                         >
                           <solution.icon className="w-8 h-8" />
                         </div>
-                        <div className="flex-1">
+                        <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 mb-2">
                             <Badge variant="secondary" className="text-xs">
                               {solution.category}
                             </Badge>
                           </div>
-                          <h3 className="font-display text-2xl font-bold mb-3 group-hover:text-primary transition-colors">
+                          <h3 className="break-words font-display text-xl font-bold transition-colors group-hover:text-primary sm:text-2xl mb-3">
                             {solution.title}
                           </h3>
                           <p className="text-muted-foreground mb-4">

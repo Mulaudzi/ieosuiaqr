@@ -29,11 +29,11 @@ export function QRTypesExplainedSection() {
         <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
           {/* Dynamic QR Card */}
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="relative rounded-3xl bg-card border border-border p-8 hover:shadow-lg transition-shadow"
+            className="relative rounded-3xl bg-card border border-border p-5 sm:p-8 hover:shadow-lg transition-shadow"
           >
             <span className="inline-block px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold mb-6">
               DYNAMIC
@@ -81,11 +81,11 @@ export function QRTypesExplainedSection() {
 
           {/* Static QR Card */}
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="relative rounded-3xl bg-card border border-border p-8 hover:shadow-lg transition-shadow"
+            className="relative rounded-3xl bg-card border border-border p-5 sm:p-8 hover:shadow-lg transition-shadow"
           >
             <span className="inline-block px-3 py-1 rounded-full bg-muted-foreground text-muted text-xs font-semibold mb-6">
               STATIC

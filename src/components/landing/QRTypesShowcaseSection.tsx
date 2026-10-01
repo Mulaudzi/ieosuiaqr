@@ -104,7 +104,7 @@ export function QRTypesShowcaseSection() {
           className="text-center"
         >
           <Button size="lg" variant="hero" asChild>
-            <Link to="/create">
+            <Link to="/dashboard/create">
               Create Your QR Code
             </Link>
           </Button>

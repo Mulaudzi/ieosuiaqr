@@ -289,14 +289,14 @@ export default function Analytics() {
       {/* Main Content */}
       <main className="lg:ml-64">
         <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border">
-          <div className="flex items-center justify-between px-6 py-4">
-            <div>
+          <div className="flex flex-col gap-3 px-4 py-3 sm:px-6 sm:py-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
               <h1 className="font-display text-2xl font-bold">Analytics</h1>
               <p className="text-sm text-muted-foreground">
                 Track your QR code performance
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center sm:gap-3">
               <DateRangePicker onDateChange={handleDateChange} />
               <Button variant="outline" onClick={handleExport}>
                 <Download className="w-4 h-4 mr-2" />
@@ -306,7 +306,7 @@ export default function Analytics() {
           </div>
         </header>
 
-        <div className="p-6 space-y-6">
+        <div className="space-y-6 p-4 pb-24 sm:p-6 lg:pb-6">
           {/* Stats Grid */}
           {isLoading ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">

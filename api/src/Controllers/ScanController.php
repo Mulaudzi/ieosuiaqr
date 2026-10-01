@@ -138,12 +138,22 @@ class ScanController
             error_log("Inventory scan timestamp update failed: " . $e->getMessage());
         }
 
-        // Resolve both current structured content and older/string records.
-        $redirectUrl = self::resolveRedirectUrl(
-            (string)($qr['type'] ?? ''),
-            $qr['content'],
-            $userAgent
-        );
+        // Inventory linkage is the authoritative destination for both current
+        // and legacy printed codes. Mutable QR content never carries inventory
+        // state, and unlinked QR types keep their original behavior.
+        $inventory = $pdo->prepare('SELECT id FROM inventory_items WHERE qr_id = ? AND deleted_at IS NULL LIMIT 1');
+        $inventory->execute([$qr['id']]);
+        $inventoryId = $inventory->fetchColumn();
+        if ($inventoryId) {
+            $appUrl = rtrim((string)($_ENV['APP_URL'] ?? 'https://qr.ieosuia.com'), '/');
+            $redirectUrl = $appUrl . '/scan/' . rawurlencode((string)$qr['id']);
+        } else {
+            $redirectUrl = self::resolveRedirectUrl(
+                (string)($qr['type'] ?? ''),
+                $qr['content'],
+                $userAgent
+            );
+        }
 
         // The public /go/:id page requests JSON in the background so visitors
         // see a friendly transition instead of an API response or API URL.

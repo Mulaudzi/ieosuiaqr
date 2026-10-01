@@ -18,8 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { inventoryApi, InventoryStatus } from "@/services/api/inventory";
-import { qrCodeApi } from "@/services/api";
+import { inventoryApi, InventoryType } from "@/services/api/inventory";
 import { publicScanUrl } from "@/lib/publicScanUrl";
 import { parseApiError } from "@/services/api/client";
 import { QRCodeSVG } from "qrcode.react";
@@ -53,7 +52,9 @@ export function CreateQRAndItemModal({ open, onOpenChange, onSuccess }: CreateQR
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Equipment");
-  const [status, setStatus] = useState<InventoryStatus>("in_stock");
+  const [inventoryType, setInventoryType] = useState<InventoryType>("serialized");
+  const [quantity, setQuantity] = useState("0");
+  const [minimumStock, setMinimumStock] = useState("0");
   const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
   const [isCreating, setIsCreating] = useState(false);
@@ -65,7 +66,9 @@ export function CreateQRAndItemModal({ open, onOpenChange, onSuccess }: CreateQR
     setStep(1);
     setName("");
     setCategory("Equipment");
-    setStatus("in_stock");
+    setInventoryType("serialized");
+    setQuantity("0");
+    setMinimumStock("0");
     setLocation("");
     setNotes("");
     setCreatedQRId(null);
@@ -79,43 +82,16 @@ export function CreateQRAndItemModal({ open, onOpenChange, onSuccess }: CreateQR
     }
 
     setIsCreating(true);
-    let createdId: string | null = null;
-
     try {
-      // Step 1: Create QR Code
-      const appUrl = import.meta.env.VITE_APP_URL || "https://qr.ieosuia.com";
-
-      const qrPayload = {
-        name: `${name} QR`,
-        type: "url",
-        content: { url: appUrl },
-      };
-
-      const qrResponse = await qrCodeApi.create(qrPayload);
-
-      if (import.meta.env.DEV) {
-        console.debug("[CreateQRAndItem] QR create payload", qrPayload);
-        console.debug("[CreateQRAndItem] QR create response", qrResponse);
-      }
-
-      const qrId = qrResponse.data.id;
-      createdId = qrId;
-      const itemUrl = `${appUrl}/scan/${qrId}`;
-      await qrCodeApi.update(qrId, { content: { url: itemUrl } });
-      setQrContent(publicScanUrl(qrId));
-      setCreatedQRId(qrId);
-      setStep(2);
-
-      // Step 2: Create Inventory Item linked to QR
-      await inventoryApi.create({
-        name,
-        category,
-        status,
-        location: location || undefined,
-        notes: notes || undefined,
-        qr_id: qrId,
+      const result = await inventoryApi.createWithQr({
+        name, category, location: location || undefined, notes: notes || undefined,
+        inventory_type: inventoryType, quantity: inventoryType === "quantity" ? Number(quantity) : 1,
+        minimum_stock_level: inventoryType === "quantity" ? Number(minimumStock) : 0,
+        idempotency_key: crypto.randomUUID(),
       });
-
+      const qrId=String(result.data.qr_id);
+      setQrContent(publicScanUrl(qrId)); setCreatedQRId(qrId);
+      setStep(2);
       setStep(3);
       toast({
         title: "Success!",
@@ -123,13 +99,6 @@ export function CreateQRAndItemModal({ open, onOpenChange, onSuccess }: CreateQR
       });
       onSuccess();
     } catch (error: unknown) {
-      if (createdId) {
-        try {
-          await qrCodeApi.delete(createdId);
-        } catch {
-          // Preserve the original failure; server-side cleanup can be retried later.
-        }
-      }
       const parsed = parseApiError(error, "Failed to create QR and item.");
 
       if (import.meta.env.DEV) {
@@ -215,20 +184,16 @@ export function CreateQRAndItemModal({ open, onOpenChange, onSuccess }: CreateQR
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select value={status} onValueChange={(v) => setStatus(v as InventoryStatus)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="in_stock">In Stock</SelectItem>
-                    <SelectItem value="out">Checked Out</SelectItem>
-                    <SelectItem value="maintenance">Maintenance</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
+
+            <div className="space-y-2">
+              <Label>Inventory type</Label>
+              <Select value={inventoryType} onValueChange={(value) => setInventoryType(value as InventoryType)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="serialized">Individually tracked item</SelectItem><SelectItem value="quantity">Quantity-based product</SelectItem></SelectContent>
+              </Select>
+            </div>
+            {inventoryType === "quantity" && <div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Opening quantity</Label><Input type="number" min="0" value={quantity} onChange={e=>setQuantity(e.target.value)} /></div><div className="space-y-2"><Label>Minimum stock</Label><Input type="number" min="0" value={minimumStock} onChange={e=>setMinimumStock(e.target.value)} /></div></div>}
 
             <div className="space-y-2">
               <Label>Location</Label>

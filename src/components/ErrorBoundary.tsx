@@ -32,6 +32,21 @@ export class ErrorBoundary extends Component<Props, State> {
       message: error.message,
       componentStack: errorInfo.componentStack,
     });
+
+    // Safari and some older mobile browsers do not consistently emit Vite's
+    // preloadError event. Recover here as well when an open tab requests a
+    // chunk from an earlier deployment that is no longer available.
+    const details = `${error.name} ${error.message}`;
+    const isStaleChunk = /ChunkLoadError|Loading chunk|dynamically imported module|Importing a module script failed|Failed to fetch module|Load failed/i.test(details);
+    if (isStaleChunk) {
+      const reloadKey = "ieosuia:last-error-boundary-reload";
+      const lastReload = Number(sessionStorage.getItem(reloadKey) ?? 0);
+      const now = Date.now();
+      if (now - lastReload > 30_000) {
+        sessionStorage.setItem(reloadKey, String(now));
+        window.location.reload();
+      }
+    }
   }
 
   private handleReset = () => {

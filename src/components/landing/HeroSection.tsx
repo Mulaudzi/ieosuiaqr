@@ -146,7 +146,7 @@ export function HeroSection() {
             <motion.div
               animate={{ y: [-10, 10, -10] }}
               transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute -top-8 -right-8 w-20 h-20 rounded-2xl bg-primary/10 backdrop-blur-sm border border-primary/20 flex items-center justify-center"
+              className="absolute -top-8 -right-8 hidden w-20 h-20 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 backdrop-blur-sm sm:flex"
             >
               <BarChart3 className="w-8 h-8 text-primary" />
             </motion.div>
@@ -154,7 +154,7 @@ export function HeroSection() {
             <motion.div
               animate={{ y: [10, -10, 10] }}
               transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute -bottom-4 -left-8 w-16 h-16 rounded-2xl bg-accent/10 backdrop-blur-sm border border-accent/20 flex items-center justify-center"
+              className="absolute -bottom-4 -left-8 hidden w-16 h-16 items-center justify-center rounded-2xl border border-accent/20 bg-accent/10 backdrop-blur-sm sm:flex"
             >
               <Shield className="w-6 h-6 text-accent" />
             </motion.div>

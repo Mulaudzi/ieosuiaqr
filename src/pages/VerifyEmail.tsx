@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle2, XCircle, Loader2, Mail, ArrowLeft } from "lucide-react";
 import { authApi } from "@/services/api/auth";
 import { useAuth } from "@/contexts/AuthContext";
+import { sanitizeReturnTo } from "@/lib/returnTo";
 
 type VerificationStatus = "verifying" | "success" | "error" | "no-token";
 
@@ -19,6 +20,7 @@ export default function VerifyEmail() {
   const [resendSuccess, setResendSuccess] = useState(false);
 
   const token = searchParams.get("token");
+  const returnTo = sanitizeReturnTo(searchParams.get("return_to")) || sanitizeReturnTo(localStorage.getItem("ieosuia_verification_return_to")) || "/dashboard";
 
   useEffect(() => {
     if (!token) {
@@ -34,7 +36,8 @@ export default function VerifyEmail() {
         await refreshUser();
         // Auto-redirect to dashboard after 2 seconds
         setTimeout(() => {
-          navigate("/dashboard", { replace: true });
+          localStorage.removeItem("ieosuia_verification_return_to");
+          navigate(returnTo, { replace: true });
         }, 2000);
       } catch (error: unknown) {
         setStatus("error");
@@ -54,7 +57,7 @@ export default function VerifyEmail() {
     };
 
     verifyEmail();
-  }, [token]);
+  }, [navigate, refreshUser, returnTo, token]);
 
   const handleResendVerification = async () => {
     setIsResending(true);
@@ -95,8 +98,8 @@ export default function VerifyEmail() {
               <Loader2 className="h-4 w-4 animate-spin" />
               <span>Redirecting automatically...</span>
             </div>
-            <Button variant="outline" onClick={() => navigate("/dashboard", { replace: true })} className="mt-2">
-              Go to Dashboard Now
+            <Button variant="outline" onClick={() => { localStorage.removeItem("ieosuia_verification_return_to"); navigate(returnTo, { replace: true }); }} className="mt-2">
+              Continue
             </Button>
           </div>
         );

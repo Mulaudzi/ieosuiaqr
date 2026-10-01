@@ -38,7 +38,7 @@ import { useQRStorage } from "@/hooks/useQRStorage";
 import { LogoUploader } from "@/components/qr/LogoUploader";
 import { WiFiForm, WiFiData, generateWiFiString } from "@/components/qr/WiFiForm";
 import { VCardForm, VCardData, generateVCardString } from "@/components/qr/VCardForm";
-import { EventForm, EventData, generateEventString } from "@/components/qr/EventForm";
+import { EventForm, EventData, generateEventString, normalizeEventData, validateEventData } from "@/components/qr/EventForm";
 import { LocationForm, LocationData, generateLocationString } from "@/components/qr/LocationForm";
 import { SMSForm, SMSData, generateSMSString } from "@/components/qr/SMSForm";
 import { WhatsAppForm, WhatsAppData, generateWhatsAppString } from "@/components/qr/WhatsAppForm";
@@ -146,15 +146,7 @@ export default function EditQRCode() {
             });
             break;
           case "event":
-            setEventData({
-              title: (c.title ?? "") as string,
-              description: (c.description ?? "") as string,
-              startDate: (c.startDate ?? "") as string,
-              startTime: (c.startTime ?? "") as string,
-              endDate: (c.endDate ?? "") as string,
-              endTime: (c.endTime ?? "") as string,
-              location: (c.location ?? "") as string,
-            });
+            setEventData(normalizeEventData(c));
             break;
           case "location":
             setLocationData({
@@ -258,7 +250,7 @@ export default function EditQRCode() {
       case "text": return qrContent || defaultPreviewUrl;
       case "wifi": return generateWiFiString(wifiData);
       case "vcard": return generateVCardString(vcardData);
-      case "event": return generateEventString(eventData);
+      case "event": return generateEventString(eventData) || defaultPreviewUrl;
       case "location": return generateLocationString(locationData);
       case "sms": return generateSMSString(smsData);
       case "whatsapp": return generateWhatsAppString(whatsappData);
@@ -328,12 +320,14 @@ export default function EditQRCode() {
           return false;
         }
         break;
-      case "event":
-        if (!eventData.title.trim() || !eventData.startDate || !eventData.startTime || !eventData.endDate || !eventData.endTime) {
-          toast({ title: "Event details required", description: "Please fill in the event title and dates", variant: "destructive" });
+      case "event": {
+        const validation = validateEventData(eventData);
+        if (!validation.valid) {
+          toast({ title: "Invalid event details", description: validation.message, variant: "destructive" });
           return false;
         }
         break;
+      }
       case "location":
         if (locationData.inputMode === "coordinates") {
           const lat = parseFloat(locationData.latitude);

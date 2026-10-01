@@ -1,5 +1,6 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 import { ApiError } from "./types";
+import { currentReturnTo, sanitizeReturnTo } from "@/lib/returnTo";
 
 type ApiErrorDetails = Record<string, string[] | string>;
 
@@ -90,7 +91,8 @@ apiClient.interceptors.response.use(
       
       // Only redirect if not already on auth pages
       if (!window.location.pathname.includes("/login") && !window.location.pathname.includes("/signup")) {
-        window.location.href = "/login";
+        const returnTo = sanitizeReturnTo(currentReturnTo());
+        window.location.href = returnTo ? `/login?return_to=${encodeURIComponent(returnTo)}` : "/login";
       }
     }
 

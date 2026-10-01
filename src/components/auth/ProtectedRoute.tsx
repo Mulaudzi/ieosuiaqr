@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { sanitizeReturnTo } from "@/lib/returnTo";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -27,13 +28,16 @@ export function ProtectedRoute({
 
   if (requireAuth && !isAuthenticated) {
     // Redirect to login, but save the attempted URL
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    const target = sanitizeReturnTo(`${location.pathname}${location.search}${location.hash}`) || "/dashboard";
+    return <Navigate to={`/login?return_to=${encodeURIComponent(target)}`} replace />;
   }
 
   // Check email verification if required - check both email_verified boolean and email_verified_at
   const isEmailVerified = user?.email_verified || user?.email_verified_at;
   if (requireAuth && requireVerified && user && !isEmailVerified) {
-    return <Navigate to="/verification-required" replace />;
+    const target = sanitizeReturnTo(`${location.pathname}${location.search}${location.hash}`) || "/dashboard";
+    localStorage.setItem("ieosuia_verification_return_to", target);
+    return <Navigate to={`/verification-required?return_to=${encodeURIComponent(target)}`} replace />;
   }
 
   return <>{children}</>;

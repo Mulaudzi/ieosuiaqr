@@ -12,7 +12,7 @@ export default function Inventory() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-6"
+          className="p-4 pb-28 sm:p-6"
         >
           <InventoryTab />
         </motion.div>

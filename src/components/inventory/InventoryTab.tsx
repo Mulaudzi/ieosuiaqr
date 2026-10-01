@@ -63,9 +63,16 @@ import { QRLabelPrinter } from "./QRLabelPrinter";
 
 const statusConfig: Record<InventoryStatus, { label: string; color: string; icon: React.ElementType }> = {
   in_stock: { label: "In Stock", color: "bg-success/10 text-success", icon: CheckCircle },
+  available: { label: "Available", color: "bg-success/10 text-success", icon: CheckCircle },
+  low_stock: { label: "Low Stock", color: "bg-warning/10 text-warning", icon: AlertCircle },
+  out_of_stock: { label: "Out of Stock", color: "bg-muted text-muted-foreground", icon: Box },
   out: { label: "Checked Out", color: "bg-warning/10 text-warning", icon: Clock },
   maintenance: { label: "Maintenance", color: "bg-destructive/10 text-destructive", icon: AlertCircle },
   checked_out: { label: "Checked Out", color: "bg-warning/10 text-warning", icon: Clock },
+  damaged: { label: "Damaged", color: "bg-destructive/10 text-destructive", icon: AlertCircle },
+  lost: { label: "Lost", color: "bg-destructive/10 text-destructive", icon: AlertCircle },
+  missing: { label: "Missing", color: "bg-destructive/10 text-destructive", icon: AlertCircle },
+  unavailable: { label: "Unavailable", color: "bg-muted text-muted-foreground", icon: AlertCircle },
 };
 
 const categoryOptions = [
@@ -85,6 +92,9 @@ export function InventoryTab({ showHeader = true }: { showHeader?: boolean }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [typeFilter, setTypeFilter] = useState<string>("");
+  const [locationFilter, setLocationFilter] = useState<string>("");
+  const [lowStockOnly, setLowStockOnly] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
@@ -112,6 +122,9 @@ export function InventoryTab({ showHeader = true }: { showHeader?: boolean }) {
         search: searchQuery || undefined,
         category: categoryFilter || undefined,
         status: statusFilter as InventoryStatus || undefined,
+        inventory_type: typeFilter as "quantity" | "serialized" || undefined,
+        location: locationFilter || undefined,
+        low_stock: lowStockOnly ? 1 : undefined,
       });
       if (response.data) {
         setItems(response.data);
@@ -122,12 +135,12 @@ export function InventoryTab({ showHeader = true }: { showHeader?: boolean }) {
     } finally {
       setIsLoading(false);
     }
-  }, [searchQuery, categoryFilter, statusFilter, currentPage, perPage]);
+  }, [searchQuery, categoryFilter, statusFilter, typeFilter, locationFilter, lowStockOnly, currentPage, perPage]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, categoryFilter, statusFilter]);
+  }, [searchQuery, categoryFilter, statusFilter, typeFilter, locationFilter, lowStockOnly]);
 
   useEffect(() => {
     fetchItems();
@@ -259,7 +272,7 @@ export function InventoryTab({ showHeader = true }: { showHeader?: boolean }) {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -287,10 +300,20 @@ export function InventoryTab({ showHeader = true }: { showHeader?: boolean }) {
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="in_stock">In Stock</SelectItem>
+            <SelectItem value="available">Available</SelectItem>
+            <SelectItem value="low_stock">Low Stock</SelectItem>
+            <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+            <SelectItem value="checked_out">Checked Out</SelectItem>
             <SelectItem value="out">Checked Out</SelectItem>
             <SelectItem value="maintenance">Maintenance</SelectItem>
+            <SelectItem value="damaged">Damaged</SelectItem>
+            <SelectItem value="lost">Lost</SelectItem>
+            <SelectItem value="missing">Missing</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={typeFilter || "all"} onValueChange={(val) => setTypeFilter(val === "all" ? "" : val)}><SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger><SelectContent><SelectItem value="all">All Types</SelectItem><SelectItem value="quantity">Quantity</SelectItem><SelectItem value="serialized">Serialized</SelectItem></SelectContent></Select>
+        <Input value={locationFilter} onChange={e=>setLocationFilter(e.target.value)} placeholder="Location" />
+        <Label className="flex min-h-10 items-center gap-2 rounded-md border px-3"><Checkbox checked={lowStockOnly} onCheckedChange={value=>setLowStockOnly(value===true)}/>Low stock</Label>
       </div>
 
       {/* Items List */}
@@ -371,7 +394,13 @@ export function InventoryTab({ showHeader = true }: { showHeader?: boolean }) {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem
+                        <DropdownMenuItem asChild>
+                          <Link to={`/dashboard/inventory/${item.id}`}>
+                            <Package className="w-4 h-4 mr-2" />
+                            View & manage
+                          </Link>
+                        </DropdownMenuItem>
+                        {item.access_role === "owner" && <DropdownMenuItem
                           onClick={() => {
                             setSelectedItem(item);
                             setShowScanHistory(true);
@@ -379,8 +408,8 @@ export function InventoryTab({ showHeader = true }: { showHeader?: boolean }) {
                         >
                           <History className="w-4 h-4 mr-2" />
                           Scan History
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
+                        </DropdownMenuItem>}
+                        {item.access_role === "owner" && <DropdownMenuItem
                           onClick={() => {
                             setSelectedItem(item);
                             setShowEditDialog(true);
@@ -388,7 +417,7 @@ export function InventoryTab({ showHeader = true }: { showHeader?: boolean }) {
                         >
                           <Edit className="w-4 h-4 mr-2" />
                           Edit
-                        </DropdownMenuItem>
+                        </DropdownMenuItem>}
                         <DropdownMenuItem
                           className="text-destructive"
                           onClick={() => handleDelete(item.id)}
@@ -521,7 +550,7 @@ function InventoryForm({
   isEdit = false,
 }: {
   initialData?: Partial<InventoryItem>;
-  onSubmit: (data: { name: string; category: string; notes?: string; status: InventoryStatus; location?: string; qr_id?: string | null }) => void;
+  onSubmit: (data: { name: string; category: string; notes?: string; status?: InventoryStatus; location?: string; qr_id?: string | null }) => void;
   linkedQRIds: string[];
   isEdit?: boolean;
 }) {
@@ -542,12 +571,11 @@ function InventoryForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    await onSubmit({ 
+    await onSubmit({
       name, 
       category, 
       notes: notes || undefined, 
-      status, 
-      location: location || undefined,
+      ...(!isEdit ? { status, location: location || undefined } : {}),
       qr_id: linkToQR && selectedQRId ? selectedQRId : (isEdit ? null : undefined),
     });
     setIsSubmitting(false);
@@ -580,7 +608,7 @@ function InventoryForm({
         </Select>
       </div>
 
-      <div className="space-y-2">
+      {!isEdit && <div className="space-y-2">
         <Label htmlFor="status">Status</Label>
         <Select value={status} onValueChange={(v) => setStatus(v as InventoryStatus)}>
           <SelectTrigger>
@@ -592,9 +620,9 @@ function InventoryForm({
             <SelectItem value="maintenance">Maintenance</SelectItem>
           </SelectContent>
         </Select>
-      </div>
+      </div>}
 
-      <div className="space-y-2">
+      {!isEdit && <div className="space-y-2">
         <Label htmlFor="location">Location</Label>
         <Input
           id="location"
@@ -602,7 +630,7 @@ function InventoryForm({
           onChange={(e) => setLocation(e.target.value)}
           placeholder="e.g., Office A, Warehouse, Room 101"
         />
-      </div>
+      </div>}
 
       <div className="space-y-2">
         <Label htmlFor="notes">Notes</Label>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import {
   Dialog,
@@ -47,13 +47,7 @@ export function QRViewModal({ qrCode, open, onOpenChange, onEdit }: QRViewModalP
   const { toast } = useToast();
   const { downloadPNG, downloadSVG } = useQRDownload();
 
-  useEffect(() => {
-    if (open && qrCode) {
-      fetchStats();
-    }
-  }, [open, qrCode]);
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     if (!qrCode) return;
     setIsLoadingStats(true);
     try {
@@ -73,7 +67,13 @@ export function QRViewModal({ qrCode, open, onOpenChange, onEdit }: QRViewModalP
     } finally {
       setIsLoadingStats(false);
     }
-  };
+  }, [qrCode]);
+
+  useEffect(() => {
+    if (open && qrCode) {
+      void fetchStats();
+    }
+  }, [open, qrCode, fetchStats]);
 
   const handleCopyContent = () => {
     if (!qrCode) return;

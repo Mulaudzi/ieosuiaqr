@@ -49,13 +49,13 @@ export function CookieConsent() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="fixed bottom-0 left-0 right-0 z-50 p-4 md:p-6"
+          className="fixed bottom-0 left-0 right-0 z-30 max-h-[calc(100dvh-1rem)] overflow-y-auto p-3 sm:p-4 md:p-6"
         >
           <div className="mx-auto max-w-4xl">
             <div className="relative rounded-xl border border-border bg-card p-4 shadow-lg md:p-6">
               <button
                 onClick={handleClose}
-                className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors"
+                className="absolute right-1 top-1 grid h-10 w-10 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 aria-label="Close"
               >
                 <X className="h-4 w-4" />

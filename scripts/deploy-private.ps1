@@ -89,6 +89,17 @@ Get-ChildItem -LiteralPath $apiPath -Recurse -File | Where-Object {
     if (-not (Test-Protected $relative)) { $uploads.Add([pscustomobject]@{ File = $_.FullName; Relative = $relative }) }
 }
 
+# Upload immutable hashed assets first and switch the HTML entry point last.
+# If a transfer is interrupted, visitors therefore continue using the previous
+# complete build rather than an index that references files not uploaded yet.
+$uploads = @($uploads | Sort-Object `
+    @{ Expression = {
+        if ($_.Relative -eq 'index.html') { 2 }
+        elseif ($_.Relative.StartsWith('assets/')) { 0 }
+        else { 1 }
+    } },
+    @{ Expression = { $_.Relative } })
+
 $tempConfig = Join-Path (Split-Path $credentialsPath) ('.curl-deploy-' + [guid]::NewGuid().ToString('N') + '.conf')
 function Escape-CurlConfig([string]$value) { return $value.Replace('\', '\\').Replace('"', '\"') }
 

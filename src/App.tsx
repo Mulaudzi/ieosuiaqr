@@ -34,6 +34,7 @@ const ScanRedirect = lazy(() => import("./pages/ScanRedirect"));
 const ItemHistory = lazy(() => import("./pages/ItemHistory"));
 const Inventory = lazy(() => import("./pages/Inventory"));
 const InventoryAnalytics = lazy(() => import("./pages/InventoryAnalytics"));
+const InventoryDetail = lazy(() => import("./pages/InventoryDetail"));
 const Careers = lazy(() => import("./pages/Careers"));
 const Solutions = lazy(() => import("./pages/Solutions"));
 const SolutionDetail = lazy(() => import("./pages/SolutionDetail"));
@@ -75,9 +76,10 @@ const App = () => (
               <Route path="/dashboard/profile" element={<Navigate to="/dashboard/settings" replace />} />
               <Route path="/dashboard/inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
               <Route path="/dashboard/inventory/analytics" element={<ProtectedRoute><InventoryAnalytics /></ProtectedRoute>} />
+              <Route path="/dashboard/inventory/:id" element={<ProtectedRoute><InventoryDetail /></ProtectedRoute>} />
               <Route path="/scan/:id" element={<Scan />} />
               <Route path="/go/:id" element={<ScanRedirect />} />
-              <Route path="/scan/:id/history" element={<ItemHistory />} />
+              <Route path="/scan/:id/history" element={<ProtectedRoute><ItemHistory /></ProtectedRoute>} />
               <Route path="/terms" element={<TermsOfService />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/cookies" element={<CookiePolicy />} />

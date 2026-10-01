@@ -47,7 +47,7 @@ import { useQRStorage } from "@/hooks/useQRStorage";
 import { LogoUploader } from "@/components/qr/LogoUploader";
 import { WiFiForm, WiFiData, generateWiFiString } from "@/components/qr/WiFiForm";
 import { VCardForm, VCardData, generateVCardString } from "@/components/qr/VCardForm";
-import { EventForm, EventData, generateEventString } from "@/components/qr/EventForm";
+import { EventForm, EventData, generateEventString, validateEventData } from "@/components/qr/EventForm";
 import { LocationForm, LocationData, generateLocationString } from "@/components/qr/LocationForm";
 import { SMSForm, SMSData, generateSMSString } from "@/components/qr/SMSForm";
 import { WhatsAppForm, WhatsAppData, generateWhatsAppString } from "@/components/qr/WhatsAppForm";
@@ -182,7 +182,7 @@ export default function CreateQRCode() {
       case "vcard":
         return generateVCardString(vcardData);
       case "event":
-        return generateEventString(eventData);
+        return generateEventString(eventData) || defaultPreviewUrl;
       case "location":
         return generateLocationString(locationData);
       case "sms":
@@ -278,28 +278,11 @@ export default function CreateQRCode() {
         }
         break;
       case "event": {
-        if (!eventData.title.trim()) {
+        const validation = validateEventData(eventData);
+        if (!validation.valid) {
           toast({
-            title: "Title required",
-            description: "Please enter the event title",
-            variant: "destructive",
-          });
-          return false;
-        }
-        if (!eventData.startDate || !eventData.startTime || !eventData.endDate || !eventData.endTime) {
-          toast({
-            title: "Dates required",
-            description: "Please enter start and end dates/times",
-            variant: "destructive",
-          });
-          return false;
-        }
-        const start = new Date(`${eventData.startDate}T${eventData.startTime}`);
-        const end = new Date(`${eventData.endDate}T${eventData.endTime}`);
-        if (end <= start) {
-          toast({
-            title: "Invalid dates",
-            description: "End date/time must be after start date/time",
+            title: "Invalid event details",
+            description: validation.message,
             variant: "destructive",
           });
           return false;

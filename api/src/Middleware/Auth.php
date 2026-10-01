@@ -114,6 +114,33 @@ class Auth
         return self::$user;
     }
 
+    /** Return the authenticated customer when a valid bearer token is present, otherwise null. */
+    public static function optionalUser(): ?array
+    {
+        $headers = getallheaders();
+        $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+        if (!preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) return null;
+        $token = $matches[1];
+        $decoded = self::decodeToken($token);
+        if (!$decoded || empty($decoded->user_id) || (isset($decoded->exp) && $decoded->exp < time())) return null;
+        try {
+            $pdo = Database::getInstance();
+            self::ensureRevocationTable();
+            $revoked = $pdo->prepare('SELECT 1 FROM revoked_auth_tokens WHERE token_hash = ? AND expires_at >= NOW() LIMIT 1');
+            $revoked->execute([hash('sha256', $token)]);
+            if ($revoked->fetchColumn()) return null;
+            $stmt = $pdo->prepare('SELECT id, email, name, plan, email_verified_at, avatar_url, created_at FROM users WHERE id = ?');
+            $stmt->execute([(int)$decoded->user_id]);
+            $user = $stmt->fetch();
+            if (!$user) return null;
+            self::$user = $user;
+            return $user;
+        } catch (\Throwable $e) {
+            error_log('Optional authentication failed: ' . $e->getMessage());
+            return null;
+        }
+    }
+
     public static function requirePlan(array $allowedPlans): void
     {
         self::getUser();

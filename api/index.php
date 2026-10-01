@@ -269,8 +269,8 @@ try {
     elseif ($uri === '/inventory' && $method === 'POST') {
         InventoryController::create();
     }
-    elseif ($uri === '/inventory/scan' && $method === 'POST') {
-        InventoryController::logScan();
+    elseif ($uri === '/inventory/with-qr' && $method === 'POST') {
+        InventoryController::createWithQr();
     }
     elseif ($uri === '/inventory/limits' && $method === 'GET') {
         InventoryController::getLimits();
@@ -293,12 +293,27 @@ try {
     elseif ($uri === '/inventory/maintenance' && $method === 'POST') {
         InventoryController::setMaintenanceReminder();
     }
+    elseif ($uri === '/inventory/locations' && $method === 'GET') {
+        InventoryController::listLocations();
+    }
+    elseif ($uri === '/inventory/locations' && $method === 'POST') {
+        InventoryController::createLocation();
+    }
+    elseif (preg_match('#^/inventory/(\d+)/actions/([a-z_]+)$#', $uri, $matches) && $method === 'POST') {
+        InventoryController::performAction((int)$matches[1], $matches[2]);
+    }
+    elseif (preg_match('#^/inventory/(\d+)/movements$#', $uri, $matches) && $method === 'GET') {
+        InventoryController::getMovements((int)$matches[1]);
+    }
+    elseif (preg_match('#^/inventory/(\d+)/stock-counts$#', $uri, $matches) && $method === 'POST') {
+        InventoryController::saveStockCount((int)$matches[1]);
+    }
+    elseif (preg_match('#^/inventory/(\d+)/stock-counts/(\d+)/apply$#', $uri, $matches) && $method === 'POST') {
+        InventoryController::applyStockCount((int)$matches[1], (int)$matches[2]);
+    }
     // Public inventory endpoints (for scan page)
     elseif (preg_match('#^/inventory/qr/(\d+)$#', $uri, $matches) && $method === 'GET') {
         InventoryController::getByQrCode((int)$matches[1]);
-    }
-    elseif (preg_match('#^/inventory/qr/(\d+)/status$#', $uri, $matches) && $method === 'POST') {
-        InventoryController::updateStatusByQrCode((int)$matches[1]);
     }
     elseif (preg_match('#^/inventory/qr/(\d+)/history$#', $uri, $matches) && $method === 'GET') {
         InventoryController::getHistoryByQrCode((int)$matches[1]);

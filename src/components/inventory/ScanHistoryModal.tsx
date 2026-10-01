@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -38,13 +38,7 @@ export function ScanHistoryModal({ item, open, onOpenChange }: ScanHistoryModalP
   const [scans, setScans] = useState<ScanLogView[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    if (open && item?.qr_id) {
-      fetchScanHistory();
-    }
-  }, [open, item?.qr_id]);
-
-  const fetchScanHistory = async () => {
+  const fetchScanHistory = useCallback(async () => {
     if (!item?.qr_id) return;
     
     setIsLoading(true);
@@ -57,7 +51,13 @@ export function ScanHistoryModal({ item, open, onOpenChange }: ScanHistoryModalP
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [item?.qr_id]);
+
+  useEffect(() => {
+    if (open && item?.qr_id) {
+      void fetchScanHistory();
+    }
+  }, [open, item?.qr_id, fetchScanHistory]);
 
   const getDeviceIcon = (deviceType: string) => {
     const Icon = deviceIcons[deviceType?.toLowerCase()] || Smartphone;

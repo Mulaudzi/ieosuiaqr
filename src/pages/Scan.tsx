@@ -4,12 +4,8 @@ import { Package, MapPin, Clock, CheckCircle, AlertTriangle, Wrench, LogOut, Loa
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { inventoryApi, InventoryItem, InventoryStatus } from "@/services/api/inventory";
+import { inventoryApi, InventoryItem } from "@/services/api/inventory";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 
@@ -25,10 +21,7 @@ export default function Scan() {
   const { user } = useAuth();
   const [item, setItem] = useState<InventoryItem | null>(null);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
   const [notFound, setNotFound] = useState(false);
-  const [newStatus, setNewStatus] = useState<InventoryStatus | "">("");
-  const [location, setLocation] = useState("");
   const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
@@ -38,12 +31,10 @@ export default function Scan() {
       setLoading(true);
       try {
         // Log the scan and get item details
-        const response = await inventoryApi.getByQrCode(id, location || undefined);
+        const response = await inventoryApi.getByQrCode(id);
         
         if (response.data?.item) {
           setItem(response.data.item);
-          setNewStatus(response.data.item.status);
-          setLocation(response.data.item.location || "");
           setIsOwner(response.data.is_owner || false);
         } else {
           setNotFound(true);
@@ -58,34 +49,6 @@ export default function Scan() {
 
     fetchItem();
   }, [id]);
-
-  const handleUpdateStatus = async () => {
-    if (!item || !newStatus) return;
-    
-    setUpdating(true);
-    try {
-      const response = await inventoryApi.publicUpdateStatus(item.qr_id!, {
-        status: newStatus as InventoryStatus,
-        location: location || undefined,
-      });
-      
-      if (response.data) {
-        setItem(response.data);
-        toast({
-          title: "Status Updated",
-          description: `Item status changed to ${statusConfig[newStatus as InventoryStatus].label}`,
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: "Update Failed",
-        description: error.message || "You don't have permission to update this item",
-        variant: "destructive",
-      });
-    } finally {
-      setUpdating(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -174,8 +137,8 @@ export default function Scan() {
                 </div>
               )}
               
-              {/* View History Link */}
-              <div className="pt-2">
+              {/* Management links are authenticated; the public scan remains read-only. */}
+              {isOwner && <div className="pt-2 flex flex-wrap gap-3">
                 <Link 
                   to={`/scan/${id}/history`}
                   className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
@@ -183,75 +146,10 @@ export default function Scan() {
                   <History className="h-4 w-4" />
                   View scan & status history
                 </Link>
-              </div>
+                <Link to={`/dashboard/inventory/${item.id}`} className="text-sm text-primary hover:underline">Manage inventory</Link>
+              </div>}
+              {!user && <Button asChild variant="outline" className="w-full"><Link to={`/login?return_to=${encodeURIComponent(`/scan/${id}`)}`}>Sign in to manage this inventory</Link></Button>}
             </div>
-
-            {/* Status Update Form - Only for authorized users */}
-            {isOwner && (
-              <div className="border-t pt-6 space-y-4">
-                <h3 className="font-semibold text-center">Update Item</h3>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select value={newStatus} onValueChange={(v) => setNewStatus(v as InventoryStatus)}>
-                    <SelectTrigger id="status">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="in_stock">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                          In Stock
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="out">
-                        <div className="flex items-center gap-2">
-                          <LogOut className="h-4 w-4 text-red-600" />
-                          Out
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="maintenance">
-                        <div className="flex items-center gap-2">
-                          <Wrench className="h-4 w-4 text-yellow-600" />
-                          Maintenance
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="checked_out">
-                        <div className="flex items-center gap-2">
-                          <AlertTriangle className="h-4 w-4 text-blue-600" />
-                          Checked Out
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input
-                    id="location"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="Enter current location"
-                  />
-                </div>
-                
-                <Button 
-                  className="w-full" 
-                  onClick={handleUpdateStatus}
-                  disabled={updating || newStatus === item.status && location === (item.location || "")}
-                >
-                  {updating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Updating...
-                    </>
-                  ) : (
-                    "Update Item"
-                  )}
-                </Button>
-              </div>
-            )}
 
             {/* Scan timestamp */}
             <div className="text-center text-xs text-muted-foreground pt-4 border-t">

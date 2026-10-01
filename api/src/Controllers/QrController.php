@@ -30,6 +30,7 @@ class QrController
         if (!in_array($type, $allTypes)) {
             Response::error('Invalid QR code type', 400);
         }
+        if ($type === 'event') self::validateEventContent($data['content']);
 
         $pdo = Database::getInstance();
 
@@ -155,7 +156,7 @@ class QrController
         $pdo = Database::getInstance();
 
         // Check ownership
-        $stmt = $pdo->prepare("SELECT id, dynamic_id FROM qr_codes WHERE id = ? AND user_id = ?");
+        $stmt = $pdo->prepare("SELECT id, dynamic_id, type FROM qr_codes WHERE id = ? AND user_id = ?");
         $stmt->execute([$id, $user['id']]);
         $qr = $stmt->fetch();
 
@@ -172,6 +173,7 @@ class QrController
         }
 
         if (isset($data['content'])) {
+            if (($qr['type'] ?? '') === 'event') self::validateEventContent($data['content']);
             $updates[] = "content = ?";
             $params[] = json_encode($data['content']);
         }
@@ -212,6 +214,21 @@ class QrController
         Response::success(null, 'QR code deleted successfully');
     }
 
+    private static function validateEventContent(mixed $content): void
+    {
+        if (!is_array($content)) Response::error('Event content must be an object',422);
+        foreach (['title','startDate','startTime','endDate','endTime'] as $field) {
+            if (!isset($content[$field]) || trim((string)$content[$field]) === '') Response::error("Event {$field} is required",422);
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/',(string)$content['startDate']) || !preg_match('/^\d{4}-\d{2}-\d{2}$/',(string)$content['endDate']) || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/',(string)$content['startTime']) || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/',(string)$content['endTime'])) Response::error('Event dates or times are invalid',422);
+        $start=\DateTimeImmutable::createFromFormat('!Y-m-d H:i',(string)$content['startDate'].' '.(string)$content['startTime']);
+        $startErrors=\DateTimeImmutable::getLastErrors();
+        $end=\DateTimeImmutable::createFromFormat('!Y-m-d H:i',(string)$content['endDate'].' '.(string)$content['endTime']);
+        $endErrors=\DateTimeImmutable::getLastErrors();
+        if(!$start||!$end||(is_array($startErrors)&&(($startErrors['warning_count']??0)>0||($startErrors['error_count']??0)>0))||(is_array($endErrors)&&(($endErrors['warning_count']??0)>0||($endErrors['error_count']??0)>0))) Response::error('Event dates or times are invalid',422);
+        if($end<=$start) Response::error('Event end must be after its start',422);
+    }
+
     public static function bulkCreate(): void
     {
         $user = Auth::check();
@@ -232,7 +249,7 @@ class QrController
         }
 
         $handle = fopen($file['tmp_name'], 'r');
-        $header = fgetcsv($handle);
+        $header = fgetcsv($handle, null, ',', '"', '\\');
         
         if (!$header || !in_array('type', $header) || !in_array('content', $header)) {
             fclose($handle);
@@ -252,7 +269,7 @@ class QrController
                 VALUES (?, ?, ?, ?, ?, ?, NOW())
             ");
 
-            while (($data = fgetcsv($handle)) !== false) {
+            while (($data = fgetcsv($handle, null, ',', '"', '\\')) !== false) {
                 $row++;
                 $rowData = array_combine($header, $data);
 

@@ -75,7 +75,7 @@ export function DateRangePicker({ onDateChange }: DateRangePickerProps) {
         <Button
           variant="outline"
           className={cn(
-            "w-[200px] justify-between text-left font-normal",
+            "w-full justify-between text-left font-normal sm:w-[200px]",
             !date && "text-muted-foreground"
           )}
         >
@@ -87,9 +87,9 @@ export function DateRangePicker({ onDateChange }: DateRangePickerProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="end">
-        <div className="flex">
+        <div className="flex max-w-[calc(100vw-1rem)] flex-col sm:flex-row">
           {/* Presets */}
-          <div className="border-r border-border p-3 space-y-1">
+          <div className="space-y-1 border-b border-border p-3 sm:border-b-0 sm:border-r">
             <p className="text-xs font-medium text-muted-foreground mb-2">Quick Select</p>
             {presets.map((preset) => (
               <button
