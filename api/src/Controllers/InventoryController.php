@@ -884,7 +884,7 @@ class InventoryController
 
     public static function createLocation(): void
     {
-        $user=Auth::check();$data=json_decode(file_get_contents('php://input'),true)??[];$name=trim((string)($data['name']??''));if($name===''||mb_strlen($name)>150)Response::error('A valid location name is required',422);
+        $user=Auth::check();$data=json_decode(file_get_contents('php://input'),true)??[];$name=trim((string)($data['name']??''));if($name===''||mb_strlen($name)>255)Response::error('A valid location name is required',422);
         try{Response::success(InventoryApplicationService::createLocation($user,$name,$data['code']??null,$data['description']??null),'Location created',201);}catch(\PDOException $e){if($e->getCode()==='23000')Response::error('A location with this name already exists',409);throw $e;}
     }
 }

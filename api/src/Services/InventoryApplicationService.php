@@ -23,7 +23,7 @@ final class InventoryApplicationService
             if($item=$existing->fetch()){$pdo->commit();return ['item'=>$item,'qr_id'=>(int)$item['qr_id'],'duplicate'=>true];}
             $dynamicId=bin2hex(random_bytes(8));$pdo->prepare("INSERT INTO qr_codes(user_id,type,name,content,custom_options,dynamic_id,created_at) VALUES(?,'url',?,JSON_OBJECT(),JSON_OBJECT(),?,NOW())")->execute([$user['id'],$name.' QR',$dynamicId]);$qrId=(int)$pdo->lastInsertId();
             $appUrl=rtrim((string)($_ENV['APP_URL']??'https://qr.ieosuia.com'),'/');$pdo->prepare('UPDATE qr_codes SET content=? WHERE id=?')->execute([json_encode(['url'=>$appUrl.'/scan/'.$qrId]),$qrId]);
-            if($location)self::ensureLocation($pdo,(int)$user['id'],$location);
+            self::ensureLocation($pdo,(int)$user['id'],$location??'Unassigned');
             $pdo->prepare('INSERT INTO inventory_items(user_id,qr_id,public_token,name,category,inventory_type,inventory_identifier,quantity,minimum_stock_level,notes,status,location,created_at,updated_at) VALUES(?,?,UUID(),?,?,?,?,?,?,?,?,?,NOW(),NOW())')->execute([$user['id'],$qrId,$name,$data['category']??'Other',$type,$data['inventory_identifier']??null,$quantity,$minimum,$data['notes']??null,$status,$location]);$itemId=(int)$pdo->lastInsertId();
             if($type==='quantity')$pdo->prepare('INSERT INTO inventory_stock_levels(item_id,location_name,quantity) VALUES(?,?,?)')->execute([$itemId,$location??'Unassigned',$quantity]);
             $pdo->prepare("INSERT INTO inventory_movements(item_id,user_id,action_type,quantity_delta,previous_quantity,new_quantity,previous_status,new_status,to_location,reason,performed_by,performed_by_name,occurred_at,workflow_id,idempotency_key,metadata) VALUES(?,?,'opening_state',?,0,?,NULL,? ,?,'Initial inventory state',?,?,NOW(),UUID(),?,JSON_OBJECT('provenance','creation'))")->execute([$itemId,$user['id'],$quantity,$quantity,$status,$location,$user['id'],$user['name'],$key]);
@@ -34,7 +34,7 @@ final class InventoryApplicationService
 
     public static function createLocation(array $user,string $name,?string $code=null,?string $description=null): array
     {
-        $name=trim($name);if($name===''||mb_strlen($name)>150)throw new \InvalidArgumentException('A valid location name is required');
+        $name=trim($name);if($name===''||mb_strlen($name)>255)throw new \InvalidArgumentException('A valid location name is required');
         $pdo=Database::getInstance();$stmt=$pdo->prepare('INSERT INTO inventory_locations(user_id,name,code,description) VALUES(?,?,?,?)');$stmt->execute([$user['id'],$name,$code,$description]);
         return ['id'=>(int)$pdo->lastInsertId(),'name'=>$name];
     }

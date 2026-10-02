@@ -19,12 +19,11 @@ CREATE INDEX IF NOT EXISTS inventory_type_status_idx ON inventory_items(user_id,
 CREATE INDEX IF NOT EXISTS inventory_deleted_idx ON inventory_items(user_id,deleted_at);
 
 UPDATE inventory_items SET public_token = UUID() WHERE public_token IS NULL;
-UPDATE inventory_items SET status='available' WHERE inventory_type='serialized' AND status='in_stock';
 
 CREATE TABLE IF NOT EXISTS inventory_locations (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id INT UNSIGNED NOT NULL,
-  name VARCHAR(150) NOT NULL,
+  name VARCHAR(255) NOT NULL,
   code VARCHAR(50) NULL,
   description VARCHAR(500) NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
@@ -33,6 +32,8 @@ CREATE TABLE IF NOT EXISTS inventory_locations (
   UNIQUE KEY inventory_location_name_unique(user_id,name),
   CONSTRAINT inventory_locations_user_fk FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE inventory_locations MODIFY name VARCHAR(255) NOT NULL;
 
 INSERT IGNORE INTO inventory_locations(user_id,name)
 SELECT DISTINCT user_id,location FROM inventory_items WHERE location IS NOT NULL AND location<>'';
@@ -108,6 +109,14 @@ FROM inventory_items i
 WHERE i.inventory_type='quantity'
   AND NOT EXISTS (SELECT 1 FROM inventory_stock_levels s WHERE s.item_id=i.id);
 
+INSERT INTO inventory_stock_levels(item_id,location_name,quantity)
+SELECT i.id,COALESCE(NULLIF(i.location,''),'Unassigned'),i.quantity-COALESCE(SUM(s.quantity),0)
+FROM inventory_items i JOIN inventory_stock_levels s ON s.item_id=i.id
+WHERE i.inventory_type='quantity'
+GROUP BY i.id,i.location,i.quantity
+HAVING i.quantity>COALESCE(SUM(s.quantity),0)
+ON DUPLICATE KEY UPDATE quantity=inventory_stock_levels.quantity+VALUES(quantity);
+
 CREATE TABLE IF NOT EXISTS inventory_stock_counts (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   item_id INT UNSIGNED NOT NULL,
@@ -149,6 +158,8 @@ ALTER TABLE inventory_stock_counts DROP FOREIGN KEY IF EXISTS inventory_counts_i
 ALTER TABLE inventory_stock_counts ADD CONSTRAINT inventory_counts_item_fk FOREIGN KEY(item_id) REFERENCES inventory_items(id) ON DELETE RESTRICT;
 ALTER TABLE inventory_stock_counts DROP FOREIGN KEY IF EXISTS inventory_counts_user_fk;
 ALTER TABLE inventory_stock_counts ADD CONSTRAINT inventory_counts_user_fk FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE RESTRICT;
+ALTER TABLE inventory_stock_counts DROP FOREIGN KEY IF EXISTS inventory_counts_applied_movement_fk;
+ALTER TABLE inventory_stock_counts ADD CONSTRAINT inventory_counts_applied_movement_fk FOREIGN KEY(applied_movement_id) REFERENCES inventory_movements(id) ON DELETE RESTRICT;
 
 CREATE TABLE IF NOT EXISTS inventory_access (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
