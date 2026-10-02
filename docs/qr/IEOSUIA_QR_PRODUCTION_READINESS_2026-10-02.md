@@ -1,5 +1,13 @@
 # IEOSUIA QR production readiness
 
+## 2026-10-03 public redesign and discoverability release
+
+Release commit `1bc937c020f62e5918d622d9ac0bb9f63adcd516` was deployed through the guarded FTPS workflow (202 files) after the complete deep acceptance suite passed. This release changes the public presentation and static discovery surface only; authenticated QR, analytics, inventory, API, database, and permission implementations remain unchanged.
+
+Current evidence: 33/33 unit tests, inventory A-L acceptance, fresh/legacy migration and 030/031 replay acceptance, production build, and 77/77 Playwright tests passed locally. After deployment, 17/17 public routes returned HTTP 200 with meaningful initial HTML, one H1, and correct canonical URLs. `robots.txt` and the 17-URL public-only sitemap returned HTTP 200. The versioned Open Graph image returned `image/png` at 1200×630. The focused live landing and logo suite passed 13/13. `/login` and `/register` retained their Central Auth redirects.
+
+The public redesign is **DEPLOYED AND VERIFIED**. A successful session for a real externally entitled Central Auth account remains an external account-level verification boundary.
+
 Review date: 2026-10-02 (Africa/Johannesburg)
 
 Scope: current local candidate, deployment artifact, controlled FTP deployment, and post-deployment production checks. No production database mutation was performed.

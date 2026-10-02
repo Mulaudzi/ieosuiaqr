@@ -2,6 +2,23 @@
 
 > Historical report: this document reviewed commit `683be224e56d05259cc8d1e76751994788bbf71b` and is not the status of the current candidate. Its findings were remediated in later commits. See [IEOSUIA_QR_PRODUCTION_READINESS_2026-10-02.md](IEOSUIA_QR_PRODUCTION_READINESS_2026-10-02.md) for the latest implementer verification. A new independent review has not yet replaced this historical report.
 
+## Current production follow-up — 2026-10-03
+
+This follow-up records implementer and live-production verification for release commit `1bc937c020f62e5918d622d9ac0bb9f63adcd516`; it does not rewrite or impersonate the historical independent review below.
+
+- Full deep local acceptance: PASS — TypeScript, 33/33 unit tests, inventory A-L acceptance, fresh/legacy migrations, migration 030/031 replay, referential-integrity and immutability probes, production build, and 77/77 Playwright tests with no skips.
+- Deployment: PASS — the guarded FTPS workflow uploaded 202 files from the tested package.
+- Raw production HTML: PASS — `/` and all 16 additional public routes returned HTTP 200, meaningful pre-JavaScript content, exactly one H1, and route-correct canonical URLs.
+- Landing content and discoverability: PASS — raw HTML contains IEOSUIA QR branding, Available Now, Coming Soon, FAQ content, JSON-LD SoftwareApplication/Organization/FAQPage data, and the versioned social-preview reference.
+- Social metadata asset: PASS — `/ieosuia-qr-social-preview-v1.png` returns `image/png` and is exactly 1200×630.
+- Crawler controls: PASS — `robots.txt` returns HTTP 200; `sitemap.xml` returns HTTP 200 with 17 public URLs and no dashboard, admin, or QR-management URLs.
+- Branding audit: PASS — the live homepage contains no `Free Forever`, `Start Free Forever`, Lovable domain branding, or generator metadata.
+- Authentication entry points: PASS — `/login` and `/register` retain their expected Central Auth redirects.
+- Focused live browser verification: PASS — 13/13 landing responsiveness, navigation, CTA destination, and logo-variant tests.
+- Authenticated QR, analytics, inventory, API, database, and permission implementations were not changed by this presentation release.
+
+Current production implementation status: **DEPLOYED AND VERIFIED**. Successful login with a real externally entitled Central Auth account remains an external account-level verification boundary, not evidence of a local or public-page defect.
+
 Review date: 2026-10-01/02 (Africa/Johannesburg)  
 Scope: local independent acceptance only; no remediation and no deployment.  
 Verdict: **BLOCKED — INDEPENDENT REVIEW FAIL**
