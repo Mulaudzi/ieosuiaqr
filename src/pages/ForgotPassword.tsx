@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Mail, CheckCircle, AlertCircle, Clock } from "lucide-react";
-import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
+import { IEOSUIAQrLogo } from "@/components/brand/IEOSUIAQrLogo";
 import { authApi } from "@/services/api/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useRateLimit, rateLimitConfigs } from "@/hooks/useRateLimit";
@@ -100,7 +100,7 @@ export default function ForgotPassword() {
         
         <div className="relative z-10 flex flex-col justify-center px-16">
           <Link to="/" className="flex items-center gap-3 mb-12">
-            <img src={ieosuiaLogo} alt="IEOSUIA QR" className="h-12 w-auto" />
+            <IEOSUIAQrLogo variant="high-contrast" className="w-[250px]" />
           </Link>
           
           <h1 className="font-display text-4xl font-bold mb-4">
@@ -121,7 +121,7 @@ export default function ForgotPassword() {
         >
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
-            <img src={ieosuiaLogo} alt="IEOSUIA QR" className="h-10 w-auto" />
+            <IEOSUIAQrLogo variant="standard" className="w-[190px]" />
           </div>
 
           <Link

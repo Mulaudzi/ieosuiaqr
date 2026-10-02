@@ -16,8 +16,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Printer, Download, Package } from "lucide-react";
 import { InventoryItem } from "@/services/api/inventory";
 import { useState } from "react";
-import ieosuiaLogo from "@/assets/ieosuia-logo.png";
+import { getIEOSUIAQrLogoSource } from "@/components/brand/IEOSUIAQrLogoAssets";
 import { publicScanUrl } from "@/lib/publicScanUrl";
+
+const ieosuiaLogo = getIEOSUIAQrLogoSource("standard");
 
 interface QRLabelPrinterProps {
   items: InventoryItem[];
@@ -247,7 +249,7 @@ export function QRLabelPrinter({ items, open, onOpenChange }: QRLabelPrinterProp
                     level="M"
                     imageSettings={showLogo ? {
                       src: ieosuiaLogo,
-                      height: size.qrSize * 0.5,
+                      height: size.qrSize * 0.17,
                       width: size.qrSize * 0.5,
                       excavate: true,
                     } : undefined}

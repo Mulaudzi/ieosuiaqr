@@ -3,7 +3,9 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { QRCodeSVG } from "qrcode.react";
 import { ArrowRight, Sparkles, BarChart3, Shield, Zap, Clock } from "lucide-react";
-import ieosuiaLogo from "@/assets/ieosuia-logo.png";
+import { getIEOSUIAQrLogoSource } from "@/components/brand/IEOSUIAQrLogoAssets";
+
+const ieosuiaLogo = getIEOSUIAQrLogoSource("standard");
 
 export function HeroSection() {
   return (
@@ -111,7 +113,7 @@ export function HeroSection() {
                       src: ieosuiaLogo,
                       x: undefined,
                       y: undefined,
-                      height: 50,
+                      height: 17,
                       width: 50,
                       excavate: true,
                     }}

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { useAuth } from "@/contexts/AuthContext";
-import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
+import { IEOSUIAQrLogo } from "@/components/brand/IEOSUIAQrLogo";
 
 const navLinks = [
   { name: "Features", href: "/#features" },
@@ -56,7 +56,7 @@ export function Header() {
         <nav className="flex items-center justify-between h-16 lg:h-20">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
-            <img src={ieosuiaLogo} alt="IEOSUIA QR" className="h-9 w-auto" />
+            <IEOSUIAQrLogo variant="standard" className="w-[136px] sm:w-[154px]" />
           </Link>
 
           {/* Desktop Navigation */}

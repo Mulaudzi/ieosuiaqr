@@ -13,7 +13,7 @@ import { CTASection } from "@/components/landing/CTASection";
 import { QRTypesExplainedSection } from "@/components/landing/QRTypesExplainedSection";
 import { QRTypesShowcaseSection } from "@/components/landing/QRTypesShowcaseSection";
 import { QRDesignShowcaseSection } from "@/components/landing/QRDesignShowcaseSection";
-import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
+import { IEOSUIAQrLogo } from "@/components/brand/IEOSUIAQrLogo";
 
 const Index = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -40,11 +40,7 @@ const Index = () => {
           transition={{ duration: 0.3 }}
           className="flex flex-col items-center gap-6"
         >
-          <img 
-            src={ieosuiaLogo} 
-            alt="IEOSUIA QR" 
-            className="h-16 w-auto"
-          />
+          <IEOSUIAQrLogo variant="standard" className="w-[220px] sm:w-[260px]" />
           <div className="flex items-center gap-3 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
             <span className="text-sm font-medium">Loading...</span>

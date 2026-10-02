@@ -13,6 +13,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import CentralAuthRedirect from "@/components/auth/CentralAuthRedirect";
 import { AdminProtectedRoute } from "@/components/auth/AdminProtectedRoute";
+import { IEOSUIAQrLogo } from "@/components/brand/IEOSUIAQrLogo";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const CreateQRCode = lazy(() => import("./pages/CreateQRCode"));
@@ -58,7 +59,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <Suspense fallback={<div className="min-h-screen grid place-items-center" role="status">Loading…</div>}>
+            <Suspense fallback={<div className="min-h-screen grid place-items-center bg-background" role="status"><div className="flex flex-col items-center gap-5"><IEOSUIAQrLogo variant="standard" className="w-[220px] sm:w-[260px]" /><span className="text-sm text-muted-foreground">Loading…</span></div></div>}>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<CentralAuthRedirect />} />

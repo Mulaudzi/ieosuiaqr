@@ -18,7 +18,7 @@ import {
   QrCode,
 } from "lucide-react";
 import { useState } from "react";
-import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
+import { IEOSUIAQrLogo } from "@/components/brand/IEOSUIAQrLogo";
 
 type NavItem = {
   to: string;
@@ -102,7 +102,7 @@ export function DashboardSidebar({ activeTab, onTabChange }: DashboardSidebarPro
     <aside className="fixed left-0 top-0 bottom-0 w-64 bg-card border-r border-border hidden lg:block">
       <div className="p-6">
         <Link to="/" className="flex items-center gap-2 mb-8">
-          <img src={ieosuiaLogo} alt="IEOSUIA QR" className="h-9 w-auto" />
+          <IEOSUIAQrLogo variant="standard" className="w-[176px]" />
         </Link>
 
         <nav className="space-y-1" data-tutorial="sidebar-nav">

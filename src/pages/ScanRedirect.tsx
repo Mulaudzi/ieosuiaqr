@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { ArrowRight, Check, Copy, ExternalLink, Loader2, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
+import { IEOSUIAQrLogo } from "@/components/brand/IEOSUIAQrLogo";
 import { parseSocialLinks } from "@/lib/socialLinks";
 
 type ScanPayload = {
@@ -101,7 +101,7 @@ export default function ScanRedirect() {
   return (
     <main className="fixed inset-0 z-[100] grid min-h-[100dvh] place-items-center overflow-y-auto bg-gradient-to-br from-slate-50 via-white to-cyan-50 p-4 text-slate-900">
       <section className="w-full max-w-md rounded-3xl border border-slate-200/80 bg-white p-6 text-center shadow-2xl shadow-cyan-950/10 sm:p-8">
-        <img src={ieosuiaLogo} alt="IEOSUIA QR" className="mx-auto mb-6 h-16 w-auto max-w-[240px] object-contain sm:h-20" />
+        <IEOSUIAQrLogo variant="high-contrast" className="mx-auto mb-6 w-[210px] sm:w-[250px]" />
 
         {isLoading && (
           <div role="status" aria-live="polite" className="py-8">

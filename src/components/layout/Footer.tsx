@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Youtube, MessageCircle, Instagram, Facebook } from "lucide-react";
-import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
+import { IEOSUIAQrLogo } from "@/components/brand/IEOSUIAQrLogo";
 
 const footerLinks = {
   product: [
@@ -34,7 +34,7 @@ export function Footer() {
           <div className="col-span-2">
             <Link to="/" className="flex items-center gap-2 mb-4">
               <div className="relative">
-                <img src={ieosuiaLogo} alt="IEOSUIA QR" className="h-10 w-auto" />
+                <IEOSUIAQrLogo variant="footer" className="w-[168px] sm:w-[190px]" />
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/20 blur-xl -z-10" />
               </div>
             </Link>

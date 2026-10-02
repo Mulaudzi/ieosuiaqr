@@ -1,5 +1,6 @@
 import { useLayoutEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { IEOSUIAQrLogo } from "@/components/brand/IEOSUIAQrLogo";
 import { sanitizeReturnTo } from "@/lib/returnTo";
 
 export default function CentralAuthRedirect({ mode = "login", callback = false }: { mode?: "login" | "signup" | "admin"; callback?: boolean }) {
@@ -21,5 +22,15 @@ export default function CentralAuthRedirect({ mode = "login", callback = false }
     window.location.replace(`/api/auth/ieosuia/start${query}`);
   }, [mode, callback, location.search]);
 
-  return <main className="min-h-screen grid place-items-center bg-slate-950" aria-live="polite"><div className="w-full max-w-sm space-y-5 px-6"><div className="mx-auto h-14 w-14 animate-pulse rounded-2xl bg-slate-800"/><div className="mx-auto h-5 w-44 animate-pulse rounded bg-slate-800"/><div className="h-12 animate-pulse rounded-xl bg-slate-800"/><div className="h-12 animate-pulse rounded-xl bg-slate-800"/><p className="text-center text-sm text-slate-500">Connecting securely to IEOSUIA Auth…</p></div></main>;
+  return (
+    <main className="grid min-h-screen place-items-center bg-slate-950" aria-live="polite">
+      <div className="w-full max-w-sm space-y-5 px-6">
+        <IEOSUIAQrLogo variant="dark" className="mx-auto w-[220px] sm:w-[260px]" />
+        <div className="mx-auto h-5 w-44 animate-pulse rounded bg-slate-800" />
+        <div className="h-12 animate-pulse rounded-xl bg-slate-800" />
+        <div className="h-12 animate-pulse rounded-xl bg-slate-800" />
+        <p className="text-center text-sm text-slate-500">Connecting securely to IEOSUIA Auth…</p>
+      </div>
+    </main>
+  );
 }

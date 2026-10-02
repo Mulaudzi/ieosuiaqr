@@ -29,7 +29,9 @@ import {
   CheckCircle,
   ArrowRight,
 } from "lucide-react";
-import ieosuiaLogo from "@/assets/ieosuia-logo.png";
+import { getIEOSUIAQrLogoSource } from "@/components/brand/IEOSUIAQrLogoAssets";
+
+const ieosuiaLogo = getIEOSUIAQrLogoSource("standard");
 
 const categoryOptions = [
   "Electronics",
@@ -264,7 +266,7 @@ export function CreateQRAndItemModal({ open, onOpenChange, onSuccess }: CreateQR
                   src: ieosuiaLogo,
                   x: undefined,
                   y: undefined,
-                  height: 35,
+                  height: 12,
                   width: 35,
                   excavate: true,
                 }}

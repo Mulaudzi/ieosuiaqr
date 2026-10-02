@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { authApi } from "@/services/api/auth";
 import { ArrowLeft, Eye, EyeOff, Lock, CheckCircle, AlertCircle } from "lucide-react";
-import ieosuiaLogo from "@/assets/ieosuia-qr-logo-blue.png";
+import { IEOSUIAQrLogo } from "@/components/brand/IEOSUIAQrLogo";
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -129,6 +129,7 @@ export default function ResetPassword() {
           className="w-full max-w-md"
         >
           <div className="text-center p-8 rounded-2xl bg-card border border-border">
+            <IEOSUIAQrLogo variant="standard" className="mx-auto mb-6 w-[190px]" />
             <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
               <AlertCircle className="h-8 w-8 text-destructive" />
             </div>
@@ -162,6 +163,7 @@ export default function ResetPassword() {
           className="w-full max-w-md"
         >
           <div className="text-center p-8 rounded-2xl bg-card border border-border">
+            <IEOSUIAQrLogo variant="standard" className="mx-auto mb-6 w-[190px]" />
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="h-8 w-8 text-primary" />
             </div>
@@ -188,7 +190,7 @@ export default function ResetPassword() {
         {/* Header */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <img src={ieosuiaLogo} alt="IEOSUIA QR" className="h-10 w-auto" />
+            <IEOSUIAQrLogo variant="standard" className="w-[190px]" />
           </Link>
           <h1 className="font-display text-3xl font-bold mb-2">Set New Password</h1>
           <p className="text-muted-foreground">

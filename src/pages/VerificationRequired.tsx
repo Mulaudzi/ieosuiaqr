@@ -1,13 +1,14 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { QrCode, Mail, AlertCircle, Clock } from "lucide-react";
+import { Mail, AlertCircle, Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { authApi } from "@/services/api/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useRateLimit, rateLimitConfigs } from "@/hooks/useRateLimit";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useState } from "react";
+import { IEOSUIAQrLogo } from "@/components/brand/IEOSUIAQrLogo";
 
 export default function VerificationRequired() {
   const { user, logout } = useAuth();
@@ -76,12 +77,7 @@ export default function VerificationRequired() {
         
         <div className="relative z-10 flex flex-col justify-center px-16">
           <Link to="/" className="flex items-center gap-3 mb-12">
-            <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center">
-              <QrCode className="w-7 h-7 text-primary-foreground" />
-            </div>
-            <span className="font-display text-2xl font-bold">
-              <span className="gradient-text">IEOSUIA</span>
-            </span>
+            <IEOSUIAQrLogo variant="high-contrast" className="w-[250px]" />
           </Link>
           
           <h1 className="font-display text-4xl font-bold mb-4">
@@ -102,12 +98,7 @@ export default function VerificationRequired() {
         >
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
-            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-              <QrCode className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <span className="font-display text-xl font-bold">
-              <span className="gradient-text">IEOSUIA</span>
-            </span>
+            <IEOSUIAQrLogo variant="standard" className="w-[190px]" />
           </div>
 
           <div className="w-20 h-20 rounded-full bg-warning/10 flex items-center justify-center mx-auto mb-6">

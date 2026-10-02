@@ -7,6 +7,7 @@ import { CheckCircle2, XCircle, Loader2, Mail, ArrowLeft } from "lucide-react";
 import { authApi } from "@/services/api/auth";
 import { useAuth } from "@/contexts/AuthContext";
 import { sanitizeReturnTo } from "@/lib/returnTo";
+import { IEOSUIAQrLogo } from "@/components/brand/IEOSUIAQrLogo";
 
 type VerificationStatus = "verifying" | "success" | "error" | "no-token";
 
@@ -192,6 +193,7 @@ export default function VerifyEmail() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
+          <IEOSUIAQrLogo variant="standard" className="mx-auto mb-4 w-[190px]" />
           <CardTitle className="text-2xl">Email Verification</CardTitle>
           <CardDescription>
             Verify your email address to unlock all features
