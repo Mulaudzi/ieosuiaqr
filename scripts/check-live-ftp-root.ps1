@@ -7,14 +7,20 @@ $fields = @{}
 foreach ($line in [System.IO.File]::ReadAllLines($credentialsPath)) {
     if ($line -match '^\s*-\s*([^:]+):\s*(.*?)\s*$') { $fields[$matches[1].Trim().ToLowerInvariant()] = $matches[2].Trim() }
 }
-$legacy = @{}
-foreach ($line in [System.IO.File]::ReadAllLines($legacyPath)) {
-    if ($line -match '^([^#=]+)=(.*)$') { $legacy[$matches[1].Trim()] = $matches[2].Trim().Trim('"', "'") }
-}
 function EscapeConfig([string]$value) { $value.Replace('\', '\\').Replace('"', '\"') }
 
-$server = $legacy['FTP_HOST']; $port = $legacy['FTP_PORT']; $username = $legacy['FTP_USERNAME']; $password = $legacy['FTP_PASSWORD']
-$root = ''
+$server = $fields['server/host']; $port = $fields['port']; $username = $fields['username']; $password = $fields['password']
+$savedCandidate = ''
+if (Test-Path -LiteralPath $legacyPath) {
+    $legacy = @{}
+    foreach ($line in [System.IO.File]::ReadAllLines($legacyPath)) {
+        if ($line -match '^([^#=]+)=(.*)$') { $legacy[$matches[1].Trim()] = $matches[2].Trim().Trim('"', "'") }
+    }
+    if ($legacy['FTP_HOST'] -and $legacy['FTP_PORT'] -and $legacy['FTP_USERNAME'] -and $legacy['FTP_PASSWORD']) {
+        $server = $legacy['FTP_HOST']; $port = $legacy['FTP_PORT']; $username = $legacy['FTP_USERNAME']; $password = $legacy['FTP_PASSWORD']
+    }
+    if ($legacy['FTP_FRONTEND_PATH']) { $savedCandidate = $legacy['FTP_FRONTEND_PATH'].Replace('\', '/').Trim('/') }
+}
 if (@($server, $port, $username, $password) | Where-Object { [string]::IsNullOrWhiteSpace($_) }) { throw 'A required ignored deployment field is missing.' }
 
 $privateDir = Split-Path $credentialsPath
@@ -40,7 +46,6 @@ try {
     $liveContent = [System.IO.File]::ReadAllText($webIndex)
     $liveAsset = [regex]::Match($liveContent, 'assets/index-[A-Za-z0-9_-]+\.js').Value
     if (-not $liveAsset) { throw 'Could not identify the live frontend asset fingerprint.' }
-    $savedCandidate = $legacy['FTP_FRONTEND_PATH'].Replace('\', '/').Trim('/')
     $documentRootCandidate = $fields['remote document root'].Replace('\', '/').Trim('/')
     if ($documentRootCandidate -match '^home/[^/]+/(.+)$') { $documentRootCandidate = $matches[1] }
     $candidates = @('', 'qr', 'public_html', 'qr.ieosuia.com', 'public_html/qr.ieosuia.com', $savedCandidate, $documentRootCandidate) | Select-Object -Unique

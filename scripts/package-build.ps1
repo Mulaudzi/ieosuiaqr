@@ -27,7 +27,8 @@ try {
     $apiRoot = [System.IO.Path]::GetFullPath($apiPath)
     Get-ChildItem -Path $apiPath -Recurse -File | Where-Object {
         $relative = $_.FullName.Substring($apiRoot.Length).TrimStart('\','/').Replace('\','/')
-        $relative -notmatch '^(tests|coverage|invoices|receipts|exports|uploads|geoip|logs)/' -and
+        $relative -notmatch '^(coverage|invoices|receipts|exports|uploads|geoip|logs)/' -and
+        $relative -notmatch '(^|/)(tests?|coverage)/' -and
         ($IncludeApiEnv -or $relative -ne '.env') -and
         $relative -ne '.env.example' -and
         $relative -notmatch '(^|/)\.git' -and

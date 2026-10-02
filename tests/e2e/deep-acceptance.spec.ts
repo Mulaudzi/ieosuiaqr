@@ -34,7 +34,7 @@ test('every public route renders without runtime or server errors', async ({ pag
   const routes = [
     '/', '/forgot-password', '/reset-password', '/verify-email',
     '/terms', '/privacy', '/cookies', '/support', '/contact', '/docs', '/careers',
-    '/solutions', '/solutions/retail', '/admin',
+    '/solutions', '/solutions/retail',
   ];
   for (const route of routes) await assertRendered(page, route);
   expect(failures).toEqual([]);

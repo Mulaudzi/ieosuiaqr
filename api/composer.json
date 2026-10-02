@@ -1,6 +1,7 @@
 {
     "name": "ieosuia/qr-api",
     "description": "Plain PHP API backend for IEOSUIA QR platform",
+    "license": "proprietary",
     "type": "project",
     "require": {
         "php": ">=8.1",

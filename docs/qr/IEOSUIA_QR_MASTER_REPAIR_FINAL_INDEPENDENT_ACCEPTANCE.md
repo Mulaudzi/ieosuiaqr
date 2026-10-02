@@ -1,5 +1,7 @@
 # IEOSUIA QR Master Repair final independent acceptance
 
+> Historical report: this document reviewed commit `683be224e56d05259cc8d1e76751994788bbf71b` and is not the status of the current candidate. Its findings were remediated in later commits. See [IEOSUIA_QR_PRODUCTION_READINESS_2026-10-02.md](IEOSUIA_QR_PRODUCTION_READINESS_2026-10-02.md) for the latest implementer verification. A new independent review has not yet replaced this historical report.
+
 Review date: 2026-10-01/02 (Africa/Johannesburg)  
 Scope: local independent acceptance only; no remediation and no deployment.  
 Verdict: **BLOCKED — INDEPENDENT REVIEW FAIL**
