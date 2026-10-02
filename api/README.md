@@ -5,7 +5,7 @@ Plain PHP REST API for IEOSUIA QR. The service is free forever: every registered
 ## Requirements
 
 - PHP 8.1+
-- MySQL 8.0+ or MariaDB 10.5+
+- MariaDB 10.5+ (the migration chain uses MariaDB DDL syntax)
 - Composer
 - Nginx or Apache
 

@@ -94,6 +94,13 @@ FROM inventory_stock_levels s
 JOIN inventory_items i ON i.id=s.item_id
 WHERE s.location_name IS NOT NULL AND s.location_name<>'';
 
+-- If existing location rows contain more units than the legacy aggregate,
+-- treat their exact sum as authoritative before the opening ledger snapshot.
+UPDATE inventory_items i
+JOIN (SELECT item_id,SUM(quantity) total_quantity FROM inventory_stock_levels GROUP BY item_id) s ON s.item_id=i.id
+SET i.quantity=s.total_quantity
+WHERE i.inventory_type='quantity' AND s.total_quantity>i.quantity;
+
 INSERT IGNORE INTO inventory_movements
   (item_id,user_id,action_type,quantity_delta,previous_quantity,new_quantity,previous_status,new_status,from_location,to_location,reason,performed_by,performed_by_name,occurred_at,notes,workflow_id,idempotency_key,metadata)
 SELECT i.id,i.user_id,'legacy_opening_state',0,i.quantity,i.quantity,i.status,i.status,i.location,i.location,

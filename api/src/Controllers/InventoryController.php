@@ -624,7 +624,7 @@ class InventoryController
 
         if ($inventoryType === 'quantity') {
             $location = trim((string)($data['location'] ?? '')) ?: 'Unassigned';
-            if($location!=='Unassigned')$pdo->prepare('INSERT IGNORE INTO inventory_locations(user_id,name) VALUES(?,?)')->execute([$user['id'],$location]);
+            $pdo->prepare('INSERT IGNORE INTO inventory_locations(user_id,name) VALUES(?,?)')->execute([$user['id'],$location]);
             $pdo->prepare('INSERT INTO inventory_stock_levels(item_id,location_name,quantity) VALUES(?,?,?)')->execute([$itemId,$location,$quantity]);
         }
         $pdo->prepare("INSERT INTO inventory_movements(item_id,user_id,action_type,quantity_delta,previous_quantity,new_quantity,previous_status,new_status,from_location,to_location,reason,performed_by,performed_by_name,occurred_at,workflow_id,idempotency_key,metadata) VALUES(?,?, 'opening_state', ?,0,?,NULL,?,NULL,?,'Initial inventory state',?,?,NOW(),UUID(),?,JSON_OBJECT('provenance','creation'))")

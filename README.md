@@ -6,14 +6,14 @@ IEOSUIA QR is a free-forever QR-code management platform for creating static and
 
 - React, TypeScript, Vite, Tailwind CSS and shadcn/ui
 - PHP 8.1+ REST API
-- MySQL 8.0+ or MariaDB 10.5+
+- MariaDB 10.5+ (the migration chain uses MariaDB DDL syntax)
 - Composer and npm
 
 ## Local setup
 
 1. Install frontend dependencies with `npm ci`.
 2. Copy `api/.env.example` to `api/.env` and fill in local values.
-3. Create a MySQL database and load `api/database/schema.sql`.
+3. Create a MariaDB database and load `api/database/schema.sql`.
 4. Apply every migration in filename order.
 5. Run `composer install` inside `api/`.
 6. Start the frontend with `npm run dev` and serve `api/` through PHP/Apache.

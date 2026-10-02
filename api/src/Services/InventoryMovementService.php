@@ -96,6 +96,7 @@ final class InventoryMovementService
                 self::updateStockLevels($pdo,$item,$action,$data,$delta,$movementToLocation);
                 $toLocation = $itemLocation;
             } else {
+                foreach([$item['location']??null,$data['location']??null,$data['from_location']??null,$data['to_location']??null] as $candidateLocation){$candidateLocation=self::nullableText($candidateLocation,255);if($candidateLocation!==null)self::assertLocation($pdo,(int)$item['user_id'],$candidateLocation);}
                 [$afterStatus,$toLocation,$assignedTo] = self::serializedTransition($item,$action,$data,$toLocation);
             }
 
