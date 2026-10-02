@@ -6,6 +6,7 @@ use App\Config\Database;
 use App\Helpers\Response;
 use App\Helpers\Validator;
 use App\Middleware\Auth;
+use App\Services\QrApplicationService;
 
 class QrController
 {
@@ -32,36 +33,8 @@ class QrController
         }
         if ($type === 'event') self::validateEventContent($data['content']);
 
-        $pdo = Database::getInstance();
-
         try {
-            $dynamicId = bin2hex(random_bytes(8));
-
-            $stmt = $pdo->prepare("
-                INSERT INTO qr_codes (user_id, type, name, content, custom_options, dynamic_id, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, NOW())
-            ");
-
-            $stmt->execute([
-                $user['id'],
-                $type,
-                $data['name'] ?? null,
-                json_encode($data['content']),
-                json_encode($data['custom_options'] ?? []),
-                $dynamicId
-            ]);
-
-            $qrId = (int)$pdo->lastInsertId();
-
-            Response::success([
-                'id' => $qrId,
-                'type' => $type,
-                'name' => $data['name'] ?? null,
-                'content' => $data['content'],
-                'custom_options' => $data['custom_options'] ?? [],
-                'dynamic_id' => $dynamicId,
-                'created_at' => date('c')
-            ], 'QR code created successfully', 201);
+            Response::success(QrApplicationService::create($user,$data), 'QR code created successfully', 201);
 
         } catch (\Exception $e) {
             error_log("QR creation error: " . $e->getMessage());
