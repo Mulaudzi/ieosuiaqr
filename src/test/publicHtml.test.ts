@@ -72,4 +72,22 @@ describe("public crawler HTML", () => {
     expect(publicArtifacts).not.toMatch(/lovable(?:\.dev|\.app)?/i);
     expect(generator).not.toMatch(/scan_logs|inventory_movements|customer_email|user_id/i);
   });
+
+  it("publishes only the approved official IEOSUIA social profiles", () => {
+    const footer = readProjectFile("src/components/layout/Footer.tsx");
+    const officialLinks = readProjectFile("src/components/brand/OfficialSocialLinks.tsx");
+    const documentation = readProjectFile("src/pages/Documentation.tsx");
+    const publicBranding = `${html}\n${footer}\n${officialLinks}\n${documentation}`;
+    const approvedUrls = [
+      "https://www.instagram.com/ieosuia_official/",
+      "https://www.facebook.com/ieosuia/",
+      "https://www.tiktok.com/@ieosuia",
+    ];
+
+    for (const url of approvedUrls) expect(publicBranding).toContain(url);
+    expect(publicBranding).not.toMatch(/(?:twitter\.com|x\.com|linkedin\.com|youtube\.com|threads\.net|snapchat\.com|pinterest\.com|discord\.(?:com|gg)|t\.me)\//i);
+    expect(officialLinks).toContain('rel="noopener noreferrer"');
+    expect(officialLinks).not.toContain('href="#"');
+    expect(html).toContain('"sameAs": [');
+  });
 });

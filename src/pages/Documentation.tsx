@@ -13,7 +13,6 @@ import {
   Smartphone,
   ChevronRight,
   BookOpen,
-  Video,
   FileText
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
@@ -94,7 +93,7 @@ const documentationSections = [
 ];
 
 const quickLinks = [
-  { title: "Video Tutorials", description: "Watch step-by-step guides", icon: Video, href: "https://www.youtube.com/@JohannesMilke", external: true },
+  { title: "QR Code Guides", description: "Browse step-by-step guidance", icon: BookOpen, href: "#getting-started" },
   { title: "Support Center", description: "Get help from our team", icon: Users, href: "/support" },
   { title: "Contact Us", description: "Reach out directly", icon: FileText, href: "/contact" },
 ];
