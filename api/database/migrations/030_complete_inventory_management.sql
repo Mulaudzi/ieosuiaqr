@@ -175,28 +175,28 @@ DELIMITER $$
 CREATE TRIGGER inventory_movements_block_update
 BEFORE UPDATE ON inventory_movements FOR EACH ROW
 BEGIN
-  IF NOT (CURRENT_USER() LIKE 'root@%' AND COALESCE(@inventory_allow_history_cleanup,0)=1) THEN
+  IF NOT (SUBSTRING_INDEX(USER(),'@',1)='root' AND COALESCE(@inventory_allow_history_cleanup,0)=1) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Inventory movement history is immutable';
   END IF;
 END$$
 CREATE TRIGGER inventory_movements_block_delete
 BEFORE DELETE ON inventory_movements FOR EACH ROW
 BEGIN
-  IF NOT (CURRENT_USER() LIKE 'root@%' AND COALESCE(@inventory_allow_history_cleanup,0)=1) THEN
+  IF NOT (SUBSTRING_INDEX(USER(),'@',1)='root' AND COALESCE(@inventory_allow_history_cleanup,0)=1) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Inventory movement history is immutable';
   END IF;
 END$$
 CREATE TRIGGER inventory_applied_counts_block_update
 BEFORE UPDATE ON inventory_stock_counts FOR EACH ROW
 BEGIN
-  IF OLD.status='applied' AND NOT (CURRENT_USER() LIKE 'root@%' AND COALESCE(@inventory_allow_history_cleanup,0)=1) THEN
+  IF OLD.status='applied' AND NOT (SUBSTRING_INDEX(USER(),'@',1)='root' AND COALESCE(@inventory_allow_history_cleanup,0)=1) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Applied stock count history is immutable';
   END IF;
 END$$
 CREATE TRIGGER inventory_counts_block_delete
 BEFORE DELETE ON inventory_stock_counts FOR EACH ROW
 BEGIN
-  IF NOT (CURRENT_USER() LIKE 'root@%' AND COALESCE(@inventory_allow_history_cleanup,0)=1) THEN
+  IF NOT (SUBSTRING_INDEX(USER(),'@',1)='root' AND COALESCE(@inventory_allow_history_cleanup,0)=1) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Stock count history is immutable';
   END IF;
 END$$

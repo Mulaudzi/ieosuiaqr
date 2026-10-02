@@ -122,3 +122,7 @@ Cleanup is now root-only, run-owner scoped, no longer deletes shared records by 
 Cycle 4 implementer evidence: PHP syntax PASS; typecheck PASS; 23/23 unit tests PASS; A-L inventory acceptance PASS; fresh/legacy/replay/integrity PASS; root-only immutability and location-reference guards PASS; build PASS; readiness 3/3 PASS; full Playwright 64/64 PASS; cleanup assertions PASS; production changes NONE.
 
 Cycle 4 implementer finding census: critical 0, high 0, medium 0, low 0. Fresh independent acceptance remains mandatory.
+
+## Recursive remediation cycle 5
+
+The cycle-4 review exposed MariaDB trigger-definer semantics: `CURRENT_USER()` identifies the trigger definer. All root-only cleanup guards now use the authenticated session identity from `USER()` instead. The complete disposable migration/integrity suite passes with the new guard; application principals can no longer obtain the cleanup bypass by setting a session variable. Production changes remain NONE.
