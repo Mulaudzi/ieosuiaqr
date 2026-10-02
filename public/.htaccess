@@ -1,5 +1,9 @@
 Options -MultiViews
 
+<IfModule mod_mime.c>
+    AddType application/manifest+json .webmanifest
+</IfModule>
+
 RewriteEngine On
 
 # Central identity entry points: redirect before the React shell can render.
