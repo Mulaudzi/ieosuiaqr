@@ -745,18 +745,7 @@ class InventoryController
      */
     public static function getByQrCode(int $qrId): void
     {
-        $pdo = Database::getInstance();
-
-        // Find item linked to this QR
-        $stmt = $pdo->prepare("
-            SELECT i.*, q.content as qr_content, u.id as owner_id
-            FROM inventory_items i
-            LEFT JOIN qr_codes q ON i.qr_id = q.id
-            LEFT JOIN users u ON i.user_id = u.id
-            WHERE i.qr_id = ? AND i.deleted_at IS NULL
-        ");
-        $stmt->execute([$qrId]);
-        $item = $stmt->fetch();
+        $item = InventoryApplicationService::resolveByQr($qrId);
 
         if (!$item) {
             Response::success(['item' => null, 'is_owner' => false]);
@@ -766,7 +755,7 @@ class InventoryController
         // Check if current user is owner
         $isOwner = false;
         $user = Auth::optionalUser();
-        if ($user && (int)$user['id'] === (int)$item['owner_id']) {
+        if ($user && (int)$user['id'] === (int)$item['user_id']) {
             $isOwner = true;
         }
         if ($user && !empty($item['shared_access'])) {
@@ -888,19 +877,9 @@ class InventoryController
     public static function saveStockCount(int $id): void
     {
         $user=Auth::check();$data=json_decode(file_get_contents('php://input'),true)??[];
-        $key=trim((string)($data['idempotency_key']??''));$reason=trim((string)($data['reason']??''));$countReasons=['count_error','unrecorded_movement','damaged_stock','lost_stock','incorrect_system_quantity','other'];
-        if($key===''||$reason===''||filter_var($data['counted_quantity']??null,FILTER_VALIDATE_INT)===false||(int)$data['counted_quantity']<0) Response::error('Counted quantity, reason and idempotency key are required',422);
-        if(!in_array($reason,$countReasons,true))Response::error('Invalid stock count difference reason',422);
-        $notes=isset($data['notes'])?trim((string)$data['notes']):null;if($notes!==null&&mb_strlen($notes)>5000)Response::error('Notes must not exceed 5000 characters',422);
-        $countDate=null;if(isset($data['count_date'])&&trim((string)$data['count_date'])!==''){$rawDate=trim((string)$data['count_date']);if(!preg_match('/^(\d{4})-(\d{2})-(\d{2})(?:[ T]\d{2}:\d{2}(?::\d{2})?(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})?)?$/',$rawDate,$parts)||!checkdate((int)$parts[2],(int)$parts[3],(int)$parts[1]))Response::error('A valid count date is required',422);try{$countDate=(new \DateTimeImmutable($rawDate))->format('Y-m-d H:i:s');}catch(\Throwable){Response::error('A valid count date is required',422);}}
-        $pdo=Database::getInstance();$pdo->beginTransaction();
-        try{$stmt=$pdo->prepare("SELECT * FROM inventory_items WHERE id=? AND deleted_at IS NULL AND inventory_type='quantity' FOR UPDATE");$stmt->execute([$id]);$item=$stmt->fetch();if(!$item)throw new \RuntimeException('Quantity inventory item not found',404);if((int)$item['user_id']!==(int)$user['id']){$access=$pdo->prepare("SELECT role FROM inventory_access WHERE owner_user_id=? AND user_id=? AND is_active=1 AND role IN ('controller','admin')");$access->execute([$item['user_id'],$user['id']]);if(!$access->fetchColumn())throw new \RuntimeException('You do not have permission to count this stock',403);}
-            $location=trim((string)($data['location']??$item['location']??''));if($location==='')throw new \InvalidArgumentException('Count location is required');
-            $known=$pdo->prepare('SELECT 1 FROM inventory_locations WHERE user_id=? AND name=? AND is_active=1');$known->execute([$item['user_id'],$location]);if(!$known->fetchColumn())throw new \InvalidArgumentException('Unknown inventory location');
-            $level=$pdo->prepare('SELECT quantity FROM inventory_stock_levels WHERE item_id=? AND location_name=? FOR UPDATE');$level->execute([$id,$location]);$expectedLocation=$level->fetchColumn();if($expectedLocation===false)throw new \InvalidArgumentException('This item has no stock at the selected location');
-            $counted=(int)$data['counted_quantity'];$insert=$pdo->prepare('INSERT INTO inventory_stock_counts(item_id,user_id,expected_quantity,expected_location_quantity,item_version,counted_quantity,difference,location,counted_by,counted_by_name,count_date,reason,notes,idempotency_key) VALUES(?,?,?,?,?,?,?,?,?,?,COALESCE(?,NOW()),?,?,?)');
-            $insert->execute([$id,$item['user_id'],$item['quantity'],$expectedLocation,$item['version'],$counted,$counted-(int)$expectedLocation,$location,$user['id'],$user['name'],$countDate,$reason,$notes,$key]);$countId=(int)$pdo->lastInsertId();$pdo->commit();Response::success(['id'=>$countId,'expected_quantity'=>(int)$expectedLocation,'counted_quantity'=>$counted,'difference'=>$counted-(int)$expectedLocation,'location'=>$location,'status'=>'saved'],'Stock count saved',201);
-        }catch(\PDOException $e){if($pdo->inTransaction())$pdo->rollBack();if($e->getCode()==='23000'){Response::error('This stock count was already saved',409);}throw $e;}catch(\Throwable $e){if($pdo->inTransaction())$pdo->rollBack();$code=in_array($e->getCode(),[403,404,409],true)?$e->getCode():422;Response::error($e->getMessage(),$code);}
+        try{Response::success(InventoryApplicationService::saveStockCount($id,$user,$data),'Stock count saved',201);}
+        catch(\PDOException $e){if($e->getCode()==='23000')Response::error('This stock count was already saved',409);throw $e;}
+        catch(\Throwable $e){$code=in_array($e->getCode(),[403,404,409],true)?$e->getCode():422;Response::error($e->getMessage(),$code);}
     }
 
     public static function applyStockCount(int $id, int $countId): void

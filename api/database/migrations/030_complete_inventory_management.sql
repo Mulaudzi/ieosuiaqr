@@ -84,6 +84,15 @@ CREATE TABLE IF NOT EXISTS inventory_stock_levels (
   CONSTRAINT inventory_stock_item_fk FOREIGN KEY(item_id) REFERENCES inventory_items(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- A partially upgraded legacy database can already have stock in locations
+-- other than inventory_items.location. Register every such location so the
+-- migrated stock is immediately usable by movements and stock counts.
+INSERT IGNORE INTO inventory_locations(user_id,name)
+SELECT DISTINCT i.user_id,s.location_name
+FROM inventory_stock_levels s
+JOIN inventory_items i ON i.id=s.item_id
+WHERE s.location_name IS NOT NULL AND s.location_name<>'';
+
 INSERT IGNORE INTO inventory_movements
   (item_id,user_id,action_type,quantity_delta,previous_quantity,new_quantity,previous_status,new_status,from_location,to_location,reason,performed_by,performed_by_name,occurred_at,notes,workflow_id,idempotency_key,metadata)
 SELECT i.id,i.user_id,'legacy_opening_state',0,i.quantity,i.quantity,i.status,i.status,i.location,i.location,

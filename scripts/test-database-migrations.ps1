@@ -88,7 +88,8 @@ SELECT CONCAT_WS('|',
     Invoke-ApplicationAcceptance $legacyDatabase 'legacy-verify'
 
     Write-Output '030 REPLAY: PASS'
-    Write-Output ("ORDERED MIGRATION MANIFEST: PASS - " + (($migrations | ForEach-Object Name) -join ', '))
+    $migrationManifest = $migrations | ForEach-Object { "$($_.Name):$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)" }
+    Write-Output ("ORDERED MIGRATION MANIFEST WITH SHA256: PASS - " + ($migrationManifest -join ', '))
     Write-Output 'MIGRATION ACCEPTANCE: PASS'
 }
 finally {

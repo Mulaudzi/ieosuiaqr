@@ -94,3 +94,21 @@ Cycle 2 implementer evidence:
 - production changes: NONE
 
 Cycle 2 implementer finding census: critical 0, high 0, medium 0, low 0. Fresh independent acceptance is still required before staging readiness can be claimed.
+
+## Recursive remediation cycle 3
+
+The next fresh review found one real defect: secondary legacy stock-level locations were preserved as rows but were not registered in `inventory_locations`, so production movement/count validation rejected them. It also rejected parallel acceptance-only helpers and a barrier test that did not prove interception.
+
+Cycle 3 closes those findings:
+
+- Migration 030 registers every distinct pre-existing stock-level location for the owning account.
+- The migrated `Location B` is proven through the production stock-count service and a real transfer, not only queried as raw state.
+- Public inventory QR resolution and stock-count HTTP controllers now use the same shared application service exercised by migration acceptance; canonical count validation no longer has a permissive test-only branch.
+- Unique-index evidence asserts ordered column composition, not names alone.
+- The history barrier test must observe the movement request interception within five seconds before asserting the enabled owner `Add stock` action.
+- Migration output restores all required labels and emits the ordered migration manifest with SHA-256 hashes.
+- Exact reviewer-owned residue from the interrupted review was removed before the new run.
+
+Cycle 3 implementer evidence: typecheck PASS; 23/23 unit tests PASS; inventory A-L PASS; migration lifecycle/replay/integrity PASS; original readiness test 3/3 PASS (3.9s, 3.7s, 3.8s); self-authenticating history barrier PASS (2.7s); full Playwright 64/64 PASS; build PASS (3,916 modules); production changes NONE.
+
+Cycle 3 implementer finding census: critical 0, high 0, medium 0, low 0. Fresh independent acceptance remains mandatory.
