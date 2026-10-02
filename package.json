@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run build:web && npm run build:api && powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\package-build.ps1 -IncludeApiEnv",
-    "build:web": "vite build",
+    "build:web": "vite build && node scripts/generate-public-html.mjs",
     "build:api": "composer --working-dir=api install --no-dev --prefer-dist --optimize-autoloader --no-interaction",
     "build:dev": "vite build --mode development",
     "deploy:package": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\package-build.ps1",
