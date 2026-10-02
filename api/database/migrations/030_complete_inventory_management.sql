@@ -169,33 +169,56 @@ DROP TRIGGER IF EXISTS inventory_movements_block_update;
 DROP TRIGGER IF EXISTS inventory_movements_block_delete;
 DROP TRIGGER IF EXISTS inventory_applied_counts_block_update;
 DROP TRIGGER IF EXISTS inventory_counts_block_delete;
+DROP TRIGGER IF EXISTS inventory_locations_block_referenced_delete;
+DROP TRIGGER IF EXISTS inventory_locations_block_referenced_rename;
 DELIMITER $$
 CREATE TRIGGER inventory_movements_block_update
 BEFORE UPDATE ON inventory_movements FOR EACH ROW
 BEGIN
-  IF COALESCE(@inventory_allow_history_cleanup,0) <> 1 THEN
+  IF NOT (CURRENT_USER() LIKE 'root@%' AND COALESCE(@inventory_allow_history_cleanup,0)=1) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Inventory movement history is immutable';
   END IF;
 END$$
 CREATE TRIGGER inventory_movements_block_delete
 BEFORE DELETE ON inventory_movements FOR EACH ROW
 BEGIN
-  IF COALESCE(@inventory_allow_history_cleanup,0) <> 1 THEN
+  IF NOT (CURRENT_USER() LIKE 'root@%' AND COALESCE(@inventory_allow_history_cleanup,0)=1) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Inventory movement history is immutable';
   END IF;
 END$$
 CREATE TRIGGER inventory_applied_counts_block_update
 BEFORE UPDATE ON inventory_stock_counts FOR EACH ROW
 BEGIN
-  IF OLD.status='applied' AND COALESCE(@inventory_allow_history_cleanup,0) <> 1 THEN
+  IF OLD.status='applied' AND NOT (CURRENT_USER() LIKE 'root@%' AND COALESCE(@inventory_allow_history_cleanup,0)=1) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Applied stock count history is immutable';
   END IF;
 END$$
 CREATE TRIGGER inventory_counts_block_delete
 BEFORE DELETE ON inventory_stock_counts FOR EACH ROW
 BEGIN
-  IF COALESCE(@inventory_allow_history_cleanup,0) <> 1 THEN
+  IF NOT (CURRENT_USER() LIKE 'root@%' AND COALESCE(@inventory_allow_history_cleanup,0)=1) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Stock count history is immutable';
+  END IF;
+END$$
+CREATE TRIGGER inventory_locations_block_referenced_delete
+BEFORE DELETE ON inventory_locations FOR EACH ROW
+BEGIN
+  IF EXISTS(SELECT 1 FROM inventory_items WHERE user_id=OLD.user_id AND location=OLD.name AND deleted_at IS NULL)
+     OR EXISTS(SELECT 1 FROM inventory_stock_levels s JOIN inventory_items i ON i.id=s.item_id WHERE i.user_id=OLD.user_id AND s.location_name=OLD.name)
+     OR EXISTS(SELECT 1 FROM inventory_stock_counts WHERE user_id=OLD.user_id AND location=OLD.name)
+     OR EXISTS(SELECT 1 FROM inventory_movements WHERE user_id=OLD.user_id AND (from_location=OLD.name OR to_location=OLD.name)) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Referenced inventory locations cannot be deleted';
+  END IF;
+END$$
+CREATE TRIGGER inventory_locations_block_referenced_rename
+BEFORE UPDATE ON inventory_locations FOR EACH ROW
+BEGIN
+  IF NEW.name<>OLD.name AND (
+     EXISTS(SELECT 1 FROM inventory_items WHERE user_id=OLD.user_id AND location=OLD.name AND deleted_at IS NULL)
+     OR EXISTS(SELECT 1 FROM inventory_stock_levels s JOIN inventory_items i ON i.id=s.item_id WHERE i.user_id=OLD.user_id AND s.location_name=OLD.name)
+     OR EXISTS(SELECT 1 FROM inventory_stock_counts WHERE user_id=OLD.user_id AND location=OLD.name)
+     OR EXISTS(SELECT 1 FROM inventory_movements WHERE user_id=OLD.user_id AND (from_location=OLD.name OR to_location=OLD.name))) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Referenced inventory locations cannot be renamed';
   END IF;
 END$$
 DELIMITER ;

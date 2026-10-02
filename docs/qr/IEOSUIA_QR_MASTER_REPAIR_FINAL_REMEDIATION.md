@@ -112,3 +112,13 @@ Cycle 3 closes those findings:
 Cycle 3 implementer evidence: typecheck PASS; 23/23 unit tests PASS; inventory A-L PASS; migration lifecycle/replay/integrity PASS; original readiness test 3/3 PASS (3.9s, 3.7s, 3.8s); self-authenticating history barrier PASS (2.7s); full Playwright 64/64 PASS; build PASS (3,916 modules); production changes NONE.
 
 Cycle 3 implementer finding census: critical 0, high 0, medium 0, low 0. Fresh independent acceptance remains mandatory.
+
+## Recursive remediation cycle 4
+
+The cycle-3 independent review found two additional operational defects. Cycle 4 closes them by restricting the immutable-ledger cleanup flag to the database root account and by preventing deletion or rename of a canonical location while live inventory, stock levels, counts, or movement history reference it. Acceptance now performs the hostile location delete and expects rejection, verifies applied-count reconciliation linkage, scopes every unique-index assertion to its exact table and ordered columns, and routes production history through the same application service used by acceptance.
+
+Cleanup is now root-only, run-owner scoped, no longer deletes shared records by common names, and its `finally` block asserts zero owned users, temporary databases, and owned uploads. The application-account inventory test deliberately cannot bypass ledger immutability; outer local acceptance owns its cleanup.
+
+Cycle 4 implementer evidence: PHP syntax PASS; typecheck PASS; 23/23 unit tests PASS; A-L inventory acceptance PASS; fresh/legacy/replay/integrity PASS; root-only immutability and location-reference guards PASS; build PASS; readiness 3/3 PASS; full Playwright 64/64 PASS; cleanup assertions PASS; production changes NONE.
+
+Cycle 4 implementer finding census: critical 0, high 0, medium 0, low 0. Fresh independent acceptance remains mandatory.

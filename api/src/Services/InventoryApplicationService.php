@@ -63,6 +63,14 @@ final class InventoryApplicationService
         $stmt=Database::getInstance()->prepare('SELECT * FROM inventory_movements WHERE item_id=? ORDER BY occurred_at,id');$stmt->execute([$itemId]);return $stmt->fetchAll();
     }
 
+    public static function movementPage(int $itemId,array $user,array $filters=[]): array
+    {
+        $pdo=Database::getInstance();$owner=$pdo->prepare('SELECT user_id FROM inventory_items WHERE id=? AND deleted_at IS NULL');$owner->execute([$itemId]);$ownerId=$owner->fetchColumn();if(!$ownerId)throw new \RuntimeException('Inventory item not found',404);
+        if((int)$ownerId!==(int)$user['id']){$access=$pdo->prepare('SELECT role FROM inventory_access WHERE owner_user_id=? AND user_id=? AND is_active=1');$access->execute([$ownerId,$user['id']]);if(!$access->fetchColumn())throw new \RuntimeException('You do not have permission to view this history',403);}
+        $where=['item_id=?'];$params=[$itemId];foreach(['action_type'=>'action_type=?','reason'=>'reason LIKE ?','user'=>'performed_by_name LIKE ?','status'=>'(previous_status=? OR new_status=?)','from'=>'occurred_at>=?','to'=>'occurred_at<=?']as$key=>$clause){if(!empty($filters[$key])){$where[]=$clause;$value=in_array($key,['reason','user'],true)?'%'.$filters[$key].'%':$filters[$key];$params[]=$value;if($key==='status')$params[]=$value;}}
+        if(!empty($filters['location'])){$where[]='(from_location=? OR to_location=?)';$params[]=$filters['location'];$params[]=$filters['location'];}$page=max(1,(int)($filters['page']??1));$perPage=min(100,max(1,(int)($filters['per_page']??50)));$offset=($page-1)*$perPage;$count=$pdo->prepare('SELECT COUNT(*) FROM inventory_movements WHERE '.implode(' AND ',$where));$count->execute($params);$total=(int)$count->fetchColumn();$stmt=$pdo->prepare('SELECT m.*,i.name AS product_name FROM inventory_movements m JOIN inventory_items i ON i.id=m.item_id WHERE m.id IN (SELECT id FROM inventory_movements WHERE '.implode(' AND ',$where).') ORDER BY m.occurred_at DESC,m.id DESC LIMIT '.$perPage.' OFFSET '.$offset);$stmt->execute($params);return ['items'=>$stmt->fetchAll(),'pagination'=>['page'=>$page,'per_page'=>$perPage,'total'=>$total,'total_pages'=>(int)ceil($total/$perPage)]];
+    }
+
     public static function stockLevels(int $itemId): array
     {
         $stmt=Database::getInstance()->prepare('SELECT location_name,quantity FROM inventory_stock_levels WHERE item_id=? ORDER BY location_name');$stmt->execute([$itemId]);$out=[];foreach($stmt->fetchAll() as $row)$out[$row['location_name']]=(int)$row['quantity'];return $out;

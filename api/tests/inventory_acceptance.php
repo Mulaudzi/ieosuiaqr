@@ -207,7 +207,7 @@ try {
     check(row($pdo,'SELECT status FROM inventory_stock_counts WHERE id=?',[$staleCountId])['status']==='saved','Rejected stale count was finalized');
     echo "inventory acceptance: PASS\n";
 } finally {
-    $pdo->exec('SET @inventory_allow_history_cleanup=1');
-    if ($ids['items']) {$marks=implode(',',array_fill(0,count($ids['items']),'?'));foreach(['inventory_stock_counts','inventory_stock_levels','inventory_movements'] as $child){$pdo->prepare("DELETE FROM {$child} WHERE item_id IN ($marks)")->execute($ids['items']);}$pdo->prepare("DELETE FROM inventory_items WHERE id IN ($marks)")->execute($ids['items']);}
-    if ($ids['users']) {$values=array_values($ids['users']);$marks=implode(',',array_fill(0,count($values),'?'));$pdo->prepare("DELETE FROM users WHERE id IN ($marks)")->execute($values);}
+    // The application database account cannot bypass immutable-ledger guards.
+    // The outer local harness removes run-owned fixtures through its root-only
+    // cleanup path; disposable acceptance databases are dropped wholesale.
 }

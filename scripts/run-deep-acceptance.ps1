@@ -9,7 +9,7 @@ $acceptanceOwnerId = ''
 $acceptanceUploadPaths = @()
 
 function Invoke-LocalSql([string]$Sql) {
-    docker compose exec -T database mariadb "-u$databaseUser" "-p$databasePassword" $database --execute=$Sql | Out-Null
+    docker compose exec -T database mariadb --user=root --password=ieosuia_root_local_only $database --execute=$Sql | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Local acceptance database operation failed.' }
 }
 
@@ -38,17 +38,6 @@ DELETE u FROM users u WHERE $UserWhere;
 
 function Clear-AcceptanceFixtures {
     if ($acceptanceOwnerId) { Clear-InventoryForWhere "u.id=$acceptanceOwnerId" }
-    $where = "i.name='Codex Lifecycle Asset' OR i.name='Atomic inventory test' OR i.name LIKE 'Human Journey % Asset' OR i.name LIKE 'Human Journey % Combined Asset'"
-    Invoke-LocalSql @"
-SET @inventory_allow_history_cleanup=1;
-DELETE c FROM inventory_stock_counts c INNER JOIN inventory_items i ON i.id=c.item_id WHERE $where;
-DELETE m FROM inventory_movements m INNER JOIN inventory_items i ON i.id=m.item_id WHERE $where;
-DELETE s FROM inventory_stock_levels s INNER JOIN inventory_items i ON i.id=s.item_id WHERE $where;
-DELETE h FROM inventory_status_history h INNER JOIN inventory_items i ON i.id=h.item_id WHERE $where;
-DELETE a FROM inventory_alerts a INNER JOIN inventory_items i ON i.id=a.item_id WHERE $where;
-DELETE i FROM inventory_items i WHERE $where;
-DELETE FROM qr_codes WHERE name='Codex Bulk Valid' OR name='Codex Browser Logo QR' OR name='Codex Exact Redirect QR' OR name LIKE 'Regression %';
-"@
 }
 
 function Find-AcceptanceUploads {
@@ -132,5 +121,12 @@ try {
 finally {
     Find-AcceptanceUploads
     Clear-AcceptanceFixtures
+    Clear-KnownLeakedInventoryAcceptanceUsers
     Remove-AcceptanceUploads
+    $ownedResidue = Get-LocalScalar "SELECT COUNT(*) FROM users WHERE email REGEXP '^(inventory-(owner|operator|viewer)-[0-9a-f]{10}|master-acceptance-[0-9a-f]{12}|cleanup-probe-[0-9a-f]{12})@example[.]test$'"
+    if ($ownedResidue -ne '0') { throw "Acceptance cleanup left $ownedResidue owned users." }
+    $temporaryDatabases = docker compose exec -T database mariadb --batch --skip-column-names --user=root --password=ieosuia_root_local_only --execute="SHOW DATABASES LIKE 'ieosuia_qr_migration_%'"
+    if (($temporaryDatabases | Out-String).Trim() -ne '') { throw 'Acceptance cleanup left temporary migration databases.' }
+    $ownedUploadResidue = @($acceptanceUploadPaths | Where-Object { Test-Path -LiteralPath ([System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ('..\api\uploads\logos\' + ($_ -replace '^/api/uploads/logos/',''))))) })
+    if ($ownedUploadResidue.Count -ne 0) { throw 'Acceptance cleanup left owned upload files.' }
 }

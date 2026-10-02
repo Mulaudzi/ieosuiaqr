@@ -831,22 +831,7 @@ class InventoryController
 
     public static function getMovements(int $id): void
     {
-        $user=Auth::check(); $pdo=Database::getInstance();
-        $owner=$pdo->prepare('SELECT user_id FROM inventory_items WHERE id=? AND deleted_at IS NULL');$owner->execute([$id]);$ownerId=$owner->fetchColumn();
-        if(!$ownerId) Response::error('Inventory item not found',404);
-        if((int)$ownerId!==(int)$user['id']){$access=$pdo->prepare('SELECT role FROM inventory_access WHERE owner_user_id=? AND user_id=? AND is_active=1');$access->execute([$ownerId,$user['id']]);if(!$access->fetchColumn())Response::error('You do not have permission to view this history',403);}
-        $where=['item_id=?'];$params=[$id];
-        if(!empty($_GET['action_type'])){$where[]='action_type=?';$params[]=$_GET['action_type'];}
-        if(!empty($_GET['reason'])){$where[]='reason LIKE ?';$params[]='%'.$_GET['reason'].'%';}
-        if(!empty($_GET['user'])){$where[]='performed_by_name LIKE ?';$params[]='%'.$_GET['user'].'%';}
-        if(!empty($_GET['location'])){$where[]='(from_location=? OR to_location=?)';$params[]=$_GET['location'];$params[]=$_GET['location'];}
-        if(!empty($_GET['status'])){$where[]='(previous_status=? OR new_status=?)';$params[]=$_GET['status'];$params[]=$_GET['status'];}
-        if(!empty($_GET['from'])){$where[]='occurred_at>=?';$params[]=$_GET['from'];}
-        if(!empty($_GET['to'])){$where[]='occurred_at<=?';$params[]=$_GET['to'];}
-        $page=max(1,(int)($_GET['page']??1));$perPage=min(100,max(1,(int)($_GET['per_page']??50)));$offset=($page-1)*$perPage;
-        $count=$pdo->prepare('SELECT COUNT(*) FROM inventory_movements WHERE '.implode(' AND ',$where));$count->execute($params);$total=(int)$count->fetchColumn();
-        $stmt=$pdo->prepare('SELECT m.*,i.name AS product_name FROM inventory_movements m JOIN inventory_items i ON i.id=m.item_id WHERE m.id IN (SELECT id FROM inventory_movements WHERE '.implode(' AND ',$where).') ORDER BY m.occurred_at DESC,m.id DESC LIMIT '.$perPage.' OFFSET '.$offset);
-        $stmt->execute($params); Response::success(['items'=>$stmt->fetchAll(),'pagination'=>['page'=>$page,'per_page'=>$perPage,'total'=>$total,'total_pages'=>(int)ceil($total/$perPage)]]);
+        try{Response::success(InventoryApplicationService::movementPage($id,Auth::check(),$_GET));}catch(\RuntimeException $e){Response::error($e->getMessage(),in_array($e->getCode(),[403,404],true)?$e->getCode():500);}
     }
 
     public static function exportMovements(int $id): void
