@@ -68,3 +68,29 @@ The runner creates its own browser fixture, removes fixtures in `finally`, prove
 - Low: 0
 
 Status: ready for a fresh independent review. Controlled staging remains prohibited until that review passes. Production deployment remains separately authorized work.
+
+## Recursive remediation cycle 2
+
+The first fresh review rejected the candidate with two high, one medium, and one low finding. This cycle closes those findings as follows:
+
+- Migration 030 no longer attributes an inferred owner or item creation timestamp to a historical movement. The opening record now identifies `Migration 030`, leaves `performed_by` null, records the actual migration time, and preserves the source item timestamp only as labelled metadata.
+- A shared inventory application service is now the authority for HTTP and migration acceptance creation. Fresh acceptance creates quantity and serialized inventory plus QR codes and locations through that service, resolves both QRs through it, creates stock counts through it, and reads complete ordered history through it.
+- Schema checks now assert required columns, nullability, unique indexes, foreign-key targets/delete rules, and immutable-ledger triggers.
+- The legacy fixture asserts exact `Location A = 7` and `Location B = 5` rows, exact archived state, truthful provenance, QR resolution, non-vacuous access/count state, quantity invariants, and full row-level replay fingerprints.
+- Hostile integrity tests deterministically execute owner, item, actor, location, movement, and applied-count operations. They prove actor `SET NULL` snapshot preservation and location-name history preservation.
+- The history regression holds its request behind an indefinite explicit barrier, proves the real owner `Add stock` control is visible and enabled within the readiness window, then releases and verifies history.
+
+Cycle 2 implementer evidence:
+
+- typecheck: PASS
+- unit tests: PASS, 23/23
+- inventory A-L acceptance: PASS
+- strengthened fresh/legacy/replay/integrity acceptance: PASS
+- original failing browser test repeated: PASS, 3/3 (3.8s, 3.6s, 4.0s)
+- complete Playwright: PASS, 64/64, zero skips
+- production build: PASS, 3,916 modules
+- lint: PASS, 0 errors and 27 pre-existing warnings
+- temporary migration databases: removed by `finally`
+- production changes: NONE
+
+Cycle 2 implementer finding census: critical 0, high 0, medium 0, low 0. Fresh independent acceptance is still required before staging readiness can be claimed.

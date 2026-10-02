@@ -31,12 +31,13 @@ test('authenticated owner can open protected inventory actions and history',asyn
 
 test('delayed movement history does not block authorized inventory actions',async({page},testInfo)=>{
   test.skip(!token||!itemId,'Local owner token unavailable');await page.addInitScript(value=>localStorage.setItem('auth_token',value),token);
-  await page.route(/\/api\/inventory\/[^/]+\/movements(?:\?|$)/,async route=>{await new Promise(resolve=>setTimeout(resolve,15_000));await route.continue();});
+  let releaseHistory!:()=>void;const historyBarrier=new Promise<void>(resolve=>{releaseHistory=resolve;});let historyReleased=false;
+  await page.route(/\/api\/inventory\/[^/]+\/movements(?:\?|$)/,async route=>{await historyBarrier;historyReleased=true;await route.continue();});
   const historyResponse=page.waitForResponse(response=>/\/api\/inventory\/[^/]+\/movements(?:\?|$)/.test(response.url())&&response.status()===200);
-  const started=Date.now();await page.goto(`/dashboard/inventory/${itemId}`);await expect(page.getByText('Actions',{exact:true})).toBeVisible();const actionsElapsed=Date.now()-started;
+  const started=Date.now();let actionsElapsed=0;try{await page.goto(`/dashboard/inventory/${itemId}`);await expect(page.getByRole('button',{name:'Add stock',exact:true})).toBeVisible({timeout:20_000});await expect(page.getByRole('button',{name:'Add stock',exact:true})).toBeEnabled();actionsElapsed=Date.now()-started;expect(historyReleased).toBe(false);expect(actionsElapsed).toBeLessThan(20_000);}finally{releaseHistory();}
   await historyResponse;const historyElapsed=Date.now()-started;
-  await testInfo.attach('inventory-readiness-timing.json',{body:Buffer.from(JSON.stringify({actions_elapsed_ms:actionsElapsed,history_elapsed_ms:historyElapsed,history_delay_ms:15_000})),contentType:'application/json'});
-  expect(actionsElapsed).toBeLessThan(20_000);expect(actionsElapsed).toBeLessThan(historyElapsed);expect(historyElapsed).toBeGreaterThanOrEqual(15_000);await expect(page.locator('.inventory-history-print details').first()).toBeVisible();
+  await testInfo.attach('inventory-readiness-timing.json',{body:Buffer.from(JSON.stringify({actions_elapsed_ms:actionsElapsed,history_elapsed_ms:historyElapsed,history_was_blocked_until_action_ready:true})),contentType:'application/json'});
+  expect(actionsElapsed).toBeLessThan(historyElapsed);await expect(page.locator('.inventory-history-print details').first()).toBeVisible();
 });
 
 test('inventory history export and movement analytics are authorized and usable',async({request})=>{

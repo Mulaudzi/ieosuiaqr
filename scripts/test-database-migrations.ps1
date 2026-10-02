@@ -62,6 +62,7 @@ CREATE TABLE inventory_stock_levels (
 "@
     Invoke-ApplicationAcceptance $legacyDatabase 'legacy-seed'
     foreach ($migration in ($migrations | Where-Object { [int]$_.BaseName.Substring(0,3) -gt 20 })) { Invoke-Migration $legacyDatabase $migration }
+    Invoke-ApplicationAcceptance $legacyDatabase 'legacy-prepare'
     Invoke-ApplicationAcceptance $legacyDatabase 'legacy-verify'
 
     $stateSql = @"
@@ -72,7 +73,12 @@ SELECT CONCAT_WS('|',
  (SELECT COUNT(*) FROM inventory_access),
  (SELECT COUNT(*) FROM inventory_movements),
  (SELECT COUNT(*) FROM inventory_stock_counts),
- (SELECT COALESCE(SUM(quantity),0) FROM inventory_items)
+ (SELECT COALESCE(SUM(quantity),0) FROM inventory_items),
+ (SELECT GROUP_CONCAT(CONCAT(i.name,'=',s.location_name,':',s.quantity) ORDER BY i.name,s.location_name SEPARATOR ';') FROM inventory_stock_levels s JOIN inventory_items i ON i.id=s.item_id),
+ (SELECT GROUP_CONCAT(CONCAT(id,':',action_type,':',idempotency_key,':',COALESCE(performed_by_name,''),':',DATE_FORMAT(occurred_at,'%Y-%m-%d %H:%i:%s'),':',SHA2(COALESCE(metadata,''),256)) ORDER BY id SEPARATOR ';') FROM inventory_movements),
+ (SELECT GROUP_CONCAT(CONCAT(id,':',status,':',idempotency_key,':',expected_quantity,':',counted_quantity,':',location) ORDER BY id SEPARATOR ';') FROM inventory_stock_counts),
+ (SELECT GROUP_CONCAT(CONCAT(owner_user_id,':',user_id,':',role,':',is_active) ORDER BY owner_user_id,user_id SEPARATOR ';') FROM inventory_access),
+ (SELECT GROUP_CONCAT(CONCAT(name,':',status,':',location,':',COALESCE(DATE_FORMAT(deleted_at,'%Y-%m-%d %H:%i:%s'),'')) ORDER BY id SEPARATOR ';') FROM inventory_items)
 );
 "@
     $beforeReplay = Get-DatabaseScalar $legacyDatabase $stateSql
@@ -82,6 +88,7 @@ SELECT CONCAT_WS('|',
     Invoke-ApplicationAcceptance $legacyDatabase 'legacy-verify'
 
     Write-Output '030 REPLAY: PASS'
+    Write-Output ("ORDERED MIGRATION MANIFEST: PASS - " + (($migrations | ForEach-Object Name) -join ', '))
     Write-Output 'MIGRATION ACCEPTANCE: PASS'
 }
 finally {

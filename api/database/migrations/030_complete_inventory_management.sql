@@ -87,9 +87,10 @@ CREATE TABLE IF NOT EXISTS inventory_stock_levels (
 INSERT IGNORE INTO inventory_movements
   (item_id,user_id,action_type,quantity_delta,previous_quantity,new_quantity,previous_status,new_status,from_location,to_location,reason,performed_by,performed_by_name,occurred_at,notes,workflow_id,idempotency_key,metadata)
 SELECT i.id,i.user_id,'legacy_opening_state',0,i.quantity,i.quantity,i.status,i.status,i.location,i.location,
-  'Legacy opening state',i.user_id,COALESCE(u.name,'Legacy owner'),i.created_at,
-  'State imported when the inventory ledger was introduced.',UUID(),CONCAT('legacy-opening-',i.id),JSON_OBJECT('provenance','migration_030')
-FROM inventory_items i JOIN users u ON u.id=i.user_id
+  'Legacy opening state imported by migration 030',NULL,'Migration 030',CURRENT_TIMESTAMP,
+  'Imported state; historical actor and event time were not available.',UUID(),CONCAT('legacy-opening-',i.id),
+  JSON_OBJECT('provenance','migration_030','actor_attribution','unknown','occurred_at_kind','migration_time','source_item_created_at',DATE_FORMAT(i.created_at,'%Y-%m-%dT%H:%i:%s'))
+FROM inventory_items i
 WHERE NOT EXISTS (SELECT 1 FROM inventory_movements m WHERE m.item_id=i.id);
 
 INSERT INTO inventory_stock_levels(item_id,location_name,quantity)

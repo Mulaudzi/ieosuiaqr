@@ -8,26 +8,16 @@ use App\Helpers\Validator;
 use App\Middleware\Auth;
 use App\Services\MailService;
 use App\Services\InventoryMovementService;
+use App\Services\InventoryApplicationService;
 
 class InventoryController
 {
     public static function createWithQr(): void
     {
         $user=Auth::check();$data=json_decode(file_get_contents('php://input'),true)??[];
-        $name=trim((string)($data['name']??''));$key='create:'.trim((string)($data['idempotency_key']??''));
-        if($name===''||mb_strlen($name)>255||$key==='create:'||strlen($key)>100)Response::error('Name and idempotency key are required',422);
-        $type=($data['inventory_type']??'serialized')==='quantity'?'quantity':'serialized';if($type==='quantity'&&(filter_var($data['quantity']??null,FILTER_VALIDATE_INT)===false||(int)$data['quantity']<0))Response::error('Quantity must be zero or greater',422);if(filter_var($data['minimum_stock_level']??0,FILTER_VALIDATE_INT)===false||(int)($data['minimum_stock_level']??0)<0)Response::error('Minimum stock must be zero or greater',422);$quantity=$type==='quantity'?(int)$data['quantity']:1;$minimum=(int)($data['minimum_stock_level']??0);
-        $status=$type==='quantity'?($quantity===0?'out_of_stock':($minimum>0&&$quantity<=$minimum?'low_stock':'in_stock')):'available';$location=trim((string)($data['location']??''))?:null;
-        $pdo=Database::getInstance();$pdo->beginTransaction();
-        try{$existing=$pdo->prepare("SELECT i.*,i.qr_id FROM inventory_movements m JOIN inventory_items i ON i.id=m.item_id WHERE m.user_id=? AND m.idempotency_key=? LIMIT 1");$existing->execute([$user['id'],$key]);if($item=$existing->fetch()){$pdo->commit();Response::success(['item'=>$item,'qr_id'=>(int)$item['qr_id'],'duplicate'=>true]);}
-            $dynamicId=bin2hex(random_bytes(8));$pdo->prepare("INSERT INTO qr_codes(user_id,type,name,content,custom_options,dynamic_id,created_at) VALUES(?,'url',?,JSON_OBJECT(),JSON_OBJECT(),?,NOW())")->execute([$user['id'],$name.' QR',$dynamicId]);$qrId=(int)$pdo->lastInsertId();
-            $appUrl=rtrim((string)($_ENV['APP_URL']??'https://qr.ieosuia.com'),'/');$pdo->prepare('UPDATE qr_codes SET content=? WHERE id=?')->execute([json_encode(['url'=>$appUrl.'/scan/'.$qrId]),$qrId]);
-            if($location)$pdo->prepare('INSERT IGNORE INTO inventory_locations(user_id,name) VALUES(?,?)')->execute([$user['id'],$location]);
-            $pdo->prepare('INSERT INTO inventory_items(user_id,qr_id,public_token,name,category,inventory_type,inventory_identifier,quantity,minimum_stock_level,notes,status,location,created_at,updated_at) VALUES(?,?,UUID(),?,?,?,?,?,?,?,?,?,NOW(),NOW())')->execute([$user['id'],$qrId,$name,$data['category']??'Other',$type,$data['inventory_identifier']??null,$quantity,$minimum,$data['notes']??null,$status,$location]);$itemId=(int)$pdo->lastInsertId();
-            if($type==='quantity')$pdo->prepare('INSERT INTO inventory_stock_levels(item_id,location_name,quantity) VALUES(?,?,?)')->execute([$itemId,$location??'Unassigned',$quantity]);
-            $pdo->prepare("INSERT INTO inventory_movements(item_id,user_id,action_type,quantity_delta,previous_quantity,new_quantity,previous_status,new_status,to_location,reason,performed_by,performed_by_name,occurred_at,workflow_id,idempotency_key,metadata) VALUES(?,?,'opening_state',?,0,?,NULL,? ,?,'Initial inventory state',?,?,NOW(),UUID(),?,JSON_OBJECT('provenance','creation'))")->execute([$itemId,$user['id'],$quantity,$quantity,$status,$location,$user['id'],$user['name'],$key]);
-            $stmt=$pdo->prepare('SELECT * FROM inventory_items WHERE id=?');$stmt->execute([$itemId]);$item=$stmt->fetch();$pdo->commit();Response::success(['item'=>$item,'qr_id'=>$qrId,'scan_url'=>$appUrl.'/go/'.$qrId,'duplicate'=>false],'QR code and inventory item created',201);
-        }catch(\Throwable $e){if($pdo->inTransaction())$pdo->rollBack();error_log('Inventory QR creation failed: '.$e->getMessage());Response::error('Could not create the inventory item and QR code',500);}
+        try{$result=InventoryApplicationService::createWithQr($user,$data);Response::success($result,'QR code and inventory item created',$result['duplicate']?200:201);}
+        catch(\InvalidArgumentException $e){Response::error($e->getMessage(),422);}
+        catch(\Throwable $e){error_log('Inventory QR creation failed: '.$e->getMessage());Response::error('Could not create the inventory item and QR code',500);}
     }
     /**
      * Get inventory analytics dashboard data
@@ -931,6 +921,6 @@ class InventoryController
     public static function createLocation(): void
     {
         $user=Auth::check();$data=json_decode(file_get_contents('php://input'),true)??[];$name=trim((string)($data['name']??''));if($name===''||mb_strlen($name)>150)Response::error('A valid location name is required',422);
-        $pdo=Database::getInstance();try{$stmt=$pdo->prepare('INSERT INTO inventory_locations(user_id,name,code,description) VALUES(?,?,?,?)');$stmt->execute([$user['id'],$name,$data['code']??null,$data['description']??null]);Response::success(['id'=>(int)$pdo->lastInsertId(),'name'=>$name],'Location created',201);}catch(\PDOException $e){if($e->getCode()==='23000')Response::error('A location with this name already exists',409);throw $e;}
+        try{Response::success(InventoryApplicationService::createLocation($user,$name,$data['code']??null,$data['description']??null),'Location created',201);}catch(\PDOException $e){if($e->getCode()==='23000')Response::error('A location with this name already exists',409);throw $e;}
     }
 }
