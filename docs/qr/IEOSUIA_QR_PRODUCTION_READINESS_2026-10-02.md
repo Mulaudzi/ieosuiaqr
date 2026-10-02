@@ -2,7 +2,7 @@
 
 Review date: 2026-10-02 (Africa/Johannesburg)
 
-Scope: current local candidate, deployment artifact, and read-only production-target checks. No deployment or production database mutation was performed.
+Scope: current local candidate, deployment artifact, controlled FTP deployment, and post-deployment production checks. No production database mutation was performed.
 
 ## Verdict
 
@@ -57,4 +57,13 @@ SHA-256: `FD390D2789DBE365D59E39F7549FB4D1FFF6AD7D3B63966F7E0489EAD2741DAB`
 2. Complete one real customer and, if applicable, admin login through Central Auth and verify the QR entitlement/session callback succeeds.
 3. Deploy the exact checked artifact, verify its SHA-256, then perform live QR create/edit/download/scan/analytics and inventory movement smoke tests.
 
-No production deployment was performed by this review.
+## Deployment record
+
+- Source commit: `ee69681db86d3b9d73d264d7b4a7f895c9d14b86`
+- Deployment method: configured private FTP workflow with the hosting-specific certificate mismatch and control-only TLS overrides
+- Remote document root: verified live root `qr`
+- Uploaded files: 171; protected runtime files including `api/.env`, uploads, exports, GeoIP data, and vendor were preserved
+- Live frontend fingerprint: `assets/index-uGeb30Jq.js`, exact match with the local production build
+- Live checks: homepage 200; JavaScript 200 with JavaScript MIME type; favicon 200 image/png; `api/.env` 403; test bootstrap 404; Central Auth start 302 to `auth.ieosuia.com`; desktop/mobile Chromium smoke PASS
+
+The production database is only reachable from the hosting environment, so its migration table could not be queried from this workstation. Migration files 030 and 031 are deployed, but their execution remains an explicit database pre-flight rather than an inferred success.
