@@ -622,9 +622,9 @@ class InventoryController
 
         $itemId = (int)$pdo->lastInsertId();
 
+        $location = trim((string)($data['location'] ?? '')) ?: 'Unassigned';
+        $pdo->prepare('INSERT IGNORE INTO inventory_locations(user_id,name) VALUES(?,?)')->execute([$user['id'],$location]);
         if ($inventoryType === 'quantity') {
-            $location = trim((string)($data['location'] ?? '')) ?: 'Unassigned';
-            $pdo->prepare('INSERT IGNORE INTO inventory_locations(user_id,name) VALUES(?,?)')->execute([$user['id'],$location]);
             $pdo->prepare('INSERT INTO inventory_stock_levels(item_id,location_name,quantity) VALUES(?,?,?)')->execute([$itemId,$location,$quantity]);
         }
         $pdo->prepare("INSERT INTO inventory_movements(item_id,user_id,action_type,quantity_delta,previous_quantity,new_quantity,previous_status,new_status,from_location,to_location,reason,performed_by,performed_by_name,occurred_at,workflow_id,idempotency_key,metadata) VALUES(?,?, 'opening_state', ?,0,?,NULL,?,NULL,?,'Initial inventory state',?,?,NOW(),UUID(),?,JSON_OBJECT('provenance','creation'))")
@@ -800,19 +800,12 @@ class InventoryController
             return;
         }
 
-        // Get history
-        $stmt = $pdo->prepare("
-            SELECT id, item_id, old_status, new_status, old_location, new_location, 
-                   changed_by_name as changed_by, changed_at
-            FROM inventory_status_history
-            WHERE item_id = ?
-            ORDER BY changed_at DESC
-            LIMIT 50
-        ");
-        $stmt->execute([$item['id']]);
-        $history = $stmt->fetchAll();
-
-        Response::success($history);
+        $page=InventoryApplicationService::movementPage((int)$item['id'],$user,['per_page'=>50]);
+        Response::success(array_map(static fn(array $row):array=>[
+            'id'=>$row['id'],'item_id'=>$row['item_id'],'old_status'=>$row['previous_status'],'new_status'=>$row['new_status'],
+            'old_location'=>$row['from_location'],'new_location'=>$row['to_location'],'changed_by'=>$row['performed_by_name'],
+            'changed_at'=>$row['occurred_at'],'action_type'=>$row['action_type'],'reason'=>$row['reason'],
+        ],$page['items']));
     }
 
     public static function performAction(int $id, string $action): void

@@ -126,3 +126,18 @@ Cycle 4 implementer finding census: critical 0, high 0, medium 0, low 0. Fresh i
 ## Recursive remediation cycle 5
 
 The cycle-4 review exposed MariaDB trigger-definer semantics: `CURRENT_USER()` identifies the trigger definer. All root-only cleanup guards now use the authenticated session identity from `USER()` instead. The complete disposable migration/integrity suite passes with the new guard; application principals can no longer obtain the cleanup bypass by setting a session variable. Production changes remain NONE.
+
+## Recursive remediation cycle 6
+
+The final review identified four release-blocking gaps and two smaller location/CI inconsistencies. This cycle closes them:
+
+- Migration 031 provides an explicit versioned successor for existing installations. It records reconciliation movements before correcting legacy aggregate drift, restores missing location allocations without rewriting the aggregate, registers canonical locations, restores the applied-movement foreign key, records migration versions, and is replay-tested without state mutation.
+- QR-linked inventory history now reads the canonical immutable movement ledger instead of the obsolete status-history table.
+- Account deletion preserves mandatory audit foreign keys while removing credentials, Central Auth linkage, personal profile fields, public QR access, inventory notes, and assignments. The retained owner row and QR records are anonymized/deactivated.
+- Serialized inventory creation now registers its location through the same canonical location registry used by controlled workflows.
+- CI runs MariaDB 10.11, matching the supported database engine, and excludes the two environment-specific operational migrations.
+- The delayed-history browser interception now uses an explicit wildcard route, and the complete twelve-type QR lifecycle has a realistic suite timeout without weakening any assertion.
+
+Cycle 6 implementer evidence: PHP syntax PASS; typecheck PASS; 23/23 unit tests PASS; inventory A-L PASS; fresh/legacy/integrity migration acceptance PASS; migration 030 and 031 replay PASS; production build PASS; inventory readiness 3/3 PASS; full Playwright 64/64 PASS with zero skips; lint PASS with 0 errors and 27 pre-existing warnings; diff whitespace PASS; production changes NONE.
+
+Cycle 6 implementer finding census: critical 0, high 0, medium 0, low 0. Successful external Central Auth entitlement remains a staging boundary. A fresh independent review of this final commit is still required before claiming independent acceptance.

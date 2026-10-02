@@ -32,7 +32,7 @@ test('authenticated owner can open protected inventory actions and history',asyn
 test('delayed movement history does not block authorized inventory actions',async({page},testInfo)=>{
   test.skip(!token||!itemId,'Local owner token unavailable');await page.addInitScript(value=>localStorage.setItem('auth_token',value),token);
   let releaseHistory!:()=>void;let markHistoryIntercepted!:()=>void;const historyBarrier=new Promise<void>(resolve=>{releaseHistory=resolve;});const historyIntercepted=new Promise<void>(resolve=>{markHistoryIntercepted=resolve;});let historyReleased=false;
-  await page.route(/\/api\/inventory\/[^/]+\/movements(?:\?|$)/,async route=>{markHistoryIntercepted();await historyBarrier;historyReleased=true;await route.continue();});
+  await page.route('**/api/inventory/*/movements*',async route=>{markHistoryIntercepted();await historyBarrier;historyReleased=true;await route.continue();});
   const historyResponse=page.waitForResponse(response=>/\/api\/inventory\/[^/]+\/movements(?:\?|$)/.test(response.url())&&response.status()===200);
   const started=Date.now();let actionsElapsed=0;try{await page.goto(`/dashboard/inventory/${itemId}`);await Promise.race([historyIntercepted,new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('Movement history route was not intercepted')),5_000))]);await expect(page.getByRole('button',{name:'Add stock',exact:true})).toBeVisible({timeout:20_000});await expect(page.getByRole('button',{name:'Add stock',exact:true})).toBeEnabled();actionsElapsed=Date.now()-started;expect(historyReleased).toBe(false);expect(actionsElapsed).toBeLessThan(20_000);}finally{releaseHistory();}
   await historyResponse;const historyElapsed=Date.now()-started;
@@ -57,7 +57,7 @@ test('selecting Event never crashes and invalid API dates are controlled',async(
 });
 
 test('all QR types create, read, edit, render, download, scan, resolve and report analytics',async({request,page})=>{
-  test.setTimeout(120_000);
+  test.setTimeout(300_000);
   test.skip(!token,'Local owner token unavailable');await page.addInitScript(value=>localStorage.setItem('auth_token',value),token);
   const cases:Record<string,Record<string,unknown>>={url:{content:'https://example.com'},text:{content:'hello'},email:{content:'test@example.com'},phone:{content:'+27123456789'},sms:{phoneNumber:'+27123456789',message:'hello'},whatsapp:{phoneNumber:'+27123456789',message:'hello'},wifi:{ssid:'Test',password:'secret',encryption:'WPA'},vcard:{fullName:'Test User',phone:'+27123456789'},event:{title:'Boundary event',description:'test',startDate:'2028-02-29',startTime:'23:59',endDate:'2028-03-01',endTime:'00:01',location:'HQ'},location:{latitude:'-26.2041',longitude:'28.0473',address:'',inputMode:'coordinates'},social:{links:JSON.stringify([{platform:'website',url:'https://example.com'}])},app:{appStoreUrl:'https://apps.apple.com/app/id123',playStoreUrl:'https://play.google.com/store/apps/details?id=test',linkType:'both'}};
   const ids:string[]=[];

@@ -33,6 +33,8 @@ $migrations = Get-ChildItem -LiteralPath $migrationRoot -Filter '*.sql' |
     Sort-Object Name
 $migration030 = $migrations | Where-Object Name -EQ '030_complete_inventory_management.sql'
 if (-not $migration030) { throw 'Migration 030 is missing.' }
+$migration031 = $migrations | Where-Object Name -EQ '031_inventory_integrity_upgrade.sql'
+if (-not $migration031) { throw 'Migration 031 is missing.' }
 
 try {
     docker compose exec -T database mariadb --user=root "--password=$rootPassword" --execute="DROP DATABASE IF EXISTS $freshDatabase; DROP DATABASE IF EXISTS $legacyDatabase; CREATE DATABASE $freshDatabase CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; CREATE DATABASE $legacyDatabase CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON $freshDatabase.* TO 'ieosuia_local'@'%'; GRANT ALL PRIVILEGES ON $legacyDatabase.* TO 'ieosuia_local'@'%'; FLUSH PRIVILEGES;"
@@ -85,9 +87,13 @@ SELECT CONCAT_WS('|',
     Invoke-Migration $legacyDatabase $migration030
     $afterReplay = Get-DatabaseScalar $legacyDatabase $stateSql
     if ($beforeReplay -ne $afterReplay) { throw "Migration 030 replay changed canonical state: before=$beforeReplay after=$afterReplay" }
+    Invoke-Migration $legacyDatabase $migration031
+    $afterUpgradeReplay = Get-DatabaseScalar $legacyDatabase $stateSql
+    if ($afterReplay -ne $afterUpgradeReplay) { throw "Migration 031 replay changed canonical state: before=$afterReplay after=$afterUpgradeReplay" }
     Invoke-ApplicationAcceptance $legacyDatabase 'legacy-verify'
 
     Write-Output '030 REPLAY: PASS'
+    Write-Output '031 REPLAY: PASS'
     $migrationManifest = $migrations | ForEach-Object { "$($_.Name):$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)" }
     Write-Output ("ORDERED MIGRATION MANIFEST WITH SHA256: PASS - " + ($migrationManifest -join ', '))
     Write-Output 'MIGRATION ACCEPTANCE: PASS'

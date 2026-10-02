@@ -787,25 +787,15 @@ class AuthController
             ");
             $stmt->execute([$user['id']]);
 
-            // Delete user's QR codes
-            $stmt = $pdo->prepare("DELETE FROM qr_codes WHERE user_id = ?");
-            $stmt->execute([$user['id']]);
-
-            // Delete inventory status history
-            $stmt = $pdo->prepare("
-                DELETE h FROM inventory_status_history h
-                INNER JOIN inventory_items i ON h.item_id = i.id
-                WHERE i.user_id = ?
-            ");
-            $stmt->execute([$user['id']]);
-
             // Delete inventory alerts
             $stmt = $pdo->prepare("DELETE FROM inventory_alerts WHERE user_id = ?");
             $stmt->execute([$user['id']]);
 
-            // Delete inventory items
-            $stmt = $pdo->prepare("DELETE FROM inventory_items WHERE user_id = ?");
-            $stmt->execute([$user['id']]);
+            // Immutable inventory ledgers are retained for audit integrity.
+            // Remove public access and personal content while preserving their
+            // owner key and historical movement snapshots.
+            $pdo->prepare("UPDATE inventory_items SET deleted_at=COALESCE(deleted_at,NOW()),notes=NULL,assigned_to=NULL,updated_at=NOW() WHERE user_id=?")->execute([$user['id']]);
+            $pdo->prepare("UPDATE qr_codes SET is_active=0,name='Deleted account QR',content=JSON_OBJECT('content','Unavailable'),custom_options=JSON_OBJECT() WHERE user_id=?")->execute([$user['id']]);
 
             // Delete user's avatar file if exists
             if (!empty($user['avatar_url']) && strpos($user['avatar_url'], '/uploads/avatars/') !== false) {
@@ -815,16 +805,18 @@ class AuthController
                 }
             }
 
-            // Finally delete the user
-            $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
-            $stmt->execute([$user['id']]);
+            // Anonymize the retained owner row so RESTRICT audit references
+            // remain valid without retaining account credentials or identity.
+            $anonymousEmail='deleted-'.$user['id'].'-'.bin2hex(random_bytes(8)).'@invalid.local';
+            $stmt=$pdo->prepare("UPDATE users SET email=?,password='disabled',name='Deleted user',avatar_url=NULL,google_id=NULL,central_identity_id=NULL,verification_token=NULL,reset_token=NULL,reset_token_expires=NULL,updated_at=NOW() WHERE id=?");
+            $stmt->execute([$anonymousEmail,$user['id']]);
 
             Database::commit();
 
             // Log the account deletion
             error_log("User account deleted: ID={$user['id']}, Email={$user['email']}");
 
-            Response::success(null, 'Your account has been permanently deleted.');
+            Response::success(null, 'Your account has been deleted and retained audit records were anonymized.');
 
         } catch (\Exception $e) {
             Database::rollback();

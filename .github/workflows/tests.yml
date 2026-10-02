@@ -11,14 +11,14 @@ jobs:
     runs-on: ubuntu-latest
     
     services:
-      mysql:
-        image: mysql:8.0
+      mariadb:
+        image: mariadb:10.11
         env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: qr_test
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: qr_test
         ports:
           - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+        options: --health-cmd="mariadb-admin ping -proot" --health-interval=10s --health-timeout=5s --health-retries=3
 
     steps:
       - uses: actions/checkout@v4
@@ -47,9 +47,10 @@ jobs:
 
       - name: Load database schema and migrations
         run: |
-          mysql -h 127.0.0.1 -uroot -proot qr_test < api/database/schema.sql
+          mariadb -h 127.0.0.1 -uroot -proot qr_test < api/database/schema.sql
           for migration in api/database/migrations/*.sql; do
-            mysql -h 127.0.0.1 -uroot -proot qr_test < "$migration"
+            case "$migration" in *027_link_central_identities.sql|*028_purge_local_credentials.sql) continue;; esac
+            mariadb -h 127.0.0.1 -uroot -proot qr_test < "$migration"
           done
 
       - name: Run PHPUnit tests
