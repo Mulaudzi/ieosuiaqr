@@ -1,167 +1,105 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import { ArrowRight, BarChart3, MapPin, TrendingUp } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { ArrowRight, Sparkles, BarChart3, Shield, Zap, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { getIEOSUIAQrLogoSource } from "@/components/brand/IEOSUIAQrLogoAssets";
 
 const ieosuiaLogo = getIEOSUIAQrLogoSource("standard");
 
+const entrance = {
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0 },
+};
+
 export function HeroSection() {
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
-      {/* Background Elements */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.1),transparent_50%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,hsl(var(--accent)/0.08),transparent_50%)]" />
-      
-      {/* Animated Grid */}
-      <div className="absolute inset-0 opacity-[0.03]" style={{
-        backgroundImage: `linear-gradient(hsl(var(--foreground)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px)`,
-        backgroundSize: '60px 60px'
-      }} />
+    <section className="relative overflow-hidden border-b border-slate-200/70 bg-white pb-16 pt-24 sm:pb-20 sm:pt-28 lg:pb-28 lg:pt-32">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[38rem] bg-[radial-gradient(circle_at_75%_30%,rgba(25,190,205,0.16),transparent_36%),radial-gradient(circle_at_18%_8%,rgba(37,99,235,0.09),transparent_28%)]" />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[32rem] opacity-[0.035]"
+        style={{
+          backgroundImage: "linear-gradient(#082f49 1px,transparent 1px),linear-gradient(90deg,#082f49 1px,transparent 1px)",
+          backgroundSize: "56px 56px",
+          maskImage: "linear-gradient(to bottom,black,transparent)",
+        }}
+      />
 
-      <div className="container mx-auto px-4 relative z-10">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-          {/* Left Content */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center lg:text-left"
-          >
-            {/* Badge */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6"
-            >
-              <Sparkles className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium text-primary">Complete Digital Solutions by IEOSUIA</span>
-            </motion.div>
+      <div className="relative mx-auto grid w-full max-w-7xl items-center gap-12 px-5 sm:px-8 lg:grid-cols-[1.03fr_.97fr] lg:gap-16 lg:px-10">
+        <motion.div initial="hidden" animate="visible" variants={entrance} transition={{ duration: 0.55 }} className="max-w-2xl text-center lg:text-left">
+          <p className="mb-5 text-sm font-semibold uppercase tracking-[0.18em] text-primary">Dynamic QR management</p>
+          <h1 className="font-display text-[2.75rem] font-bold leading-[0.98] tracking-[-0.045em] text-slate-950 sm:text-6xl lg:text-7xl">
+            Smart QR Codes.
+            <span className="mt-2 block bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-600 bg-clip-text text-transparent">
+              Create. Update. Track.
+            </span>
+          </h1>
+          <p className="mx-auto mt-7 max-w-xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8 lg:mx-0">
+            Create branded QR codes, change their destinations later, understand every scan, and manage what each code represents—all from one focused workspace.
+          </p>
+          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
+            <Button variant="hero" size="xl" asChild className="min-h-12 px-7 shadow-lg shadow-teal-500/20">
+              <Link to="/signup">Start Free Forever <ArrowRight className="ml-2 h-5 w-5" /></Link>
+            </Button>
+            <Button variant="outline" size="xl" asChild className="min-h-12 border-slate-300 bg-white/80 px-7">
+              <a href="#how-it-works">See How It Works</a>
+            </Button>
+          </div>
+          <p className="mt-5 text-sm text-slate-500">No credit card required. Full QR and inventory tools included.</p>
+        </motion.div>
 
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight mb-6">
-              Smart QR Codes:{" "}
-              <span className="gradient-text">Create, Update & Track</span>
-            </h1>
-
-            <p className="text-lg sm:text-xl text-muted-foreground mb-8 max-w-xl mx-auto lg:mx-0">
-              Dynamic QRs with scan insights and inventory management for businesses, churches, schools & more. Track products, assets, and engagement effortlessly.
-            </p>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start mb-12">
-              <Button variant="hero" size="xl" asChild>
-                <Link to="/signup">
-                  Start Tracking Free
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Link>
-              </Button>
-              <Button variant="hero-outline" size="lg" asChild>
-                <Link to="/docs">View Docs</Link>
-              </Button>
+        <motion.div initial={{ opacity: 0, scale: 0.96, y: 24 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.65, delay: 0.12 }} className="relative mx-auto w-full max-w-[34rem]">
+          <div aria-hidden="true" className="absolute inset-8 rounded-full bg-gradient-to-br from-teal-300/40 to-blue-400/30 blur-3xl" />
+          <div className="relative overflow-hidden rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_30px_80px_-35px_rgba(8,47,73,0.45)] backdrop-blur sm:p-7">
+            <div className="flex items-start justify-between gap-5 border-b border-slate-100 pb-5">
+              <div>
+                <p className="font-display text-xl font-semibold text-slate-950">Your Brand QR</p>
+                <p className="mt-1 text-sm text-slate-500">Dynamic • Editable • Trackable</p>
+              </div>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Active</span>
             </div>
 
-            {/* Trust Indicators */}
-            <div className="flex flex-wrap items-center gap-6 justify-center lg:justify-start">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Shield className="w-4 h-4 text-success" />
-                <span>Advanced Security</span>
+            <div className="grid items-center gap-6 py-6 sm:grid-cols-[1fr_1.05fr]">
+              <div className="mx-auto rounded-3xl border border-slate-100 bg-slate-50 p-5 shadow-inner">
+                <QRCodeSVG
+                  value="https://qr.ieosuia.com"
+                  size={210}
+                  level="H"
+                  className="h-auto w-full max-w-[210px]"
+                  fgColor="#089f94"
+                  bgColor="transparent"
+                  imageSettings={{ src: ieosuiaLogo, height: 16, width: 48, excavate: true }}
+                  role="img"
+                  aria-label="Demonstration IEOSUIA QR code"
+                />
               </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <BarChart3 className="w-4 h-4 text-primary" />
-                <span>Inventory Tracking</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Sparkles className="w-4 h-4 text-accent" />
-                <span>Free Forever</span>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Right Content - QR Code Display */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="relative"
-          >
-            {/* Main QR Card */}
-            <div className="relative mx-auto max-w-md">
-              <div className="absolute -inset-4 bg-gradient-to-r from-primary/20 to-accent/20 rounded-3xl blur-2xl" />
-              <div className="relative glass-card rounded-3xl p-8 lg:p-10">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h3 className="font-display font-semibold text-lg">Your Brand QR</h3>
-                    <p className="text-sm text-muted-foreground">Dynamic • Trackable</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
-                    <div className="w-3 h-3 rounded-full bg-success animate-pulse" />
-                  </div>
+              <div className="space-y-3">
+                <div className="rounded-2xl bg-slate-950 p-4 text-white">
+                  <div className="flex items-center gap-2 text-xs text-slate-400"><BarChart3 className="h-4 w-4 text-cyan-400" /> Demo analytics</div>
+                  <p className="mt-3 text-3xl font-bold tracking-tight">1,284</p>
+                  <p className="text-sm text-slate-400">Scans</p>
                 </div>
-                
-                <div className="bg-background rounded-2xl p-6 mb-6 flex items-center justify-center">
-                  <QRCodeSVG
-                    value="https://ieosuia.com"
-                    size={200}
-                    level="H"
-                    includeMargin={false}
-                    className="w-full h-auto max-w-[200px]"
-                    fgColor="hsl(174, 72%, 35%)"
-                    bgColor="transparent"
-                    imageSettings={{
-                      src: ieosuiaLogo,
-                      x: undefined,
-                      y: undefined,
-                      height: 17,
-                      width: 50,
-                      excavate: true,
-                    }}
-                  />
-                </div>
-
-                {/* Stats Row */}
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="text-center p-3 rounded-xl bg-muted/50">
-                    <div className="flex items-center justify-center mb-1">
-                      <Zap className="w-4 h-4 text-primary" />
-                    </div>
-                    <p className="text-xs text-muted-foreground">Instant Setup</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                    <MapPin className="h-4 w-4 text-blue-600" />
+                    <p className="mt-2 text-lg font-bold text-slate-900">43</p>
+                    <p className="text-[11px] text-slate-500">Locations</p>
                   </div>
-                  <div className="text-center p-3 rounded-xl bg-muted/50">
-                    <div className="flex items-center justify-center mb-1">
-                      <Shield className="w-4 h-4 text-accent" />
-                    </div>
-                    <p className="text-xs text-muted-foreground">POPIA Compliant</p>
-                  </div>
-                  <div className="text-center p-3 rounded-xl bg-muted/50">
-                    <div className="flex items-center justify-center mb-1">
-                      <Clock className="w-4 h-4 text-success" />
-                    </div>
-                    <p className="text-xs text-muted-foreground">24/7 Support</p>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                    <TrendingUp className="h-4 w-4 text-emerald-600" />
+                    <p className="mt-2 text-lg font-bold text-emerald-700">+18%</p>
+                    <p className="text-[11px] text-slate-500">This week</p>
                   </div>
                 </div>
               </div>
             </div>
-
-            {/* Floating Elements */}
-            <motion.div
-              animate={{ y: [-10, 10, -10] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute -top-8 -right-8 hidden w-20 h-20 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 backdrop-blur-sm sm:flex"
-            >
-              <BarChart3 className="w-8 h-8 text-primary" />
-            </motion.div>
-
-            <motion.div
-              animate={{ y: [10, -10, 10] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute -bottom-4 -left-8 hidden w-16 h-16 items-center justify-center rounded-2xl border border-accent/20 bg-accent/10 backdrop-blur-sm sm:flex"
-            >
-              <Shield className="w-6 h-6 text-accent" />
-            </motion.div>
-          </motion.div>
-        </div>
+            <div className="flex items-center justify-between rounded-2xl bg-cyan-50 px-4 py-3 text-sm">
+              <span className="font-medium text-slate-700">Destination updated</span>
+              <span className="text-slate-500">QR stays the same</span>
+            </div>
+          </div>
+        </motion.div>
       </div>
     </section>
   );

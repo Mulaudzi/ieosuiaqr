@@ -1,153 +1,30 @@
 import { motion } from "framer-motion";
-import {
-  QrCode,
-  BarChart3,
-  Palette,
-  Zap,
-  Shield,
-  Users,
-  Globe,
-  Package,
-} from "lucide-react";
+import { BarChart3, Link2, Package, Palette } from "lucide-react";
 
 const features = [
-  {
-    icon: QrCode,
-    title: "Multiple QR Types",
-    description:
-      "Create URL, vCard, WiFi, Email, SMS, Event, and Geo-location QR codes with ease.",
-    color: "primary",
-  },
-  {
-    icon: Package,
-    title: "Smart Inventory QR",
-    description:
-      "Assign QRs to items, track scans/movement, and update status in real-time. Perfect for asset management.",
-    color: "accent",
-  },
-  {
-    icon: BarChart3,
-    title: "Advanced Analytics",
-    description:
-      "Track scans, locations, devices, and more with real-time dashboards and reports.",
-    color: "success",
-  },
-  {
-    icon: Zap,
-    title: "Dynamic QR Codes",
-    description:
-      "Update content anytime without reprinting. Perfect for campaigns and promotions.",
-    color: "warning",
-  },
-  {
-    icon: Shield,
-    title: "Advanced Security",
-    description:
-      "GDPR compliant with encrypted data, role-based access, and audit logs.",
-    color: "primary",
-  },
-  {
-    icon: Users,
-    title: "Team Collaboration",
-    description:
-      "Invite team members, assign roles, and manage QR codes together seamlessly.",
-    color: "accent",
-  },
-  {
-    icon: Globe,
-    title: "Global Reach",
-    description:
-      "QR codes work worldwide with multi-language support and international tracking.",
-    color: "success",
-  },
-  {
-    icon: Palette,
-    title: "Custom Branding",
-    description:
-      "Add your logo, choose colors, and customize patterns to match your brand identity.",
-    color: "warning",
-  },
+  { icon: Link2, title: "Dynamic QR Codes", description: "Change a code’s destination or content without replacing the QR already in circulation.", tone: "from-teal-500/15 to-cyan-500/5 text-teal-700" },
+  { icon: BarChart3, title: "Scan Analytics", description: "See scan totals, unique scans, trends, devices, locations, and your best-performing codes.", tone: "from-blue-500/15 to-cyan-500/5 text-blue-700" },
+  { icon: Package, title: "Inventory Linking", description: "Connect a QR code to an item, location, status, and auditable inventory movement history.", tone: "from-violet-500/15 to-blue-500/5 text-violet-700" },
+  { icon: Palette, title: "Brand Customisation", description: "Apply colours, frames, patterns, and your own logo while keeping codes scannable.", tone: "from-amber-500/15 to-orange-500/5 text-amber-700" },
 ];
-
-const colorClasses = {
-  primary: {
-    bg: "bg-primary/10",
-    text: "text-primary",
-    border: "border-primary/20",
-  },
-  accent: {
-    bg: "bg-accent/10",
-    text: "text-accent",
-    border: "border-accent/20",
-  },
-  success: {
-    bg: "bg-success/10",
-    text: "text-success",
-    border: "border-success/20",
-  },
-  warning: {
-    bg: "bg-warning/10",
-    text: "text-warning",
-    border: "border-warning/20",
-  },
-};
 
 export function FeaturesSection() {
   return (
-    <section id="features" className="py-24 lg:py-32 relative">
-      <div className="absolute inset-0 bg-muted/30" />
-      
-      <div className="container mx-auto px-4 relative z-10">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-16"
-        >
-          <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
-            Features
-          </span>
-          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
-            Everything You Need to{" "}
-            <span className="gradient-text">Succeed</span>
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            From creation to analytics, we provide all the tools you need to
-            create impactful QR code campaigns.
-          </p>
+    <section id="features" className="bg-slate-50 py-20 sm:py-24 lg:py-28">
+      <div className="mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-10">
+        <motion.div initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.4 }} className="mx-auto max-w-3xl text-center">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">One connected platform</p>
+          <h2 className="mt-4 font-display text-3xl font-bold tracking-[-0.035em] text-slate-950 sm:text-5xl">Everything your QR code needs, in one place.</h2>
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">Build the code, control what it opens, understand its activity, and connect it to the item it represents.</p>
         </motion.div>
-
-        {/* Features Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {features.map((feature, index) => {
-            const colors = colorClasses[feature.color as keyof typeof colorClasses];
-            return (
-              <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="group"
-              >
-                <div className="h-full p-6 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5">
-                  <div
-                    className={`w-12 h-12 rounded-xl ${colors.bg} ${colors.border} border flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}
-                  >
-                    <feature.icon className={`w-6 h-6 ${colors.text}`} />
-                  </div>
-                  <h3 className="font-display font-semibold text-lg mb-2">
-                    {feature.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {feature.description}
-                  </p>
-                </div>
-              </motion.div>
-            );
-          })}
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {features.map((feature, index) => (
+            <motion.article key={feature.title} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.35 }} transition={{ delay: index * 0.06 }} className="group rounded-3xl border border-slate-200/80 bg-white p-6 shadow-[0_12px_40px_-30px_rgba(15,23,42,0.5)] transition duration-300 hover:-translate-y-1 hover:border-cyan-300 hover:shadow-[0_20px_50px_-28px_rgba(8,145,178,0.35)] sm:p-7">
+              <div className={`grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br ${feature.tone}`}><feature.icon className="h-6 w-6" /></div>
+              <h3 className="mt-6 font-display text-xl font-semibold tracking-tight text-slate-950">{feature.title}</h3>
+              <p className="mt-3 text-sm leading-6 text-slate-600">{feature.description}</p>
+            </motion.article>
+          ))}
         </div>
       </div>
     </section>

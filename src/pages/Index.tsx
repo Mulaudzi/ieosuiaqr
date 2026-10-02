@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, MotionConfig } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Header } from "@/components/layout/Header";
@@ -10,9 +10,9 @@ import { FeaturesSection } from "@/components/landing/FeaturesSection";
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { UseCasesSection } from "@/components/landing/UseCasesSection";
 import { CTASection } from "@/components/landing/CTASection";
-import { QRTypesExplainedSection } from "@/components/landing/QRTypesExplainedSection";
-import { QRTypesShowcaseSection } from "@/components/landing/QRTypesShowcaseSection";
-import { QRDesignShowcaseSection } from "@/components/landing/QRDesignShowcaseSection";
+import { ProductShowcaseSection } from "@/components/landing/ProductShowcaseSection";
+import { AnalyticsShowcaseSection } from "@/components/landing/AnalyticsShowcaseSection";
+import { TrustSection } from "@/components/landing/TrustSection";
 import { IEOSUIAQrLogo } from "@/components/brand/IEOSUIAQrLogo";
 
 const Index = () => {
@@ -51,20 +51,22 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen">
-      <Header />
-      <main>
-        <HeroSection />
-        <FeaturesSection />
-        <QRTypesExplainedSection />
-        <QRTypesShowcaseSection />
-        <QRDesignShowcaseSection />
-        <HowItWorksSection />
-        <UseCasesSection />
-        <CTASection />
-      </main>
-      <Footer />
-    </div>
+    <MotionConfig reducedMotion="user">
+      <div className="min-h-screen bg-white">
+        <Header />
+        <main>
+          <HeroSection />
+          <FeaturesSection />
+          <ProductShowcaseSection />
+          <AnalyticsShowcaseSection />
+          <HowItWorksSection />
+          <UseCasesSection />
+          <TrustSection />
+          <CTASection />
+        </main>
+        <Footer />
+      </div>
+    </MotionConfig>
   );
 };
 

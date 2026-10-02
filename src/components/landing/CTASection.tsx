@@ -1,80 +1,18 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Shield, Zap, Clock } from "lucide-react";
 
 export function CTASection() {
   return (
-    <section className="py-24 lg:py-32 relative overflow-hidden">
-      {/* Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.1),transparent_70%)]" />
-      
-      <div className="container mx-auto px-4 relative z-10">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="max-w-4xl mx-auto text-center"
-        >
-          {/* Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.2 }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8"
-          >
-            <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-primary">
-              100% free with full features
-            </span>
-          </motion.div>
-
-          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold mb-6">
-            Start Tracking Your First Items{" "}
-            <span className="gradient-text">Today</span>
-          </h2>
-          <p className="text-lg sm:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-            Join businesses, churches, and schools using IEOSUIA to create smart QR codes and track inventory. No hardware or credit card required.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button variant="hero" size="xl" asChild>
-              <Link to="/signup">
-                Create QR Now
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Link>
-            </Button>
-            <Button variant="outline" size="lg" asChild>
-              <Link to="/docs">Read Documentation</Link>
-            </Button>
-          </div>
-
-          {/* Value Props instead of fake stats */}
-          <div className="mt-16 grid grid-cols-3 gap-8 max-w-2xl mx-auto">
-            <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                <Zap className="w-6 h-6 text-primary" />
-              </div>
-              <p className="text-sm font-medium text-foreground">Instant Setup</p>
-              <p className="text-xs text-muted-foreground mt-1">Ready in minutes</p>
-            </div>
-            <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center mb-3">
-                <Shield className="w-6 h-6 text-accent" />
-              </div>
-              <p className="text-sm font-medium text-foreground">POPIA Compliant</p>
-              <p className="text-xs text-muted-foreground mt-1">Your data is safe</p>
-            </div>
-            <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center mb-3">
-                <Clock className="w-6 h-6 text-success" />
-              </div>
-              <p className="text-sm font-medium text-foreground">SA Based Support</p>
-              <p className="text-xs text-muted-foreground mt-1">Local expertise</p>
-            </div>
+    <section id="pricing" className="bg-white py-20 sm:py-24 lg:py-28">
+      <div className="mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-10">
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950 px-6 py-12 text-white shadow-[0_30px_90px_-45px_rgba(8,145,178,0.7)] sm:px-10 sm:py-16 lg:px-16">
+          <div aria-hidden="true" className="absolute -right-24 -top-32 h-80 w-80 rounded-full bg-cyan-400/20 blur-3xl" />
+          <div aria-hidden="true" className="absolute -bottom-40 left-1/4 h-72 w-72 rounded-full bg-blue-500/15 blur-3xl" />
+          <div className="relative grid items-center gap-10 lg:grid-cols-[1fr_auto]">
+            <div className="max-w-3xl"><p className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-300">Free forever</p><h2 className="mt-4 font-display text-3xl font-bold tracking-[-0.035em] sm:text-5xl">Ready to make your QR codes work harder?</h2><p className="mt-5 text-base leading-7 text-slate-300 sm:text-lg">Create, manage, and track smarter QR codes with IEOSUIA QR.</p><div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-300">{["No credit card", "QR analytics", "Inventory tools"].map(item => <span key={item} className="flex items-center gap-2"><Check className="h-4 w-4 text-cyan-300" />{item}</span>)}</div></div>
+            <Button size="xl" asChild className="min-h-13 shrink-0 bg-white px-7 text-slate-950 shadow-xl hover:bg-cyan-50"><Link to="/signup">Create Your First QR Code <ArrowRight className="ml-2 h-5 w-5" /></Link></Button>
           </div>
         </motion.div>
       </div>

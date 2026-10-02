@@ -1,154 +1,26 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import {
-  Store,
-  Utensils,
-  Building2,
-  Ticket,
-  Package,
-  GraduationCap,
-  ArrowRight,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowRight, BriefcaseBusiness, Church, GraduationCap, Package, Sparkles, Store, Ticket, Utensils } from "lucide-react";
 
 const useCases = [
-  {
-    icon: Package,
-    title: "Inventory & Asset Tracking",
-    description:
-      "Track equipment, products, and assets with smart QR codes. Perfect for churches, schools, warehouses, and events.",
-    examples: ["Church equipment", "School books", "Shop stock", "Event check-in"],
-    color: "primary",
-  },
-  {
-    icon: Store,
-    title: "Retail & E-commerce",
-    description:
-      "Link to product pages, promotions, and loyalty programs. Track customer engagement.",
-    examples: ["Product packaging", "In-store displays", "Receipt marketing"],
-    color: "accent",
-  },
-  {
-    icon: Utensils,
-    title: "Restaurants & Cafes",
-    description:
-      "Digital menus, contactless ordering, and customer feedback collection.",
-    examples: ["Table menus", "Takeaway orders", "Review collection"],
-    color: "success",
-  },
-  {
-    icon: Building2,
-    title: "Real Estate",
-    description:
-      "Virtual tours, property details, and agent contact information.",
-    examples: ["Property signs", "Brochures", "Open house materials"],
-    color: "warning",
-  },
-  {
-    icon: Ticket,
-    title: "Events & Entertainment",
-    description:
-      "Ticketing, event schedules, and exclusive content access.",
-    examples: ["Event tickets", "Venue navigation", "VIP experiences"],
-    color: "primary",
-  },
-  {
-    icon: GraduationCap,
-    title: "Education",
-    description:
-      "Course materials, campus navigation, and student resources.",
-    examples: ["Library resources", "Campus maps", "Assignment submission"],
-    color: "accent",
-  },
+  { icon: BriefcaseBusiness, title: "Businesses", text: "Digital touchpoints for services, teams, and customers." },
+  { icon: Store, title: "Retail", text: "Connect packaging and displays to current product information." },
+  { icon: Package, title: "Inventory", text: "Identify assets and maintain controlled movement records." },
+  { icon: Ticket, title: "Events", text: "Share schedules, locations, contact details, and event content." },
+  { icon: Church, title: "Churches", text: "Make programmes, giving information, and resources easy to reach." },
+  { icon: GraduationCap, title: "Schools", text: "Link learners and staff to resources, assets, and information." },
+  { icon: Utensils, title: "Restaurants", text: "Publish menus, booking details, locations, and feedback links." },
+  { icon: Sparkles, title: "Creators", text: "Bring audiences to profiles, portfolios, campaigns, and contact points." },
 ];
-
-const colorClasses = {
-  primary: "bg-primary/10 text-primary border-primary/20",
-  accent: "bg-accent/10 text-accent border-accent/20",
-  success: "bg-success/10 text-success border-success/20",
-  warning: "bg-warning/10 text-warning border-warning/20",
-};
 
 export function UseCasesSection() {
   return (
-    <section id="solutions" className="py-24 lg:py-32 relative bg-muted/30">
-      <div className="container mx-auto px-4">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-16"
-        >
-          <span className="inline-block px-4 py-1.5 rounded-full bg-success/10 text-success text-sm font-medium mb-4">
-            Solutions
-          </span>
-          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
-            Built for{" "}
-            <span className="gradient-text">Every Industry</span>
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            From small teams to large organizations, see how people use
-            IEOSUIA QR codes to connect with their audience.
-          </p>
-        </motion.div>
-
-        {/* Use Cases Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {useCases.map((useCase, index) => (
-            <motion.div
-              key={useCase.title}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="group"
-            >
-              <div className="h-full p-8 rounded-3xl bg-card border border-border hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5">
-                <div
-                  className={`w-14 h-14 rounded-2xl ${
-                    colorClasses[useCase.color as keyof typeof colorClasses]
-                  } border flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}
-                >
-                  <useCase.icon className="w-7 h-7" />
-                </div>
-                <h3 className="font-display text-xl font-bold mb-3">
-                  {useCase.title}
-                </h3>
-                <p className="text-muted-foreground mb-6">
-                  {useCase.description}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {useCase.examples.map((example) => (
-                    <span
-                      key={example}
-                      className="text-xs px-3 py-1.5 rounded-full bg-muted text-muted-foreground"
-                    >
-                      {example}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          ))}
+    <section id="solutions" className="bg-slate-50 py-20 sm:py-24 lg:py-28">
+      <div className="mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-10">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div className="max-w-3xl"><p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Made for the real world</p><h2 className="mt-4 font-display text-3xl font-bold tracking-[-0.035em] text-slate-950 sm:text-5xl">One platform. Many useful places.</h2><p className="mt-5 text-base leading-7 text-slate-600 sm:text-lg">Use a QR code wherever people or teams need fast access to information that may change.</p></div><Link to="/solutions" className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-teal-700">Explore all solutions <ArrowRight className="h-4 w-4" /></Link></div>
+        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {useCases.map((useCase, index) => <motion.article key={useCase.title} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: (index % 4) * 0.05 }} className="group rounded-2xl border border-slate-200 bg-white p-5 transition duration-300 hover:-translate-y-1 hover:border-cyan-300 hover:shadow-lg hover:shadow-cyan-950/5 sm:p-6"><div className="flex items-center justify-between"><span className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-cyan-50 to-blue-50 text-teal-700"><useCase.icon className="h-5 w-5" /></span><ArrowRight className="h-4 w-4 text-slate-300 transition group-hover:translate-x-1 group-hover:text-primary" /></div><h3 className="mt-5 font-display text-lg font-semibold text-slate-950">{useCase.title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{useCase.text}</p></motion.article>)}
         </div>
-
-        {/* View All Solutions Button */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="text-center mt-12"
-        >
-          <Link to="/solutions">
-            <Button size="lg" variant="outline" className="gap-2">
-              View All Solutions
-              <ArrowRight className="w-4 h-4" />
-            </Button>
-          </Link>
-        </motion.div>
       </div>
     </section>
   );
