@@ -26,6 +26,10 @@ describe("public crawler HTML", () => {
     expect(html).toContain('<meta name="twitter:title"');
     expect(html).toContain('<meta name="theme-color"');
     expect(html).toContain("/ieosuia-qr-favicon-v2.png");
+    expect(html).toContain("/ieosuia-qr-social-preview-v1.png");
+    expect(html).toContain('<meta property="og:image:width" content="1200"');
+    expect(html).toContain('<meta property="og:image:height" content="630"');
+    expect(html).toContain('<script id="structured-data" type="application/ld+json">');
     expect(html.toLowerCase()).not.toContain("lovable");
     expect(html).not.toMatch(/free forever/i);
   });
@@ -36,6 +40,7 @@ describe("public crawler HTML", () => {
     expect(robots).toContain("Disallow: /dashboard/");
     expect(robots).toContain("Sitemap: https://qr.ieosuia.com/sitemap.xml");
     expect(sitemap).toContain("https://qr.ieosuia.com/solutions");
+    expect(sitemap).toContain("https://qr.ieosuia.com/solutions/inventory-asset-tracking");
     expect(sitemap).not.toMatch(/dashboard|admin|api|scan|\/go\//i);
   });
 
@@ -50,6 +55,13 @@ describe("public crawler HTML", () => {
     }
     expect(generator).toContain("<h1>${escapeHtml(route.heading)}</h1>");
     expect(generator).toContain("Invalid static HTML for /");
+  });
+
+  it("ships a correctly sized social preview image", () => {
+    const image = readFileSync(resolve(process.cwd(), "public/ieosuia-qr-social-preview-v1.png"));
+    expect(image.subarray(1, 4).toString("ascii")).toBe("PNG");
+    expect(image.readUInt32BE(16)).toBe(1200);
+    expect(image.readUInt32BE(20)).toBe(630);
   });
 
   it("keeps public source free of private records and prohibited public wording", () => {

@@ -13,6 +13,8 @@ import { CTASection } from "@/components/landing/CTASection";
 import { ProductShowcaseSection } from "@/components/landing/ProductShowcaseSection";
 import { AnalyticsShowcaseSection } from "@/components/landing/AnalyticsShowcaseSection";
 import { TrustSection } from "@/components/landing/TrustSection";
+import { AvailabilitySection } from "@/components/landing/AvailabilitySection";
+import { FAQSection } from "@/components/landing/FAQSection";
 import { IEOSUIAQrLogo } from "@/components/brand/IEOSUIAQrLogo";
 
 const Index = () => {
@@ -56,12 +58,14 @@ const Index = () => {
         <Header />
         <main>
           <HeroSection />
+          <AvailabilitySection />
           <FeaturesSection />
           <ProductShowcaseSection />
           <AnalyticsShowcaseSection />
           <HowItWorksSection />
           <UseCasesSection />
           <TrustSection />
+          <FAQSection />
           <CTASection />
         </main>
         <Footer />

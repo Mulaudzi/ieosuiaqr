@@ -6,7 +6,7 @@ const dist = resolve(root, "dist");
 const indexPath = resolve(dist, "index.html");
 const baseHtml = await readFile(indexPath, "utf8");
 
-const routes = [
+const baseRoutes = [
   {
     path: "solutions",
     title: "QR Code Solutions | IEOSUIA QR",
@@ -105,6 +105,30 @@ const routes = [
   },
 ];
 
+const solutionRoutes = [
+  ["inventory-asset-tracking", "Inventory and Asset Tracking", "Link QR codes to equipment, products and assets with controlled inventory workflows."],
+  ["retail-ecommerce", "QR Codes for Retail", "Connect products and displays to current information and understand supported scan activity."],
+  ["restaurants-cafes", "QR Codes for Restaurants", "Share menus, locations, booking details and feedback links through managed QR codes."],
+  ["events-entertainment", "QR Codes for Events", "Share event schedules, locations, contacts and supported event content from one managed code."],
+  ["education", "QR Codes for Education", "Connect learners, staff and visitors to resources, locations and managed assets."],
+  ["churches-religious", "QR Codes for Churches", "Share programmes and resources while linking equipment and assets to controlled records."],
+  ["hospitality-tourism", "QR Codes for Hospitality", "Give guests quick access to useful information, locations, WiFi details and feedback links."],
+  ["professional-services", "QR Codes for Professional Services", "Share contact details, portfolios, documents and current client resources."],
+].map(([slug, heading, description]) => ({
+  path: `solutions/${slug}`,
+  title: `${heading} | IEOSUIA QR`,
+  description,
+  heading,
+  intro: description,
+  sections: [
+    ["Create", "Choose a supported QR type and configure the information or destination it represents."],
+    ["Manage", "Update supported destinations and keep QR records organised in one workspace."],
+    ["Understand", "Review supported scan activity and connect physical records where the workflow requires it."],
+  ],
+}));
+
+const routes = [...baseRoutes, ...solutionRoutes];
+
 const escapeHtml = (value) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 
 function staticBody(route) {
@@ -124,13 +148,14 @@ function renderRoute(route) {
     .replace(/<meta property="og:url" content="[^"]*"\s*\/>/, `<meta property="og:url" content="${canonical}" />`)
     .replace(/<meta name="twitter:title" content="[^"]*"\s*\/>/, `<meta name="twitter:title" content="${escapeHtml(route.title)}" />`)
     .replace(/<meta name="twitter:description" content="[^"]*"\s*\/>/, `<meta name="twitter:description" content="${escapeHtml(route.description)}" />`)
+    .replace(/<script id="structured-data" type="application\/ld\+json">[\s\S]*?<\/script>/, `<script id="structured-data" type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "WebPage", name: route.heading, url: canonical, description: route.description, isPartOf: { "@type": "WebSite", name: "IEOSUIA QR Codes", url: "https://qr.ieosuia.com/" } })}</script>`)
     .replace(/<!-- public-static-content:start -->[\s\S]*?<!-- public-static-content:end -->/, `<!-- public-static-content:start -->${staticBody(route)}<!-- public-static-content:end -->`);
   const h1Count = (html.match(/<h1(?:\s|>)/g) ?? []).length;
   if (h1Count !== 1 || html.includes('<div id="root"></div>')) throw new Error(`Invalid static HTML for /${route.path}: h1=${h1Count}`);
   return html;
 }
 
-for (const route of routes) await writeFile(resolve(dist, `${route.path}.html`), renderRoute(route), "utf8");
+for (const route of routes) await writeFile(resolve(dist, `${route.path.replaceAll("/", "-")}.html`), renderRoute(route), "utf8");
 
 const rootH1Count = (baseHtml.match(/<h1(?:\s|>)/g) ?? []).length;
 if (rootH1Count !== 1 || baseHtml.includes('<div id="root"></div>')) throw new Error(`Invalid static HTML for /: h1=${rootH1Count}`);
