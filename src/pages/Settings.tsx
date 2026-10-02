@@ -270,7 +270,7 @@ export default function Settings() {
                           <Shield className="w-3 h-3 mr-1" />
                           {user?.email_verified_at ? "Verified" : "Unverified"}
                         </Badge>
-                        <Badge variant="outline">Free Forever</Badge>
+                        <Badge variant="outline">Free</Badge>
                         <Badge variant="outline">
                           <Calendar className="w-3 h-3 mr-1" />
                           {user?.created_at

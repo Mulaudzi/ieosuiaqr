@@ -5,7 +5,11 @@ RewriteEngine On
 # Central identity entry points: redirect before the React shell can render.
 RewriteRule ^login/?$ /api/auth/ieosuia/start [R=302,L,NE]
 RewriteRule ^signup/?$ /api/auth/ieosuia/start?screen_hint=signup [R=302,L,NE]
+RewriteRule ^register/?$ /api/auth/ieosuia/start?screen_hint=signup [R=302,L,NE]
 RewriteRule ^admin/login/?$ /api/auth/ieosuia/start?account_type=admin [R=302,L,NE]
+
+# Keep the conventional favicon URL branded while allowing cache-busting.
+RewriteRule ^favicon\.ico$ /ieosuia-qr-favicon-v2.png [R=302,L,NE]
 
 # Built assets must be served as real files. Returning index.html for a
 # missing JavaScript chunk causes strict MIME-type errors in browsers.

@@ -40,7 +40,7 @@ export function HeroSection() {
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
             <Button variant="hero" size="xl" asChild className="min-h-12 px-7 shadow-lg shadow-teal-500/20">
-              <Link to="/signup">Start Free Forever <ArrowRight className="ml-2 h-5 w-5" /></Link>
+              <Link to="/signup">Start Free <ArrowRight className="ml-2 h-5 w-5" /></Link>
             </Button>
             <Button variant="outline" size="xl" asChild className="min-h-12 border-slate-300 bg-white/80 px-7">
               <a href="#how-it-works">See How It Works</a>

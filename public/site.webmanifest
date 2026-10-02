@@ -1,0 +1,9 @@
+{
+  "name": "IEOSUIA QR Codes",
+  "short_name": "IEOSUIA QR",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#071f35",
+  "icons": [{"src":"/ieosuia-qr-favicon-v2.png","sizes":"96x96","type":"image/png","purpose":"any"}]
+}

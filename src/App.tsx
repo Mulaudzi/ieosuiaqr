@@ -64,6 +64,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<CentralAuthRedirect />} />
               <Route path="/signup" element={<CentralAuthRedirect mode="signup" />} />
+              <Route path="/register" element={<CentralAuthRedirect mode="signup" />} />
               <Route path="/auth/callback" element={<CentralAuthRedirect callback />} />
               <Route path="/admin/auth/callback" element={<CentralAuthRedirect mode="admin" callback />} />
               <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />

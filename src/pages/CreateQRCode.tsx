@@ -768,7 +768,7 @@ export default function CreateQRCode() {
                       isPro={true}
                     />
 
-                    {/* Logo uploader is included free forever. */}
+                    {/* Logo uploader is included free. */}
                     <div className="pt-4 border-t border-border">
                       <LogoUploader
                         selectedLogo={selectedLogo}

@@ -174,7 +174,7 @@ export function DashboardSidebar({ activeTab, onTabChange }: DashboardSidebarPro
               </div>
               <div className="flex-1 text-left">
                 <p className="text-sm font-medium">{userName}</p>
-                <p className="text-xs text-muted-foreground">Free Forever</p>
+                <p className="text-xs text-muted-foreground">Free</p>
               </div>
               <ChevronDown className="w-4 h-4 text-muted-foreground" />
             </button>

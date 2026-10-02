@@ -97,7 +97,7 @@ export function Header() {
                   <Link to="/login">Sign In</Link>
                 </Button>
                 <Button variant="hero" asChild>
-                  <Link to="/signup">Start Free Forever</Link>
+                  <Link to="/signup">Start Free</Link>
                 </Button>
               </>
             )}
@@ -169,7 +169,7 @@ export function Header() {
                       <Link to="/login">Sign In</Link>
                     </Button>
                     <Button variant="hero" asChild className="w-full justify-center">
-                      <Link to="/signup">Start Free Forever</Link>
+                      <Link to="/signup">Start Free</Link>
                     </Button>
                   </>
                 )}

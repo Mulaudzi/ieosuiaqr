@@ -328,7 +328,7 @@ export function BulkInventoryImport({ open, onOpenChange, onSuccess }: BulkInven
                 />
                 <Label htmlFor="auto-qr" className="cursor-pointer flex items-center gap-2">
                   <QrCode className="w-4 h-4 text-primary" />
-                  Auto-generate QR codes for each item — free forever
+                  Auto-generate QR codes for each item — free
                 </Label>
               </div>
 

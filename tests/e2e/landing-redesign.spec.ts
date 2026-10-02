@@ -35,7 +35,7 @@ for (const viewport of viewports) {
 test("landing calls to action and navigation retain their destinations", async ({ page }) => {
   await page.route("**/api/auth/me", route => route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ success: false }) }));
   await page.goto("/");
-  await expect(page.getByRole("link", { name: "Start Free Forever" }).first()).toHaveAttribute("href", "/signup");
+  await expect(page.getByRole("link", { name: "Start Free", exact: true }).first()).toHaveAttribute("href", "/signup");
   await expect(page.getByRole("link", { name: "See How It Works" })).toHaveAttribute("href", "#how-it-works");
   await expect(page.getByRole("link", { name: "Docs", exact: true })).toHaveAttribute("href", "/docs");
   await expect(page.getByRole("navigation").getByRole("link", { name: "Pricing", exact: true })).toHaveAttribute("href", "/#pricing");
