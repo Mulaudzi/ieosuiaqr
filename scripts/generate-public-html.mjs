@@ -110,7 +110,7 @@ const escapeHtml = (value) => value.replaceAll("&", "&amp;").replaceAll("<", "&l
 function staticBody(route) {
   const cards = route.sections.map(([heading, copy]) => `<section class="crawler-shell__card"><h2>${escapeHtml(heading)}</h2><p>${escapeHtml(copy)}</p></section>`).join("");
   const badge = route.badge ? `<p><strong>${escapeHtml(route.badge)}</strong></p>` : "";
-  return `<div class="crawler-shell"><header class="crawler-shell__bar"><nav class="crawler-shell__nav" aria-label="Main navigation"><a href="/" aria-label="IEOSUIA QR Codes home"><img src="/ieosuia-qr-logo-standard.png" alt="IEOSUIA QR Codes" width="2172" height="724" /></a><div class="crawler-shell__links"><a href="/#features">Features</a><a href="/solutions">Solutions</a><a href="/docs">Docs</a><a href="/login">Sign in</a></div></nav></header><main><section class="crawler-shell__hero">${badge}<h1>${escapeHtml(route.heading)}</h1><p class="crawler-shell__lead">${escapeHtml(route.intro)}</p></section><div class="crawler-shell__section crawler-shell__grid">${cards}</div><section class="crawler-shell__section crawler-shell__cta"><h2>Need more help?</h2><p>Contact IEOSUIA or open the full interactive page for more information.</p><a class="crawler-shell__button" href="/contact">Contact IEOSUIA</a></section></main><footer class="crawler-shell__footer"><strong>IEOSUIA QR Codes</strong><span><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/cookies">Cookies</a> · <a href="/support">Support</a></span></footer></div>`;
+  return `<div class="crawler-shell"><header class="crawler-shell__bar"><nav class="crawler-shell__nav" aria-label="Main navigation"><a href="/" aria-label="IEOSUIA QR Codes home"><img src="/ieosuia-qr-logo-standard.png" alt="IEOSUIA QR Codes" width="2172" height="724" /></a><div class="crawler-shell__links"><a href="/#features">Features</a><a href="/solutions">Solutions</a><a href="/docs">Docs</a><a href="/login">Sign in</a></div></nav></header><main><section class="crawler-shell__hero">${badge}<h1>${escapeHtml(route.heading)}</h1><p class="crawler-shell__lead">${escapeHtml(route.intro)}</p></section><div class="crawler-shell__section crawler-shell__grid">${cards}</div><section class="crawler-shell__section crawler-shell__cta"><h2>Need more help?</h2><p>Contact IEOSUIA or open the full interactive page for more information.</p><a class="crawler-shell__button" href="/contact">Contact IEOSUIA</a></section></main><footer class="crawler-shell__footer"><strong>IEOSUIA QR Codes</strong><span><a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a> &middot; <a href="/cookies">Cookies</a> &middot; <a href="/support">Support</a></span></footer></div>`;
 }
 
 function renderRoute(route) {
@@ -134,4 +134,8 @@ for (const route of routes) await writeFile(resolve(dist, `${route.path}.html`),
 
 const rootH1Count = (baseHtml.match(/<h1(?:\s|>)/g) ?? []).length;
 if (rootH1Count !== 1 || baseHtml.includes('<div id="root"></div>')) throw new Error(`Invalid static HTML for /: h1=${rootH1Count}`);
+for (const requiredText of ["IEOSUIA QR Codes", "Smart QR Codes. Create. Update. Track.", "Available Now", "Coming Soon", "Create a QR Code Free"]) {
+  if (!baseHtml.includes(requiredText)) throw new Error(`Missing required homepage content: ${requiredText}`);
+}
+if (/free forever|lovable/i.test(baseHtml)) throw new Error("Forbidden public branding or pricing language found in homepage HTML");
 console.log(`Generated crawler-readable HTML for / and ${routes.map(route => `/${route.path}`).join(", ")}`);
