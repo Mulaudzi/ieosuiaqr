@@ -36,7 +36,7 @@ export function HeroSection() {
             </span>
           </h1>
           <p className="mx-auto mt-7 max-w-xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8 lg:mx-0">
-            Create branded QR codes, change their destinations later, understand every scan, and manage what each code represents—all from one focused workspace.
+            Create branded QR codes, update supported destinations, review supported scan activity, and manage what each code represents—all from one focused workspace for South African organisations.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
             <Button variant="hero" size="xl" asChild className="min-h-12 px-7 shadow-lg shadow-teal-500/20">
@@ -46,7 +46,7 @@ export function HeroSection() {
               <a href="#how-it-works">See How It Works</a>
             </Button>
           </div>
-          <p className="mt-5 text-sm text-slate-500">No credit card required. Full QR and inventory tools included.</p>
+          <p className="mt-5 text-sm text-slate-500">Create an account through IEOSUIA Central Auth to get started.</p>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, scale: 0.96, y: 24 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.65, delay: 0.12 }} className="relative mx-auto w-full max-w-[34rem]">

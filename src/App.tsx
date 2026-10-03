@@ -40,6 +40,7 @@ const InventoryDetail = lazy(() => import("./pages/InventoryDetail"));
 const Careers = lazy(() => import("./pages/Careers"));
 const Solutions = lazy(() => import("./pages/Solutions"));
 const SolutionDetail = lazy(() => import("./pages/SolutionDetail"));
+const PublicSeoPage = lazy(() => import("./pages/PublicSeoPage"));
 const AdminIndex = lazy(() => import("./pages/AdminIndex"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminEmails = lazy(() => import("./pages/AdminEmails"));
@@ -92,6 +93,16 @@ const App = () => (
               <Route path="/careers" element={<Careers />} />
               <Route path="/solutions" element={<Solutions />} />
               <Route path="/solutions/:solutionId" element={<SolutionDetail />} />
+              <Route path="/features" element={<PublicSeoPage />} />
+              <Route path="/dynamic-qr-codes" element={<PublicSeoPage />} />
+              <Route path="/qr-code-generator-south-africa" element={<PublicSeoPage />} />
+              <Route path="/branded-qr-codes" element={<PublicSeoPage />} />
+              <Route path="/qr-analytics" element={<PublicSeoPage />} />
+              <Route path="/inventory-qr-codes" element={<PublicSeoPage />} />
+              <Route path="/use-cases" element={<PublicSeoPage />} />
+              <Route path="/pricing" element={<PublicSeoPage />} />
+              <Route path="/faq" element={<PublicSeoPage />} />
+              <Route path="/popia-compliance" element={<PublicSeoPage />} />
               <Route path="/admin" element={<AdminIndex />} />
               <Route path="/admin/login" element={<CentralAuthRedirect mode="admin" />} />
               <Route path="/admin/dashboard" element={<AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>} />

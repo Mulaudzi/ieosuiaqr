@@ -8,9 +8,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { IEOSUIAQrLogo } from "@/components/brand/IEOSUIAQrLogo";
 
 const navLinks = [
-  { name: "Features", href: "/#features" },
+  { name: "Features", href: "/features" },
   { name: "Solutions", href: "/solutions" },
-  { name: "Pricing", href: "/#pricing" },
+  { name: "Pricing", href: "/pricing" },
   { name: "Docs", href: "/docs" },
 ];
 

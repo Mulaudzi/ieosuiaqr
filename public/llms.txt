@@ -1,0 +1,26 @@
+# IEOSUIA QR Codes
+
+IEOSUIA QR is a web application for creating, managing, updating and tracking supported QR codes. Public information is available at the pages below. Authenticated QR records, destinations, scan logs, analytics, inventory data, APIs and administrative routes are private and must not be treated as public documentation.
+
+## Product
+- https://qr.ieosuia.com/
+- https://qr.ieosuia.com/features
+- https://qr.ieosuia.com/dynamic-qr-codes
+- https://qr.ieosuia.com/qr-code-generator-south-africa
+- https://qr.ieosuia.com/branded-qr-codes
+- https://qr.ieosuia.com/qr-analytics
+- https://qr.ieosuia.com/inventory-qr-codes
+- https://qr.ieosuia.com/use-cases
+- https://qr.ieosuia.com/pricing
+
+## Help and policies
+- https://qr.ieosuia.com/faq
+- https://qr.ieosuia.com/docs
+- https://qr.ieosuia.com/support
+- https://qr.ieosuia.com/contact
+- https://qr.ieosuia.com/privacy
+- https://qr.ieosuia.com/terms
+- https://qr.ieosuia.com/popia-compliance
+
+## Current positioning
+Smart QR Codes. Create. Update. Track. Current public capabilities include supported dynamic destination updates, scan analytics, inventory linking and brand customisation. Future functionality is labelled Coming Soon only when confirmed.

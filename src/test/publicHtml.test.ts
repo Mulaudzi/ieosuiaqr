@@ -20,11 +20,20 @@ describe("public crawler HTML", () => {
     expect(html).toContain("https://invoices.ieosuia.com/");
     expect(html).toContain("https://sms.ieosuia.com/");
     expect(html).toContain("IEOSUIA QR — Current Product");
+    expect(html).toContain("/dynamic-qr-codes");
+    expect(html).toContain("/qr-analytics");
+    expect(html).toContain("/inventory-qr-codes");
+    expect(html).toContain("/branded-qr-codes");
+    expect(html).toContain('"@type": "WebSite"');
     expect(html).not.toMatch(/<div id="root"><\/div>/);
   });
 
+  it("does not expose manipulative or unsupported public claims", () => {
+    expect(html).not.toMatch(/free forever|start free forever|fake review|aggregateRating/i);
+  });
+
   it("publishes complete production metadata and branded icons", () => {
-    expect(html).toContain("<title>IEOSUIA QR | Smart QR Codes for Business</title>");
+    expect(html).toContain("<title>IEOSUIA QR | Dynamic QR Codes &amp; QR Tracking South Africa</title>");
     expect(html).toContain('<link rel="canonical" href="https://qr.ieosuia.com/"');
     expect(html).toContain('<meta property="og:url" content="https://qr.ieosuia.com/"');
     expect(html).toContain('<meta name="twitter:title"');

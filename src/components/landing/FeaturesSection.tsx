@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import { BarChart3, Link2, Package, Palette } from "lucide-react";
 
 const features = [
-  { icon: Link2, title: "Dynamic QR Codes", description: "Change a code’s destination or content without replacing the QR already in circulation.", tone: "from-teal-500/15 to-cyan-500/5 text-teal-700" },
-  { icon: BarChart3, title: "Scan Analytics", description: "See scan totals, unique scans, trends, devices, locations, and your best-performing codes.", tone: "from-blue-500/15 to-cyan-500/5 text-blue-700" },
-  { icon: Package, title: "Inventory Linking", description: "Connect a QR code to an item, location, status, and auditable inventory movement history.", tone: "from-violet-500/15 to-blue-500/5 text-violet-700" },
-  { icon: Palette, title: "Brand Customisation", description: "Apply colours, frames, patterns, and your own logo while keeping codes scannable.", tone: "from-amber-500/15 to-orange-500/5 text-amber-700" },
+  { icon: Link2, title: "Dynamic QR Codes", description: "Change a supported destination without replacing the QR already in circulation.", href: "/dynamic-qr-codes", tone: "from-teal-500/15 to-cyan-500/5 text-teal-700" },
+  { icon: BarChart3, title: "Scan Analytics", description: "Review supported scan totals, unique scans, trends, devices, approximate locations and recent activity.", href: "/qr-analytics", tone: "from-blue-500/15 to-cyan-500/5 text-blue-700" },
+  { icon: Package, title: "Inventory Linking", description: "Connect a QR code to an item, location, status and controlled inventory movement history.", href: "/inventory-qr-codes", tone: "from-violet-500/15 to-blue-500/5 text-violet-700" },
+  { icon: Palette, title: "Brand Customisation", description: "Apply supported colours, frames, patterns and a logo, then test the finished code.", href: "/branded-qr-codes", tone: "from-amber-500/15 to-orange-500/5 text-amber-700" },
 ];
 
 export function FeaturesSection() {
@@ -23,6 +24,7 @@ export function FeaturesSection() {
               <div className={`grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br ${feature.tone}`}><feature.icon className="h-6 w-6" /></div>
               <h3 className="mt-6 font-display text-xl font-semibold tracking-tight text-slate-950">{feature.title}</h3>
               <p className="mt-3 text-sm leading-6 text-slate-600">{feature.description}</p>
+              <Link to={feature.href} className="mt-5 inline-block text-sm font-semibold text-primary hover:text-teal-700">Explore {feature.title.toLowerCase()} →</Link>
             </motion.article>
           ))}
         </div>

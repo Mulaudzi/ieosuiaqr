@@ -12,5 +12,6 @@ Disallow: /register
 Disallow: /forgot-password
 Disallow: /reset-password
 Disallow: /verification-required
+Disallow: /*?*
 
 Sitemap: https://qr.ieosuia.com/sitemap.xml

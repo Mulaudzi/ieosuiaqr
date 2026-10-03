@@ -3,9 +3,9 @@ import { IEOSUIAQrLogo } from "@/components/brand/IEOSUIAQrLogo";
 import { OfficialSocialLinks } from "@/components/brand/OfficialSocialLinks";
 
 const groups = [
-  { title: "Product", links: [{ name: "Features", href: "/#features" }, { name: "Pricing", href: "/#pricing" }, { name: "Get started", href: "/signup" }] },
-  { title: "Solutions", links: [{ name: "All solutions", href: "/solutions" }, { name: "Inventory", href: "/solutions/inventory-asset-tracking" }, { name: "Events", href: "/solutions/events-entertainment" }] },
-  { title: "Resources", links: [{ name: "Documentation", href: "/docs" }, { name: "Support", href: "/support" }, { name: "Contact", href: "/contact" }] },
+  { title: "Product", links: [{ name: "Features", href: "/features" }, { name: "Pricing", href: "/pricing" }, { name: "Get started", href: "/signup" }] },
+  { title: "Solutions", links: [{ name: "All solutions", href: "/solutions" }, { name: "Dynamic QR codes", href: "/dynamic-qr-codes" }, { name: "Inventory QR codes", href: "/inventory-qr-codes" }] },
+  { title: "Resources", links: [{ name: "Documentation", href: "/docs" }, { name: "FAQ", href: "/faq" }, { name: "Support", href: "/support" }, { name: "Contact", href: "/contact" }] },
   { title: "Company", links: [{ name: "About IEOSUIA", href: "https://www.ieosuia.com", external: true }, { name: "Careers", href: "/careers" }] },
   { title: "Legal", links: [{ name: "Privacy", href: "/privacy" }, { name: "Terms", href: "/terms" }, { name: "Cookies", href: "/cookies" }] },
 ];

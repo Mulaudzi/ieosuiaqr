@@ -22,10 +22,14 @@ RewriteRule ^assets/ - [L]
 # Let the API handle its own routing.
 RewriteRule ^api(?:/|$) - [L]
 
+# One canonical public URL form: no trailing slash except the origin root.
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.+)/$ /$1 [R=301,L,NE]
+
 # Public information routes have build-time HTML with route-specific metadata
 # and content. React takes over after the initial document is parsed.
-RewriteRule ^(solutions|docs|privacy|terms|cookies|support|contact|careers)/?$ $1.html [L]
-RewriteRule ^solutions/([^/]+)/?$ solutions-$1.html [L]
+RewriteRule ^(solutions|features|dynamic-qr-codes|qr-code-generator-south-africa|branded-qr-codes|qr-analytics|inventory-qr-codes|use-cases|pricing|faq|popia-compliance|docs|privacy|terms|cookies|support|contact|careers)$ $1.html [L]
+RewriteRule ^solutions/([^/]+)$ solutions-$1.html [L]
 
 # React client-side routing: only fall back for paths that are not files.
 RewriteCond %{REQUEST_FILENAME} !-f
@@ -35,7 +39,7 @@ RewriteRule ^ index.html [L]
 <IfModule mod_headers.c>
     # Always revalidate the application shell so it references the current
     # content-hashed JavaScript and CSS files after a deployment.
-    <FilesMatch "^(?:index|solutions(?:-[a-z0-9-]+)?|docs|privacy|terms|cookies|support|contact|careers)\.html$">
+    <FilesMatch "^(?:index|solutions(?:-[a-z0-9-]+)?|features|dynamic-qr-codes|qr-code-generator-south-africa|branded-qr-codes|qr-analytics|inventory-qr-codes|use-cases|pricing|faq|popia-compliance|docs|privacy|terms|cookies|support|contact|careers)\.html$">
         Header set Cache-Control "no-cache, no-store, must-revalidate"
         Header set Pragma "no-cache"
         Header set Expires "0"
