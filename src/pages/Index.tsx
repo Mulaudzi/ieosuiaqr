@@ -15,6 +15,7 @@ import { AnalyticsShowcaseSection } from "@/components/landing/AnalyticsShowcase
 import { TrustSection } from "@/components/landing/TrustSection";
 import { AvailabilitySection } from "@/components/landing/AvailabilitySection";
 import { FAQSection } from "@/components/landing/FAQSection";
+import { EcosystemSection } from "@/components/landing/EcosystemSection";
 import { IEOSUIAQrLogo } from "@/components/brand/IEOSUIAQrLogo";
 
 const Index = () => {
@@ -68,6 +69,7 @@ const Index = () => {
           <FAQSection />
           <CTASection />
         </main>
+        <EcosystemSection />
         <Footer />
       </div>
     </MotionConfig>
