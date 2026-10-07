@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { useNavigate } from "react-router-dom";
 import { motion, MotionConfig } from "framer-motion";
 import { Loader2 } from "lucide-react";
@@ -71,6 +72,7 @@ const Index = () => {
         </main>
         <EcosystemSection />
         <Footer />
+        <WhatsAppButton />
       </div>
     </MotionConfig>
   );

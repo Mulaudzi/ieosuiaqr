@@ -16,7 +16,7 @@ describe("public crawler HTML", () => {
     expect(html).toContain("Dynamic QR Codes");
     expect(html).toContain("Scan Analytics");
     expect(html).toContain("Create a QR Code Free");
-    expect(html).toContain("More tools. More services. One IEOSUIA ecosystem.");
+    expect(html).toContain("Explore more from the IEOSUIA ecosystem");
     expect(html).toContain("https://invoices.ieosuia.com/");
     expect(html).toContain("https://sms.ieosuia.com/");
     expect(html).toContain("IEOSUIA QR — Current Product");

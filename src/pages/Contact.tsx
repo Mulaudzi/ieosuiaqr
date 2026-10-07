@@ -315,11 +315,11 @@ export default function Contact() {
                       </div>
                       <div>
                         <p className="font-medium mb-1">Phone & WhatsApp</p>
-                        <a href="tel:+27799282775" className="text-muted-foreground hover:text-primary transition-colors text-sm block">
-                          079 928 2775 (Calls & WhatsApp)
+                        <a href="tel:+27638082493" className="text-muted-foreground hover:text-primary transition-colors text-sm block">
+                          +27 63 808 2493 (Calls)
                         </a>
-                        <a href="tel:+27631540696" className="text-muted-foreground hover:text-primary transition-colors text-sm">
-                          063 154 0696 (Calls Only)
+                        <a href="https://wa.me/27638082493" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors text-sm">
+                          +27 63 808 2493 (WhatsApp)
                         </a>
                       </div>
                     </div>

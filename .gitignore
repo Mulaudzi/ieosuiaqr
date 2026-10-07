@@ -43,3 +43,9 @@ api/geoip/*.mmdb
 *.njsproj
 *.sln
 *.sw?
+
+# Private verification artifacts and generated Python caches
+.artifacts/
+__pycache__/
+*.pyc
+*.pyo

@@ -300,7 +300,7 @@ class ContactController
                                         
                                         <!-- CTA Button -->
                                         <div style='text-align: center; margin: 30px 0;'>
-                                            <a href='https://wa.me/27799282775' style='display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;'>
+                                            <a href='https://wa.me/27638082493' style='display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;'>
                                                 💬 Chat on WhatsApp
                                             </a>
                                         </div>

@@ -254,7 +254,7 @@ const PrivacyPolicy = () => {
                 <p><strong className="text-foreground">Email:</strong> support@ieosuia.com</p>
                 <p><strong className="text-foreground">General Inquiries:</strong> hello@ieosuia.com</p>
                 <p><strong className="text-foreground">Address:</strong> 26 Rock Alder, Extension 15, Naturena, Johannesburg, 2095</p>
-                <p><strong className="text-foreground">Phone:</strong> 079 928 2775 / 063 154 0696</p>
+                <p><strong className="text-foreground">Phone:</strong> +27 63 808 2493</p>
               </div>
               <p className="text-muted-foreground leading-relaxed mt-4">
                 If you are not satisfied with our response, you have the right to lodge a complaint with the 

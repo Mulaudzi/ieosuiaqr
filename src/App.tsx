@@ -8,7 +8,6 @@ import { lazy, Suspense } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute, PublicRoute } from "@/components/auth/ProtectedRoute";
 import { CookieConsent } from "@/components/CookieConsent";
-import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import CentralAuthRedirect from "@/components/auth/CentralAuthRedirect";
@@ -116,7 +115,6 @@ const App = () => (
             </Routes>
             </Suspense>
             <CookieConsent />
-            <WhatsAppButton />
           </BrowserRouter>
         </TooltipProvider>
       </AuthProvider>

@@ -287,7 +287,7 @@ const Support = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
               >
-                <a href="https://wa.me/27799282775" target="_blank" rel="noopener noreferrer">
+                <a href="https://wa.me/27638082493" target="_blank" rel="noopener noreferrer">
                   <Card className="h-full hover:border-success/50 transition-colors cursor-pointer">
                     <CardHeader className="text-center">
                       <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center mx-auto mb-3">
@@ -297,7 +297,7 @@ const Support = () => {
                       <CardDescription>Chat with us on WhatsApp</CardDescription>
                     </CardHeader>
                     <CardContent className="text-center">
-                      <p className="text-success text-sm font-medium">079 928 2775</p>
+                      <p className="text-success text-sm font-medium">+27 63 808 2493</p>
                       <div className="flex items-center justify-center gap-2 mt-3 text-sm text-success">
                         <CheckCircle2 className="h-4 w-4" />
                         <span>Quick responses</span>
@@ -446,7 +446,7 @@ const Support = () => {
                   </Link>
                 </Button>
                 <Button variant="outline" size="lg" asChild>
-                  <a href="https://wa.me/27799282775" target="_blank" rel="noopener noreferrer">
+                  <a href="https://wa.me/27638082493" target="_blank" rel="noopener noreferrer">
                     <MessageCircle className="h-4 w-4 mr-2" />
                     WhatsApp Us
                   </a>

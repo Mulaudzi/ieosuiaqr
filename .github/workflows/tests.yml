@@ -82,4 +82,7 @@ jobs:
         run: npm run lint
 
       - name: Build application
-        run: npm run build
+        run: npm run build:web
+
+      - name: Verify crawlable public pages
+        run: npm run test:seo
