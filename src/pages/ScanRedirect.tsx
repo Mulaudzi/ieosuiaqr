@@ -99,8 +99,8 @@ export default function ScanRedirect() {
   const hasDestination = Boolean(payload?.redirect_url);
 
   return (
-    <main className="fixed inset-0 z-[100] grid min-h-[100dvh] place-items-center overflow-y-auto bg-gradient-to-br from-slate-50 via-white to-cyan-50 p-4 text-slate-900">
-      <section className="w-full max-w-md rounded-3xl border border-slate-200/80 bg-white p-6 text-center shadow-2xl shadow-cyan-950/10 sm:p-8">
+    <main className="fixed inset-0 z-[100] grid min-h-[100dvh] w-full max-w-full place-items-center overflow-x-hidden overflow-y-auto bg-gradient-to-br from-slate-50 via-white to-cyan-50 px-3 py-4 text-slate-900 sm:p-4">
+      <section className="min-w-0 w-full max-w-md overflow-hidden rounded-3xl border border-slate-200/80 bg-white p-5 text-center shadow-2xl shadow-cyan-950/10 sm:p-8">
         <IEOSUIAQrLogo variant="high-contrast" className="mx-auto mb-6 w-[210px] sm:w-[250px]" />
 
         {isLoading && (
@@ -138,22 +138,22 @@ export default function ScanRedirect() {
               {socialLinks.length ? "Select where you would like to go." : "Here is the information shared by this QR code."}
             </p>
             {socialLinks.length > 0 && (
-              <div className="mt-6 space-y-3">
+              <div className="min-w-0 mt-6 space-y-3">
                 {socialLinks.map((link, index) => link.href ? (
-                  <Button key={`${link.platform}-${index}`} asChild variant="outline" className="h-auto min-h-14 w-full justify-between rounded-2xl px-4 py-3 text-left">
-                    <a href={link.href} target="_self" rel="noopener noreferrer">
-                      <span>
+                  <Button key={`${link.platform}-${index}`} asChild variant="outline" className="h-auto min-h-14 min-w-0 w-full max-w-full justify-between overflow-hidden rounded-2xl px-4 py-3 text-left">
+                    <a href={link.href} target="_self" rel="noopener noreferrer" className="min-w-0 max-w-full">
+                      <span className="min-w-0 flex-1 overflow-hidden">
                         <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">{readableLabel(link.platform)}</span>
-                        <span className="mt-1 block break-all text-sm text-slate-900">{link.url}</span>
+                        <span className="mt-1 block max-w-full break-all [overflow-wrap:anywhere] text-sm leading-5 text-slate-900">{link.url}</span>
                       </span>
                       <ExternalLink className="ml-3 h-5 w-5 shrink-0 text-primary" />
                     </a>
                   </Button>
                 ) : (
-                  <div key={`${link.platform}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left">
+                  <div key={`${link.platform}-${index}`} className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{readableLabel(link.platform)}</p>
                     <div className="mt-1 flex items-center justify-between gap-3">
-                      <p className="break-all text-sm font-medium">{link.url}</p>
+                      <p className="min-w-0 flex-1 break-all [overflow-wrap:anywhere] text-sm font-medium">{link.url}</p>
                       <button className="rounded-lg p-2 text-slate-500 hover:bg-white" onClick={() => copyValue(link.platform, link.url)} aria-label={`Copy ${link.platform}`}>
                         {copied === link.platform ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
                       </button>
@@ -164,10 +164,10 @@ export default function ScanRedirect() {
             )}
             <div className="mt-6 space-y-3 text-left">
               {socialLinks.length === 0 && (rows.length > 0 ? rows.map(([label, value]) => (
-                <div key={`${label}-${value}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div key={`${label}-${value}`} className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
                   <div className="mt-1 flex items-start justify-between gap-3">
-                    <p className="min-w-0 break-words text-sm font-medium">{value}</p>
+                    <p className="min-w-0 flex-1 break-all [overflow-wrap:anywhere] text-sm font-medium">{value}</p>
                     <button className="shrink-0 rounded-lg p-2 text-slate-500 hover:bg-white" onClick={() => copyValue(label, value)} aria-label={`Copy ${label}`}>
                       {copied === label ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
                     </button>
