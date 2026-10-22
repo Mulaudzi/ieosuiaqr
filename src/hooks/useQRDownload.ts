@@ -15,6 +15,13 @@ interface DownloadOptions {
 
 const DEFAULT_QR_VALUE = "https://ieosuia.com";
 
+const escapeSvgText = (value: string): string => value
+  .replace(/&/g, "&amp;")
+  .replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;")
+  .replace(/'/g, "&apos;");
+
 // Generate SVG string with custom styling
 const generateStyledSVG = async (
   value: string,
@@ -40,6 +47,7 @@ const generateStyledSVG = async (
 
   const effectiveBgColor = transparentBg ? "transparent" : bgColor;
   const effectiveCornerColor = cornerColor || fgColor;
+  const safeFrameText = escapeSvgText(frameText);
 
   // Generate QR matrix
   const qr = QRCodeGenerator.create(value || DEFAULT_QR_VALUE, {
@@ -209,7 +217,7 @@ const generateStyledSVG = async (
         frameContent = `
           <rect width="${totalWidth}" height="${totalHeight}" fill="${effectiveBgColor}" ${frameStyle === "rounded" ? 'rx="16"' : ""}/>
           <rect y="${totalHeight - 32}" width="${totalWidth}" height="32" fill="${frameColor}"/>
-          <text x="${totalWidth / 2}" y="${totalHeight - 10}" text-anchor="middle" fill="${frameTextColor}" font-size="12" font-weight="bold" font-family="sans-serif">${frameText}</text>
+          <text x="${totalWidth / 2}" y="${totalHeight - 10}" text-anchor="middle" fill="${frameTextColor}" font-size="12" font-weight="bold" font-family="sans-serif">${safeFrameText}</text>
         `;
         break;
       case "banner-top":
@@ -220,7 +228,7 @@ const generateStyledSVG = async (
         frameContent = `
           <rect width="${totalWidth}" height="${totalHeight}" fill="${effectiveBgColor}" rx="12"/>
           <rect width="${totalWidth}" height="${bannerHeight}" fill="${frameColor}" rx="12 12 0 0"/>
-          <text x="${totalWidth / 2}" y="${bannerHeight / 2 + 4}" text-anchor="middle" fill="${frameTextColor}" font-size="12" font-weight="bold" font-family="sans-serif">${frameText}</text>
+          <text x="${totalWidth / 2}" y="${bannerHeight / 2 + 4}" text-anchor="middle" fill="${frameTextColor}" font-size="12" font-weight="bold" font-family="sans-serif">${safeFrameText}</text>
         `;
         break;
       case "banner-bottom":
@@ -231,7 +239,7 @@ const generateStyledSVG = async (
         frameContent = `
           <rect width="${totalWidth}" height="${totalHeight}" fill="${effectiveBgColor}" rx="12"/>
           <rect y="${totalHeight - bannerHeight}" width="${totalWidth}" height="${bannerHeight}" fill="${frameColor}" rx="0 0 12 12"/>
-          <text x="${totalWidth / 2}" y="${totalHeight - bannerHeight / 2 + 4}" text-anchor="middle" fill="${frameTextColor}" font-size="12" font-weight="bold" font-family="sans-serif">${frameText}</text>
+          <text x="${totalWidth / 2}" y="${totalHeight - bannerHeight / 2 + 4}" text-anchor="middle" fill="${frameTextColor}" font-size="12" font-weight="bold" font-family="sans-serif">${safeFrameText}</text>
         `;
         break;
       case "badge":
@@ -242,7 +250,7 @@ const generateStyledSVG = async (
         frameContent = `
           <rect width="${totalWidth}" height="${totalHeight}" fill="${effectiveBgColor}" rx="24" stroke="${frameColor}" stroke-width="4"/>
           <rect y="${totalHeight - 48}" width="${totalWidth}" height="48" fill="${frameColor}" rx="0 0 24 24"/>
-          <text x="${totalWidth / 2}" y="${totalHeight - 18}" text-anchor="middle" fill="${frameTextColor}" font-size="14" font-weight="bold" font-family="sans-serif">${frameText}</text>
+          <text x="${totalWidth / 2}" y="${totalHeight - 18}" text-anchor="middle" fill="${frameTextColor}" font-size="14" font-weight="bold" font-family="sans-serif">${safeFrameText}</text>
         `;
         break;
       case "ticket":
@@ -255,7 +263,7 @@ const generateStyledSVG = async (
           <rect x="8" y="8" width="${totalWidth - 16}" height="${totalHeight - 16}" fill="none" stroke="${frameColor}" stroke-width="2" stroke-dasharray="4" rx="12"/>
           <rect x="${totalWidth / 2 - 32}" y="0" width="64" height="8" fill="${frameColor}" rx="0 0 4 4"/>
           <rect y="${totalHeight - 48}" width="${totalWidth}" height="48" fill="${frameColor}"/>
-          <text x="${totalWidth / 2}" y="${totalHeight - 16}" text-anchor="middle" fill="${frameTextColor}" font-size="14" font-weight="bold" letter-spacing="2" font-family="sans-serif">${frameText}</text>
+          <text x="${totalWidth / 2}" y="${totalHeight - 16}" text-anchor="middle" fill="${frameTextColor}" font-size="14" font-weight="bold" letter-spacing="2" font-family="sans-serif">${safeFrameText}</text>
         `;
         break;
     }

@@ -112,6 +112,8 @@ const frameStyles = [
   { id: "ticket", name: "Ticket" },
 ];
 
+const frameTextSuggestions = ["SCAN ME", "CONNECT", "OPEN LINK"] as const;
+
 const presetLogos = [
   { id: "none", icon: X, name: "None" },
   { id: "link", icon: Link2, name: "Link" },
@@ -136,7 +138,7 @@ export function QRDesignCustomizer({
   isPro = false,
   onUpgradeClick,
 }: QRDesignCustomizerProps) {
-  const [activeTab, setActiveTab] = useState("shape");
+  const [activeTab, setActiveTab] = useState("frame");
 
   const updateOption = <K extends keyof QRDesignOptions>(
     key: K,
@@ -235,15 +237,44 @@ export function QRDesignCustomizer({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="frame-text">Frame Text</Label>
+                <Label htmlFor="frame-text">Caption text</Label>
                 <Input
                   id="frame-text"
-                  placeholder="SCAN ME"
+                  placeholder="Enter your own phrase"
                   value={options.frameText}
                   onChange={(e) => updateOption("frameText", e.target.value)}
                   maxLength={20}
                 />
-                <p className="text-xs text-muted-foreground">Max 20 characters</p>
+                <div className="flex flex-wrap gap-2" aria-label="Caption suggestions">
+                  {frameTextSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => updateOption("frameText", suggestion)}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        options.frameText === suggestion
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                      }`}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => updateOption("frameText", "")}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                      options.frameText === ""
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                    }`}
+                  >
+                    No caption
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Choose a suggestion, type your own phrase (up to 20 characters), or remove the caption.
+                </p>
               </div>
             </>
           )}

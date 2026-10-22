@@ -154,7 +154,7 @@ export function QRFramePreview({
               style={{ backgroundColor: frameColor }}
             >
               <span
-                className="text-xs font-bold tracking-wider uppercase"
+                className="text-xs font-bold tracking-wider"
                 style={{ color: frameTextColor }}
               >
                 {frameText}
@@ -175,7 +175,7 @@ export function QRFramePreview({
               style={{ backgroundColor: frameColor }}
             >
               <span
-                className="text-xs font-bold tracking-wider uppercase"
+                className="text-xs font-bold tracking-wider"
                 style={{ color: frameTextColor }}
               >
                 {frameText}
@@ -195,7 +195,7 @@ export function QRFramePreview({
               style={{ backgroundColor: frameColor }}
             >
               <span
-                className="text-xs font-bold tracking-wider uppercase"
+                className="text-xs font-bold tracking-wider"
                 style={{ color: frameTextColor }}
               >
                 {frameText}
@@ -217,7 +217,7 @@ export function QRFramePreview({
               style={{ backgroundColor: frameColor }}
             >
               <span
-                className="text-xs font-bold tracking-wider uppercase"
+                className="text-xs font-bold tracking-wider"
                 style={{ color: frameTextColor }}
               >
                 {frameText}
@@ -241,7 +241,7 @@ export function QRFramePreview({
               style={{ backgroundColor: frameColor }}
             >
               <span
-                className="text-sm font-bold tracking-wider uppercase"
+                className="text-sm font-bold tracking-wider"
                 style={{ color: frameTextColor }}
               >
                 {frameText}
@@ -273,7 +273,7 @@ export function QRFramePreview({
               style={{ backgroundColor: frameColor }}
             >
               <span
-                className="text-sm font-bold tracking-widest uppercase"
+                className="text-sm font-bold tracking-widest"
                 style={{ color: frameTextColor }}
               >
                 {frameText}
