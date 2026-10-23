@@ -103,6 +103,8 @@ const App = () => (
               <Route path="/faq" element={<PublicSeoPage />} />
               <Route path="/popia-compliance" element={<PublicSeoPage />} />
               <Route path="/admin" element={<AdminIndex />} />
+              <Route path="/guymhan" element={<AdminIndex />} />
+              <Route path="/guymhan/login" element={<CentralAuthRedirect mode="admin" />} />
               <Route path="/admin/login" element={<CentralAuthRedirect mode="admin" />} />
               <Route path="/admin/dashboard" element={<AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>} />
               <Route path="/admin/emails" element={<AdminProtectedRoute><AdminEmails /></AdminProtectedRoute>} />

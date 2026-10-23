@@ -40,12 +40,15 @@ final class IeosuiaAuthController
         $pdo = Database::getInstance();
         $email = strtolower((string) $profile['email']);
         if ($type === 'admin') {
-            $stmt = $pdo->prepare('SELECT * FROM admin_users WHERE identity_uuid = ? AND LOWER(email) = ? AND is_active = 1 LIMIT 1');
-            $stmt->execute([(string) $profile['sub'], $email]);
-            $admin = $stmt->fetch();
-            if (!$admin) self::fail('local_access_missing');
+            require_once __DIR__.'/../Services/CentralAdminAccess.php';
+            try {
+                $config=AdminAuthController::centralAdminConfig();
+                \CentralAdminAccess::profile($profile,'qr',['admin'],$config);
+                \CentralAdminAccess::verify((string)$profile['sub'],(int)($profile['token_version']??0),'admin',\CentralAdminAccess::managed($profile),'qr',$config);
+                $admin=\CentralAdminAccess::synchronizePdo($pdo,$profile,'qr',$config);
+            } catch (\RuntimeException) { self::fail('local_access_missing'); }
             $pdo->prepare('UPDATE admin_users SET last_login_at = NOW(), failed_attempts = 0, locked_until = NULL WHERE id = ?')->execute([$admin['id']]);
-            $token = AdminAuthController::generateAdminToken((int) $admin['id']);
+            $token = AdminAuthController::generateAdminToken((int) $admin['id'],(int)($profile['token_version']??0),\CentralAdminAccess::managed($profile));
             header('Location: '.self::frontendUrl().'/admin/auth/callback#ieosuia_admin_token='.rawurlencode($token), true, 302);
             exit;
         }

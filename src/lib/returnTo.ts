@@ -1,4 +1,4 @@
-const FORBIDDEN = /^\/(?:login|signup|auth\/callback|admin\/auth\/callback)(?:[/?#]|$)/;
+const FORBIDDEN = /^\/(?:login|signup|auth\/callback|admin\/auth\/callback|admin\/login|guymhan)(?:[/?#]|$)/;
 
 export function sanitizeReturnTo(value: unknown, admin = false): string | null {
   if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) return null;

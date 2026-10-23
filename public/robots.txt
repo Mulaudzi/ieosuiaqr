@@ -3,6 +3,7 @@ Allow: /
 Disallow: /api/
 Disallow: /auth/
 Disallow: /admin/
+Disallow: /guymhan
 Disallow: /dashboard/
 Disallow: /scan/
 Disallow: /go/

@@ -11,6 +11,8 @@ RewriteRule ^login/?$ /api/auth/ieosuia/start [R=302,L,NE]
 RewriteRule ^signup/?$ /api/auth/ieosuia/start?screen_hint=signup [R=302,L,NE]
 RewriteRule ^register/?$ /api/auth/ieosuia/start?screen_hint=signup [R=302,L,NE]
 RewriteRule ^admin/login/?$ /api/auth/ieosuia/start?account_type=admin [R=302,L,NE]
+# Guymhan uses the React admin handshake below so explicit-logout markers and
+# the protected return target are handled before starting Central Auth.
 
 # Keep the conventional favicon URL branded while allowing cache-busting.
 RewriteRule ^favicon\.ico$ /ieosuia-qr-favicon-v2.png [R=302,L,NE]
@@ -37,6 +39,10 @@ RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.html [L]
 
 <IfModule mod_headers.c>
+    # Both administrator entry names are private, including the retained legacy routes.
+    SetEnvIf Request_URI "^/(admin|guymhan)(/|$)" QR_ADMIN_ROUTE=1
+    Header always set X-Robots-Tag "noindex, nofollow" env=QR_ADMIN_ROUTE
+    Header always set X-Robots-Tag "noindex, nofollow" env=REDIRECT_QR_ADMIN_ROUTE
     # Always revalidate the application shell so it references the current
     # content-hashed JavaScript and CSS files after a deployment.
     <FilesMatch "^(?:index|solutions(?:-[a-z0-9-]+)?|features|dynamic-qr-codes|qr-code-generator-south-africa|branded-qr-codes|qr-analytics|inventory-qr-codes|use-cases|pricing|faq|popia-compliance|docs|privacy|terms|cookies|support|contact|careers)\.html$">

@@ -16,7 +16,7 @@ export default function AdminIndex() {
 
       if (!token) {
         // No token, redirect to admin login
-        navigate("/admin/login", { replace: true });
+        navigate("/guymhan/login", { replace: true });
         return;
       }
 
@@ -27,7 +27,7 @@ export default function AdminIndex() {
           // Session expired, clear and redirect to login
           localStorage.removeItem(ADMIN_TOKEN_KEY);
           localStorage.removeItem(ADMIN_LAST_ACTIVITY_KEY);
-          navigate("/admin/login", { replace: true });
+          navigate("/guymhan/login", { replace: true });
           return;
         }
       }

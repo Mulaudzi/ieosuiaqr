@@ -13,4 +13,8 @@ describe("sanitizeReturnTo", () => {
     expect(sanitizeReturnTo("/admin/users", true)).toBe("/admin/users");
     expect(sanitizeReturnTo("/dashboard", true)).toBeNull();
   });
+  it.each(['/guymhan', '/guymhan/login', '/guymhan?return_to=/admin/users', '/admin/login', '/admin/auth/callback'])("does not loop back into an admin sign-in entry: %s", value => {
+    expect(sanitizeReturnTo(value)).toBeNull();
+    expect(sanitizeReturnTo(value, true)).toBeNull();
+  });
 });

@@ -30,7 +30,7 @@ export function AdminProtectedRoute({ children }: { children: ReactNode }) {
 
   if (!token || authorized === false) {
     const returnTo = `${location.pathname}${location.search}${location.hash}`;
-    return <Navigate to={`/admin/login?return_to=${encodeURIComponent(returnTo)}`} replace />;
+    return <Navigate to={`/guymhan/login?return_to=${encodeURIComponent(returnTo)}`} replace />;
   }
 
   if (authorized !== true) {

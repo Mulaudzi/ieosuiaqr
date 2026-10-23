@@ -725,6 +725,10 @@ class AdminAuthController
             Response::error('Admin account not found or deactivated', 401);
         }
 
+        require_once __DIR__.'/../Services/CentralAdminAccess.php';
+        try { \CentralAdminAccess::verify((string)($admin['identity_uuid']??''),(int)($tokenData['central_admin_version']??0),'admin',($tokenData['central_admin_managed']??false)===true,'qr',self::centralAdminConfig()); }
+        catch (\RuntimeException $e) { Response::error('Administrator access could not be verified. Sign in again.',$e->getCode()===503?503:401); }
+
         return $admin;
     }
 
@@ -792,12 +796,17 @@ class AdminAuthController
         return $data;
     }
 
-    public static function generateAdminToken(int $adminId): string
+    public static function centralAdminConfig(): array {
+        return ['enabled'=>$_ENV['AUTH_CENTRAL_ADMIN_ENABLED']??false,'issuer'=>$_ENV['AUTH_ISSUER']??'https://auth.ieosuia.com','client_id'=>$_ENV['AUTH_ADMIN_CLIENT_ID']??'','client_secret'=>$_ENV['AUTH_ADMIN_CLIENT_SECRET']??''];
+    }
+    public static function generateAdminToken(int $adminId,int $centralVersion=0,bool $managed=false): string
     {
         $secret = self::jwtSecret();
         $payload = [
             'admin_id' => $adminId,
             'type' => 'admin_session',
+            'central_admin_version'=>$centralVersion,
+            'central_admin_managed'=>$managed,
             'exp' => time() + 1800, // 30 minutes
             'iat' => time()
         ];
