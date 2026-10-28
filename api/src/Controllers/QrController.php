@@ -275,7 +275,7 @@ class QrController
                         $rowData['name'] ?? null,
                         $content,
                         json_encode([]),
-                        bin2hex(random_bytes(8))
+                        bin2hex(random_bytes(16))
                     ]);
                     $created++;
                       $createdIds[] = (int)$pdo->lastInsertId();

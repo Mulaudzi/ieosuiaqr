@@ -55,6 +55,13 @@ function loadEnv($path) {
 
 loadEnv(__DIR__ . '/.env');
 
+$suppliedCorrelationId = trim((string)($_SERVER['HTTP_X_CORRELATION_ID'] ?? ''));
+$correlationId = preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{7,63}$/', $suppliedCorrelationId)
+    ? $suppliedCorrelationId
+    : bin2hex(random_bytes(16));
+$_SERVER['IEOSUIA_CORRELATION_ID'] = $correlationId;
+header('X-Correlation-ID: ' . $correlationId);
+
 // Use classes
 use App\Middleware\Cors;
 use App\Helpers\Response;
@@ -415,6 +422,6 @@ try {
     }
 
 } catch (\Throwable $e) {
-    error_log("API Error: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+    error_log('correlation_id=' . $correlationId . ' unhandled_exception=' . get_class($e) . ' at ' . basename($e->getFile()) . ':' . $e->getLine());
     Response::error('Internal server error', 500);
 }

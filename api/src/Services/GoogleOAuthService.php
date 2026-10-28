@@ -88,7 +88,7 @@ class GoogleOAuthService
         curl_close($ch);
 
         if ($httpCode !== 200) {
-            error_log("Google token exchange failed: " . $response);
+            error_log('Google token exchange failed with HTTP status ' . $httpCode);
             throw new \Exception('Failed to exchange authorization code');
         }
 
@@ -111,7 +111,7 @@ class GoogleOAuthService
         curl_close($ch);
 
         if ($httpCode !== 200) {
-            error_log("Google user info request failed: " . $response);
+            error_log('Google user info request failed with HTTP status ' . $httpCode);
             throw new \Exception('Failed to get user info from Google');
         }
 

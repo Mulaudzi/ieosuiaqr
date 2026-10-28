@@ -180,7 +180,7 @@ class AdminAuthController
         $pdo = Database::getInstance();
         \App\Middleware\Auth::ensureRevocationTable();
         $revoked = $pdo->prepare('SELECT 1 FROM revoked_auth_tokens WHERE token_hash = ? AND expires_at >= NOW() LIMIT 1');
-        $revoked->execute([hash('sha256', $token)]);
+        $revoked->execute([hash('sha256', (string)$data['step_token'])]);
         if ($revoked->fetchColumn()) {
             Response::error('Admin session has been invalidated', 401);
         }
@@ -737,8 +737,10 @@ class AdminAuthController
     private static function jwtSecret(): string
     {
         $secret = $_ENV['JWT_SECRET'] ?? '';
-        if (strlen($secret) < 32) {
-            throw new \RuntimeException('JWT_SECRET must contain at least 32 characters');
+        if (strlen($secret) < 32
+            || preg_match('/change[-_ ]?me|replace|example|secret-key-for|your[-_ ]/i', $secret) === 1
+            || count(array_unique(str_split($secret))) < 10) {
+            throw new \RuntimeException('JWT_SECRET must be a strong non-placeholder secret');
         }
         return $secret;
     }
@@ -750,7 +752,59 @@ class AdminAuthController
 
     private static function base64UrlDecode(string $value): string|false
     {
-        return base64_decode(strtr($value, '-_', '+/'), true);
+        if ($value === '' || preg_match('/[^A-Za-z0-9_-]/', $value)) {
+            return false;
+        }
+        $padding = (4 - strlen($value) % 4) % 4;
+        return base64_decode(strtr($value, '-_', '+/') . str_repeat('=', $padding), true);
+    }
+
+    private static function tokenIssuer(): string
+    {
+        $issuer = trim((string)($_ENV['ADMIN_JWT_ISSUER'] ?? ''));
+        if ($issuer === '') throw new \RuntimeException('ADMIN_JWT_ISSUER is required');
+        return $issuer;
+    }
+
+    private static function tokenAudience(): string
+    {
+        $audience = trim((string)($_ENV['ADMIN_JWT_AUDIENCE'] ?? ''));
+        if ($audience === '') throw new \RuntimeException('ADMIN_JWT_AUDIENCE is required');
+        return $audience;
+    }
+
+    private static function decodeAndVerifyToken(string $token, string $expectedType): ?array
+    {
+        $parts = explode('.', $token);
+        if (count($parts) !== 3) return null;
+        [$encodedHeader, $encodedPayload, $signature] = $parts;
+        if (!preg_match('/^[a-f0-9]{64}$/', $signature)) return null;
+
+        $decodedHeader = self::base64UrlDecode($encodedHeader);
+        $decodedPayload = self::base64UrlDecode($encodedPayload);
+        if ($decodedHeader === false || $decodedPayload === false) return null;
+        $header = json_decode($decodedHeader, true);
+        $payload = json_decode($decodedPayload, true);
+        if (!is_array($header) || !is_array($payload)) return null;
+        if (($header['typ'] ?? null) !== 'JWT' || ($header['alg'] ?? null) !== 'HS256') return null;
+
+        $expectedSignature = hash_hmac('sha256', "$encodedHeader.$encodedPayload", self::jwtSecret());
+        if (!hash_equals($expectedSignature, $signature)) return null;
+
+        $now = time();
+        if (($payload['type'] ?? null) !== $expectedType
+            || ($payload['iss'] ?? null) !== self::tokenIssuer()
+            || ($payload['aud'] ?? null) !== self::tokenAudience()
+            || !isset($payload['sub'], $payload['admin_id'], $payload['iat'], $payload['exp'], $payload['jti'])
+            || !is_int($payload['admin_id'])
+            || (string)$payload['sub'] !== (string)$payload['admin_id']
+            || !is_int($payload['iat']) || !is_int($payload['exp'])
+            || $payload['iat'] > $now + 60 || $payload['exp'] <= $now
+            || $payload['exp'] - $payload['iat'] > 1800
+            || !is_string($payload['jti']) || !preg_match('/^[a-f0-9]{32}$/', $payload['jti'])) {
+            return null;
+        }
+        return $payload;
     }
 
     private static function generateStepToken(int $adminId, int $step): string
@@ -758,7 +812,12 @@ class AdminAuthController
         $secret = self::jwtSecret();
         $payload = [
             'admin_id' => $adminId,
+            'sub' => (string)$adminId,
             'step' => $step,
+            'type' => 'admin_step',
+            'iss' => self::tokenIssuer(),
+            'aud' => self::tokenAudience(),
+            'jti' => bin2hex(random_bytes(16)),
             'exp' => time() + 300, // 5 minutes
             'iat' => time()
         ];
@@ -772,24 +831,8 @@ class AdminAuthController
 
     private static function validateStepToken(string $token, int $expectedStep): ?array
     {
-        $secret = self::jwtSecret();
-        $parts = explode('.', $token);
-        
-        if (count($parts) !== 3) {
-            return null;
-        }
-
-        [$header, $payload, $signature] = $parts;
-        
-        $expectedSignature = hash_hmac('sha256', "$header.$payload", $secret);
-        if (!hash_equals($expectedSignature, $signature)) {
-            return null;
-        }
-
-        $decodedPayload = self::base64UrlDecode($payload);
-        $data = $decodedPayload === false ? null : json_decode($decodedPayload, true);
-        
-        if (!$data || $data['exp'] < time() || $data['step'] !== $expectedStep) {
+        $data = self::decodeAndVerifyToken($token, 'admin_step');
+        if (!$data || ($data['step'] ?? null) !== $expectedStep || $data['exp'] - $data['iat'] > 300) {
             return null;
         }
 
@@ -804,7 +847,11 @@ class AdminAuthController
         $secret = self::jwtSecret();
         $payload = [
             'admin_id' => $adminId,
+            'sub' => (string)$adminId,
             'type' => 'admin_session',
+            'iss' => self::tokenIssuer(),
+            'aud' => self::tokenAudience(),
+            'jti' => bin2hex(random_bytes(16)),
             'central_admin_version'=>$centralVersion,
             'central_admin_managed'=>$managed,
             'exp' => time() + 1800, // 30 minutes
@@ -820,28 +867,7 @@ class AdminAuthController
 
     private static function decodeAdminToken(string $token): ?array
     {
-        $secret = self::jwtSecret();
-        $parts = explode('.', $token);
-        
-        if (count($parts) === 3) {
-            [$header, $payload, $signature] = $parts;
-        } else {
-            return null;
-        }
-
-        $expectedSignature = hash_hmac('sha256', "$header.$payload", $secret);
-        if (!hash_equals($expectedSignature, $signature)) {
-            return null;
-        }
-
-        $decodedPayload = self::base64UrlDecode($payload);
-        $data = $decodedPayload === false ? null : json_decode($decodedPayload, true);
-        
-        if (!$data || ($data['type'] ?? '') !== 'admin_session') {
-            return null;
-        }
-
-        return $data;
+        return self::decodeAndVerifyToken($token, 'admin_session');
     }
 
     private static function incrementFailedAttempts(int $adminId): void

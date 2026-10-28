@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Config\Database;
 use App\Helpers\Response;
 use App\Middleware\Auth;
+use App\Middleware\RateLimit;
 use GeoIp2\Database\Reader;
 use donatj\UserAgent\UserAgentParser;
 
@@ -12,8 +13,10 @@ class ScanController
 {
     public static function log(): void
     {
+        RateLimit::check('public_scan',120,1);
         $qrId = $_GET['id'] ?? null;
         $dynamicId = $_GET['dynamic'] ?? null;
+        $opaqueLookup=is_string($dynamicId)&&preg_match('/^[a-f0-9]{16,64}$/',$dynamicId)===1;
 
         $pdo = Database::getInstance();
 
@@ -50,7 +53,9 @@ class ScanController
 
         // Get client info
         $ip = self::getClientIp();
-        $ipHash = md5($ip . ($_ENV['JWT_SECRET'] ?? 'salt')); // Anonymize IP
+        $hashKey=(string)($_ENV['SCAN_HASH_KEY']??'');
+        if(strlen($hashKey)<32||preg_match('/change[-_ ]?me|replace|example|your[-_ ]/i',$hashKey)===1||count(array_unique(str_split($hashKey)))<10){error_log('Scan logging key is not configured');Response::error('Scan service is temporarily unavailable',503);}
+        $ipHash = hash_hmac('sha256',$ip,$hashKey);
         $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
         $referer = $_SERVER['HTTP_REFERER'] ?? null;
 
@@ -163,7 +168,7 @@ class ScanController
                 'logged' => true,
                 'redirect_url' => $redirectUrl,
                 'type' => (string)($qr['type'] ?? ''),
-                'content' => self::decodeContent($qr['content']),
+                'content' => $opaqueLookup ? self::decodeContent($qr['content']) : null,
             ]);
         }
 
@@ -464,16 +469,17 @@ class ScanController
 
     private static function getClientIp(): string
     {
-        $headers = ['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'REMOTE_ADDR'];
-        
-        foreach ($headers as $header) {
-            if (!empty($_SERVER[$header])) {
-                $ips = explode(',', $_SERVER[$header]);
-                return trim($ips[0]);
+        $remote=(string)($_SERVER['REMOTE_ADDR']??'');
+        if(filter_var($remote,FILTER_VALIDATE_IP)===false)return '127.0.0.1';
+        $trusted=array_values(array_filter(array_map('trim',explode(',',(string)($_ENV['TRUSTED_PROXY_IPS']??'')))));
+        if(in_array($remote,$trusted,true)){
+            foreach(['HTTP_CF_CONNECTING_IP','HTTP_X_FORWARDED_FOR','HTTP_X_REAL_IP'] as $header){
+                if(empty($_SERVER[$header]))continue;
+                $candidate=trim(explode(',',(string)$_SERVER[$header])[0]);
+                if(filter_var($candidate,FILTER_VALIDATE_IP)!==false)return $candidate;
             }
         }
-        
-        return '127.0.0.1';
+        return $remote;
     }
 
     private static function isMobile(string $userAgent): bool

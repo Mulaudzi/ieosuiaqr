@@ -53,7 +53,7 @@ const apiToStored = (qr: QRCode & { total_scans?: number; custom_options?: Recor
     name: qr.name,
     type: qr.type,
     content: contentStr,
-    scanUrl: publicScanUrl(qr.id),
+    scanUrl: publicScanUrl(qr.dynamic_id || qr.id),
     contentData: content as unknown as Record<string, string>,
     fgColor: designOptions.fgColor || qr.customization?.foreground_color || "#000000",
     bgColor: designOptions.bgColor || qr.customization?.background_color || "#FFFFFF",
@@ -125,8 +125,8 @@ export function useQRStorage() {
         const response = await qrCodeApi.list({ page: 1, per_page: 100 });
         const apiCodes = response.data.map(apiToStored);
         setQRCodes(apiCodes);
-        // Also sync to localStorage as backup
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(apiCodes));
+        // Authenticated QR payloads can contain Wi-Fi credentials or contact
+        // details. Keep them in memory and reload from the authorized API.
       } else {
         // Fallback to localStorage for non-authenticated users
         const stored = localStorage.getItem(STORAGE_KEY);
@@ -135,17 +135,17 @@ export function useQRStorage() {
         }
       }
     } catch (err) {
-      console.warn("API fetch failed, falling back to localStorage:", err);
-      // Fallback to localStorage
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        try {
-          setQRCodes(JSON.parse(stored));
-        } catch {
-          setQRCodes([]);
+      console.warn("API fetch failed:", err);
+      if (!isAuthenticated()) {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          try { setQRCodes(JSON.parse(stored)); } catch { setQRCodes([]); }
         }
+        setError("Failed to load QR codes from server. Showing locally saved drafts.");
+      } else {
+        setQRCodes([]);
+        setError("Failed to load QR codes from server. Sign in again or retry; private QR content was not read from browser storage.");
       }
-      setError("Failed to load QR codes from server. Showing cached data.");
     } finally {
       setIsLoading(false);
     }
@@ -165,7 +165,6 @@ export function useQRStorage() {
         const newQR = apiToStored(response.data);
         const updated = [...qrCodes, newQR];
         setQRCodes(updated);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
         return newQR;
       } else {
         // Save to localStorage only
@@ -193,7 +192,11 @@ export function useQRStorage() {
         });
       }
 
-      // Fallback to localStorage
+      if (isAuthenticated()) {
+        setError(`Server save failed: ${parsed.message}`);
+        throw err;
+      }
+      // Anonymous drafts may be stored locally; authenticated payloads never are.
       const newQR: StoredQRCode = {
         ...qr,
         id: crypto.randomUUID(),
@@ -215,7 +218,7 @@ export function useQRStorage() {
     // Optimistic update
     const updated = qrCodes.filter((qr) => qr.id !== id);
     setQRCodes(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    if (!isAuthenticated()) localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 
     try {
       if (isAuthenticated()) {
@@ -236,7 +239,7 @@ export function useQRStorage() {
       qr.id === id ? { ...qr, ...updates } : qr
     );
     setQRCodes(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    if (!isAuthenticated()) localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 
     try {
       if (isAuthenticated()) {

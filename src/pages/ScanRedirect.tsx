@@ -64,7 +64,8 @@ export default function ScanRedirect() {
     started.current = true;
     const controller = new AbortController();
 
-    fetch(`${API_URL}/scan/log?id=${encodeURIComponent(id)}&response=json`, {
+    const lookup = /^[a-f0-9]{16,64}$/i.test(id) ? `dynamic=${encodeURIComponent(id)}` : `id=${encodeURIComponent(id)}`;
+    fetch(`${API_URL}/scan/log?${lookup}&response=json`, {
       method: "GET",
       headers: { Accept: "application/json" },
       cache: "no-store",

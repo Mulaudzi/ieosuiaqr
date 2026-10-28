@@ -13,8 +13,10 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 // Load test environment variables
 $_ENV['APP_ENV'] = 'testing';
-$_ENV['JWT_SECRET'] = 'test-secret-key-for-jwt-testing-only';
+$_ENV['JWT_SECRET'] = hash('sha256', 'ieosuia-qr-phase1-test-fixture');
 $_ENV['JWT_EXPIRY'] = '3600';
+$_ENV['JWT_ISSUER'] = 'qr.ieosuia.test';
+$_ENV['JWT_AUDIENCE'] = 'qr-test';
 $_ENV['APP_URL'] = 'http://localhost:8000';
 
 // Manual class loading for custom App classes

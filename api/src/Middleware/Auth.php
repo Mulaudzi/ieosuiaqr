@@ -9,6 +9,13 @@ class Auth
 {
     private static ?array $user = null;
 
+    private static function validSigningSecret(string $secret): bool
+    {
+        return strlen($secret) >= 32
+            && preg_match('/change[-_ ]?me|replace|example|secret-key-for|your[-_ ]/i', $secret) !== 1
+            && count(array_unique(str_split($secret))) >= 10;
+    }
+
     public static function ensureRevocationTable(): void
     {
         Database::getInstance()->exec("CREATE TABLE IF NOT EXISTS revoked_auth_tokens (token_hash CHAR(64) PRIMARY KEY, user_id BIGINT UNSIGNED NOT NULL, token_type ENUM('customer','admin') NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX revoked_auth_expiry_idx (expires_at), INDEX revoked_auth_user_idx (user_id, token_type)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
@@ -25,9 +32,12 @@ class Auth
     /**
      * Base64 URL decode
      */
-    private static function base64UrlDecode(string $data): string
+    private static function base64UrlDecode(string $data): string|false
     {
-        return base64_decode(strtr($data, '-_', '+/'));
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $data)) return false;
+        $padded = strtr($data, '-_', '+/');
+        $padded .= str_repeat('=', (4 - strlen($padded) % 4) % 4);
+        return base64_decode($padded, true);
     }
 
     /**
@@ -41,8 +51,16 @@ class Auth
         }
 
         [$header, $payload, $signature] = $parts;
-        
-        $secret = $_ENV['JWT_SECRET'] ?? '';
+        $decodedHeaderRaw=self::base64UrlDecode($header);
+        $decodedPayloadRaw=self::base64UrlDecode($payload);
+        $decodedHeader=$decodedHeaderRaw===false?null:json_decode($decodedHeaderRaw,true);
+        $decodedPayload=$decodedPayloadRaw===false?null:json_decode($decodedPayloadRaw,true);
+        if(!is_array($decodedHeader)||!is_array($decodedPayload)||($decodedHeader['alg']??null)!=='HS256'||($decodedHeader['typ']??null)!=='JWT')return null;
+
+        $secret = (string)($_ENV['JWT_SECRET'] ?? '');
+        $issuer = trim((string)($_ENV['JWT_ISSUER'] ?? ''));
+        $audience = trim((string)($_ENV['JWT_AUDIENCE'] ?? ''));
+        if(!self::validSigningSecret($secret)||$issuer===''||$audience==='')return null;
         $expectedSignature = self::base64UrlEncode(
             hash_hmac('sha256', "$header.$payload", $secret, true)
         );
@@ -51,12 +69,14 @@ class Auth
             return null;
         }
 
-        $decodedPayload = json_decode(self::base64UrlDecode($payload));
-        if (!$decodedPayload) {
-            return null;
-        }
-
-        return $decodedPayload;
+        foreach(['iss','aud','sub','user_id','iat','exp','jti'] as $claim)if(!array_key_exists($claim,$decodedPayload))return null;
+        $now=time();$skew=30;
+        if(!is_string($decodedPayload['iss'])||!hash_equals($issuer,$decodedPayload['iss']))return null;
+        if(!is_string($decodedPayload['aud'])||!hash_equals($audience,$decodedPayload['aud']))return null;
+        if(!is_numeric($decodedPayload['user_id'])||(int)$decodedPayload['user_id']<1||(string)$decodedPayload['sub']!==(string)(int)$decodedPayload['user_id'])return null;
+        if(!is_numeric($decodedPayload['iat'])||!is_numeric($decodedPayload['exp'])||(int)$decodedPayload['iat']>$now+$skew||(int)$decodedPayload['exp']<=$now-$skew||(int)$decodedPayload['exp']<=(int)$decodedPayload['iat'])return null;
+        if(!is_string($decodedPayload['jti'])||preg_match('/^[a-f0-9]{32,128}$/',$decodedPayload['jti'])!==1)return null;
+        return (object)$decodedPayload;
     }
 
     public static function check(): array
@@ -75,11 +95,6 @@ class Auth
             
             if (!$decoded) {
                 Response::error('Invalid token', 401);
-            }
-
-            // Verify token hasn't expired
-            if (isset($decoded->exp) && $decoded->exp < time()) {
-                Response::error('Token has expired', 401);
             }
 
             $pdo = Database::getInstance();
@@ -158,12 +173,16 @@ class Auth
     public static function generateToken(int $userId, string $plan): string
     {
         $secret = $_ENV['JWT_SECRET'] ?? '';
-        $issuer = $_ENV['JWT_ISSUER'] ?? 'qr.ieosuia.com';
+        $issuer = trim((string)($_ENV['JWT_ISSUER'] ?? ''));
+        $audience = trim((string)($_ENV['JWT_AUDIENCE'] ?? ''));
         $expiry = (int)($_ENV['JWT_EXPIRY'] ?? 3600);
+        if(!self::validSigningSecret($secret)||$issuer===''||$audience===''||$expiry<60||$expiry>86400)throw new \RuntimeException('JWT signing configuration is invalid');
 
         $header = json_encode(['typ' => 'JWT', 'alg' => 'HS256']);
         $payload = json_encode([
             'iss' => $issuer,
+            'aud' => $audience,
+            'sub' => (string)$userId,
             'user_id' => $userId,
             'plan' => $plan,
             'jti' => bin2hex(random_bytes(16)),
